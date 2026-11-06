@@ -49,7 +49,8 @@ export function createApp({ paywall, deps = {}, log = (l) => console.log(l), sou
 				network: 'mainnet | testnet (where the payments were made)',
 				addresses: ['own-account.near'],
 				period: { month: 'YYYY-MM' },
-				format: 'pdf | csv | json (both, base64 PDF)',
+				format: 'pdf | csv | json (all files, PDFs base64)',
+				document: 'eigenbelege (one per transaction) | kontoauszug (one account) – for format pdf',
 				payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' },
 				number: 'EB-2026-001 (optional, from your own range)',
 				includeKinds: ['fee', 'storage']
@@ -116,15 +117,24 @@ export function createApp({ paywall, deps = {}, log = (l) => console.log(l), sou
 		if (paywall.info.mode === 'none') res.setHeader('X-Eigenbeleg-Paywall', 'none (development)');
 		// No summary in a header: headers set here would stay on the 402 that a
 		// failed settlement sends. The JSON format carries the summary.
-		const file = out.summary.number.replace(/[^A-Za-z0-9._-]/g, '_');
-		if (job.format === 'pdf') {
-			res.setHeader('Content-Disposition', `attachment; filename="${file}.pdf"`);
+		const name = (/** @type {string} */ n) => n.replace(/[^A-Za-z0-9._-]/g, '_');
+		if (job.format === 'pdf' && job.document === 'eigenbelege') {
+			res.setHeader('Content-Disposition', `attachment; filename="${name(out.summary.eigenbelege[0] ?? out.summary.number)}.pdf"`);
 			res.type('application/pdf').send(Buffer.from(/** @type {Uint8Array} */ (out.pdf)));
+		} else if (job.format === 'pdf') {
+			const [st] = out.statements;
+			res.setHeader('Content-Disposition', `attachment; filename="${name(st.number)}.pdf"`);
+			res.type('application/pdf').send(Buffer.from(st.pdf));
 		} else if (job.format === 'csv') {
-			res.setHeader('Content-Disposition', `attachment; filename="${file}.csv"`);
+			res.setHeader('Content-Disposition', `attachment; filename="${name(out.summary.number)}.csv"`);
 			res.type('text/csv; charset=utf-8').send(out.csv);
 		} else {
-			res.json({ ...out.summary, pdf: Buffer.from(/** @type {Uint8Array} */ (out.pdf)).toString('base64'), csv: out.csv });
+			res.json({
+				...out.summary,
+				pdf: Buffer.from(/** @type {Uint8Array} */ (out.pdf)).toString('base64'),
+				kontoauszuegePdf: out.statements.map((s) => ({ account: s.account, number: s.number, pdf: Buffer.from(s.pdf).toString('base64') })),
+				csv: out.csv
+			});
 		}
 	});
 

@@ -10,6 +10,7 @@ import { BLOCKS } from './blocks.js';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const NUMBER = /^[A-Za-z0-9][A-Za-z0-9._\/-]{0,39}$/;
 const FORMATS = new Set(['pdf', 'csv', 'json']);
+const DOCUMENTS = new Set(['eigenbelege', 'kontoauszug']);
 const KINDS = new Set(['fee', 'storage', 'transfer', 'call']);
 const MAX_DAYS = 92;
 
@@ -24,7 +25,7 @@ function isDate(d) {
 
 /**
  * @param {any} body
- * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[] }}
+ * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[] }}
  */
 export function parseRequest(body) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
@@ -58,7 +59,13 @@ export function parseRequest(body) {
 	if (period.to > yesterday) period = { from: period.from, to: yesterday };
 
 	const format = body.format ?? 'pdf';
-	if (!FORMATS.has(format)) throw new RequestError('format: pdf, csv or json (both files)');
+	if (!FORMATS.has(format)) throw new RequestError('format: pdf, csv or json (every file)');
+	// pdf: one document – the Eigenbelege (one per transaction) or the Kontoauszug of one account
+	const document = body.document ?? 'eigenbelege';
+	if (!DOCUMENTS.has(document)) throw new RequestError('document: eigenbelege or kontoauszug');
+	if (format === 'pdf' && document === 'kontoauszug' && body.addresses.length > 1) throw new RequestError('a Kontoauszug as PDF is for one address; ask for format json to get one per address');
+	const statementNumber = body.statementNumber ?? `KA-${period.from}`;
+	if (!NUMBER.test(String(statementNumber))) throw new RequestError('statementNumber: up to 40 letters, digits and . _ / -');
 
 	const payer = body.payer ?? {};
 	if (typeof payer.name !== 'string' || payer.name.trim().length < 2 || payer.name.length > 200) throw new RequestError('payer.name: 2 to 200 characters');
@@ -76,6 +83,8 @@ export function parseRequest(body) {
 		addresses,
 		period,
 		format,
+		document,
+		statementNumber: String(statementNumber),
 		payer: { name: payer.name, address: payer.address, addresses },
 		number: String(number),
 		includeKinds

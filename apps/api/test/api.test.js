@@ -7,14 +7,11 @@ import { ExactNearScheme } from '@x402/near/exact/server';
 import { fixedRates } from '@eigenbeleg/rates';
 
 import { createApp } from '../src/app.js';
+import { recordedNear } from '../../agent/src/recorded.js';
 
 const raw = JSON.parse(await readFile(new URL('../../../packages/chain-near/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
-/** NearBlocks as the fixture has it. */
-const fetch = async (url) => {
-	const path = new URL(url).pathname;
-	const body = path.endsWith('/ft-txns') ? { data: [], meta: {} } : { data: raw.txns, meta: {} };
-	return new Response(JSON.stringify(body));
-};
+/** NearBlocks and the archival RPC, as the fixture has them. */
+const fetch = recordedNear(raw);
 const deps = { fetch, rates: fixedRates({ NEAR: '2' }), now: () => new Date('2026-11-06T10:00:00Z') };
 const job = {
 	chain: 'near',
@@ -48,7 +45,16 @@ test('without a paywall: PDF, CSV and JSON; bad requests are 400 before anything
 		assert.match(Buffer.from(await csv.arrayBuffer()).toString('utf8'), /^\uFEFFBelegnummer;/);
 
 		const both = await (await post(base, { ...job, format: 'json' })).json();
-		assert.equal(both.number, 'EB-2026-042');
+		assert.equal(both.eigenbelege[0], 'EB-2026-042');
+		assert.equal(both.eigenbelege.length, raw.txns.length);
+		assert.equal(both.kontoauszuegePdf.length, 1);
+		assert.deepEqual(both.kontoauszuege[0].assets.map((a) => [a.asset, a.reconciled]), [['NEAR', true]]);
+
+		const ka = await post(base, { ...job, document: 'kontoauszug' });
+		assert.equal(ka.status, 200);
+		assert.match(ka.headers.get('content-disposition') ?? '', /KA-2026-11-01\.pdf/);
+		assert.equal(Buffer.from(await ka.arrayBuffer()).subarray(0, 8).toString(), '%PDF-1.7');
+		assert.equal((await post(base, { ...job, document: 'kontoauszug', addresses: ['relay.aurora', 'aurora'] })).status, 400);
 		assert.equal(both.positions, raw.txns.length);
 		assert.ok(both.pdf.length > 1000 && both.csv.length > 100);
 

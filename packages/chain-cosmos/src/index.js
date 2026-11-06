@@ -7,7 +7,7 @@
 // what the pruned node has forgotten. This file maps its entries to the
 // neutral format and keeps the period.
 
-import { entry, sortEntries } from '@eigenbeleg/ledger-core';
+import { derivedStatement, entry, sortEntries } from '@eigenbeleg/ledger-core';
 import { CHAINS } from './chains.js';
 import { createCosmosClient } from './vendor/cosmos.js';
 import { createAkashConsoleClient } from './vendor/akash-console.js';
@@ -61,7 +61,7 @@ export function toLedger(e, { chain, account }) {
  * @param {typeof fetch} [p.fetch]
  * @param {string} [p.chainId] default akash
  */
-export async function readCosmos({ account, from, to, fetch = globalThis.fetch, chainId = 'akash' }) {
+async function history({ account, from, fetch = globalThis.fetch, chainId = 'akash' }) {
 	const chain = CHAINS[chainId];
 	if (!chain) throw new Error(`unknown Cosmos chain ${chainId}`);
 	if (!isCosmosAddress(account, chain.bech32Prefix)) throw new Error(`not a valid ${chain.name} address`);
@@ -72,8 +72,38 @@ export async function readCosmos({ account, from, to, fetch = globalThis.fetch, 
 		const older = await createAkashConsoleClient({ fetch }).history({ chain, address: account, indexer: chain.endpoints.indexer, beforeHeight: result.history.earliestHeight });
 		entries = [...older.entries, ...entries];
 	}
-	return sortEntries(entries.filter((e) => e.date >= from && e.date <= to).map((e) => toLedger(e, { chain, account })));
+	return { chain, all: sortEntries(entries.map((e) => toLedger(e, { chain, account }))), balances: result.balances };
 }
+
+/**
+ * @param {object} p
+ * @param {string} p.account bech32 address
+ * @param {string} [p.network] mainnet only
+ * @param {string} p.from YYYY-MM-DD
+ * @param {string} p.to YYYY-MM-DD
+ * @param {typeof fetch} [p.fetch]
+ * @param {string} [p.chainId] default akash
+ */
+export async function readCosmos(p) {
+	const { all } = await history(p);
+	return all.filter((e) => e.date >= p.from && e.date <= p.to);
+}
+
+/**
+ * For a Kontoauszug: the bookings of the period, and the balances before and
+ * after it, derived from today's balance less every movement since. (Pruned
+ * nodes keep no old balances.) What the reader cannot see – tokens coming back
+ * when an unbonding ends, vesting – shifts the derived balances; the
+ * statement says how they were made.
+ *
+ * @param {Parameters<typeof readCosmos>[0]} p
+ */
+export async function statementCosmos(p) {
+	const { all, balances } = await history(p);
+	return derivedStatement(all, balances, p.from, p.to);
+}
+
+
 
 /** Akash's community pool would do; any busy public module account works for the live check. */
 export async function probe({ fetch = globalThis.fetch } = {}) {
@@ -92,6 +122,7 @@ export const block = {
 	source: 'Akash RPC (PublicNode) + Akash Console indexer; reader from Le-Space/belege',
 	version: '0.1.0',
 	read: (/** @type {any} */ p) => readCosmos({ ...p, chainId: 'akash' }),
+	statement: (/** @type {any} */ p) => statementCosmos({ ...p, chainId: 'akash' }),
 	probe,
 	isAddress: (/** @type {string} */ a) => isCosmosAddress(a, 'akash')
 };

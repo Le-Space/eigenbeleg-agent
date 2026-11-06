@@ -6,10 +6,11 @@ import { join } from 'node:path';
 
 import { fixedRates } from '@eigenbeleg/rates';
 import { createApp } from '../../api/src/app.js';
+import { recordedNear } from '../src/recorded.js';
 import { jobFromBrief, marketPass } from '../src/market.js';
 
 const raw = JSON.parse(await readFile(new URL('../../../packages/chain-near/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
-const recorded = async (url) => new Response(JSON.stringify(new URL(url).pathname.endsWith('/ft-txns') ? { data: [], meta: {} } : { data: raw.txns, meta: {} }));
+const recorded = recordedNear(raw);
 
 test('the job is the first JSON block of the brief; anything else is no job', () => {
 	assert.equal(jobFromBrief('Please:\n```json\n{"chain":"near","addresses":["x.near"],"period":{},"payer":{"name":"a","address":"b"}}\n```\nthanks')?.chain, 'near');
@@ -40,7 +41,7 @@ test('a market pass: start, deliver with the CSV, ask back when the brief has no
 		const done = await marketPass({ token: 'aat_test', api, fetch: marketFetch, paidFetch: fetch, outDir: await mkdtemp(join(tmpdir(), 'eb-market-')), market: 'https://market.example', say: () => {} });
 		assert.deepEqual(done, [{ id: 'a1', status: 'delivered' }, { id: 'a2', status: 'asked' }]);
 		const submit = calls.find((c) => c[1] === '/v1/assignments/a1/submit');
-		assert.match(submit?.[2].deliverableMarkdown, /## Eigenbeleg EB-2026-077[\s\S]*```csv\nBelegnummer;/);
+		assert.match(submit?.[2].deliverableMarkdown, /## Eigenbelege EB-2026-077[\s\S]*```csv\nBelegnummer;/);
 		assert.ok(calls.some((c) => c[1] === '/v1/assignments/a2/messages'));
 		assert.ok(calls.every((c) => c[3] === 'Bearer aat_test'));
 	} finally {

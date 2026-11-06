@@ -21,4 +21,4 @@ jobs:
       - run: npm test
       - run: npm run demo
       - name: PDF/A-2b (veraPDF)
-        run: docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --format text /data/EB-2026-001.pdf | tee verapdf.txt && grep -q '^PASS' verapdf.txt
+        run: docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --format text /data/EB-2026-001.pdf /data/KA-2026-11-01.pdf | tee verapdf.txt && test "$(grep -c '^PASS' verapdf.txt)" = 2

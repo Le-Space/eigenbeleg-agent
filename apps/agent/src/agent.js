@@ -77,38 +77,48 @@ export async function runJob({ job, api, fetch, paidFetch, outDir, say = console
 	const paywall = res.headers.get('x-eigenbeleg-paywall');
 
 	// 3. check the work
+	const isPdfA = (/** @type {Buffer} */ b) => b.subarray(0, 8).toString() === '%PDF-1.7' && b.includes('<pdfaid:part>2</pdfaid:part>');
+	const safe = (/** @type {string} */ n) => n.replace(/[^A-Za-z0-9._-]/g, '_');
 	const pdf = Buffer.from(body.pdf, 'base64');
+	const statements = (body.kontoauszuegePdf ?? []).map((/** @type {any} */ s) => ({ ...s, bytes: Buffer.from(s.pdf, 'base64') }));
 	const csvLines = String(body.csv).trim().split('\r\n');
 	const positionLines = csvLines.filter((l) => /^[^;]+;\d+;/.test(l)).length;
 	const checks = {
-		pdfIsPdfA: pdf.subarray(0, 8).toString() === '%PDF-1.7' && pdf.includes('<pdfaid:part>2</pdfaid:part>'),
+		eigenbelegeArePdfA: isPdfA(pdf),
+		kontoauszuegeArePdfA: statements.every((/** @type {any} */ s) => isPdfA(s.bytes)),
 		csvHasEveryPosition: positionLines === body.positions,
-		numberMatches: String(body.csv).includes(body.number)
+		everyEigenbelegInCsv: (body.eigenbelege ?? []).every((/** @type {string} */ n) => String(body.csv).includes(n)),
+		// a balance the chain reports must match opening balance plus bookings
+		kontoauszuegeReconciled: (body.kontoauszuege ?? []).every((/** @type {any} */ k) => k.assets.every((/** @type {any} */ a) => a.reconciled !== false))
 	};
 	const passed = Object.values(checks).every(Boolean);
-	const file = body.number.replace(/[^A-Za-z0-9._-]/g, '_');
-	await writeFile(join(outDir, `${file}.pdf`), pdf);
-	await writeFile(join(outDir, `${file}.csv`), body.csv);
+	const base = safe(body.eigenbelege?.[0] ?? body.number);
+	const files = [`${base}.pdf`, `${base}.csv`, ...statements.map((/** @type {any} */ s) => `${safe(s.number)}.pdf`)];
+	await writeFile(join(outDir, files[0]), pdf);
+	await writeFile(join(outDir, files[1]), body.csv);
+	for (const s of statements) await writeFile(join(outDir, `${safe(s.number)}.pdf`), s.bytes);
 
 	// 4. the receipt
 	const payment = lastPayment().payment;
 	const receipt = {
-		task: `Eigenbeleg ${body.number}`,
+		task: `Eigenbelege ${body.number} and Kontoauszug`,
 		boughtFrom: api,
-		what: 'Eigenbeleg (PDF/A-2b + CSV)',
+		what: 'Eigenbelege (one per transaction), Kontoauszug per account (PDF/A-2b), CSV',
 		price: payment ? { amount: payment.amount, asset: payment.asset, network: payment.network, payTo: payment.payTo } : paywall ? { note: paywall } : null,
 		transaction: settlement?.transaction ?? null,
 		explorer: settlement?.transaction && settlement.network ? explorerUrl(settlement.network, settlement.transaction) : null,
 		checks,
 		passed,
-		files: [`${file}.pdf`, `${file}.csv`],
-		summary: { positions: body.positions, notOnIt: body.notOnIt, totalEur: body.totalEur, quantities: body.quantities },
+		files,
+		summary: { eigenbelege: body.eigenbelege, positions: body.positions, notOnIt: body.notOnIt, totalEur: body.totalEur, quantities: body.quantities, kontoauszuege: body.kontoauszuege },
 		at: new Date().toISOString()
 	};
-	await writeFile(join(outDir, `${file}.receipt.json`), JSON.stringify(receipt, null, 2) + '\n');
-	say(`Got ${body.number}: ${body.positions} positions, ${body.totalEur} EUR; check ${passed ? 'passed' : 'FAILED'}.`);
+	await writeFile(join(outDir, `${base}.receipt.json`), JSON.stringify(receipt, null, 2) + '\n');
+	const ka = (body.kontoauszuege ?? []).map((/** @type {any} */ k) => `${k.number} (${k.assets.map((/** @type {any} */ a) => `${a.asset} ${a.opening} → ${a.closing}${a.reconciled ? ', reconciled' : a.reconciled === false ? ', NOT reconciled' : ''}`).join('; ')})`);
+	say(`Got ${(body.eigenbelege ?? []).length} Eigenbeleg(e) ${body.number}: ${body.positions} payments, ${body.totalEur} EUR; check ${passed ? 'passed' : 'FAILED'}.`);
+	if (ka.length) say(`Kontoauszug: ${ka.join('; ')}`);
 	if (receipt.transaction) say(`Paid: ${receipt.explorer ?? receipt.transaction}`);
-	say(`Files: ${receipt.files.map((f) => join(outDir, f)).join(', ')} (+ receipt)`);
+	say(`Files: ${files.map((f) => join(outDir, f)).join(', ')} (+ receipt)`);
 	return { status: passed ? 'delivered' : 'check-failed', receipt };
 }
 

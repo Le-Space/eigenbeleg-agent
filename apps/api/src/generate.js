@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // One request, start to end: read the chain, value in EUR, build the
-// Eigenbeleg, draw the files. Nothing is kept afterwards.
+// Eigenbelege (one per transaction) and the Kontoauszug per account, draw
+// the files. Nothing is kept afterwards.
 
 import { sortEntries } from '@eigenbeleg/ledger-core';
 import { createRates, valueEntries } from '@eigenbeleg/rates';
-import { buildDocument, eigenbelegCsv, eigenbelegPdf } from '@eigenbeleg/eigenbeleg';
+import { buildDocument, buildStatement, eigenbelegCsv, eigenbelegPdf, statementPdf } from '@eigenbeleg/eigenbeleg';
 import { BLOCKS } from './blocks.js';
 
 /**
@@ -13,32 +14,62 @@ import { BLOCKS } from './blocks.js';
  */
 export async function generate(req, deps = {}) {
 	const block = BLOCKS[req.chain];
+	const wantStatement = req.format === 'json' || (req.format === 'pdf' && req.document === 'kontoauszug');
+	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey };
+	/** @type {import('@eigenbeleg/ledger-core').LedgerEntry[]} */
 	const entries = [];
-	for (const account of req.addresses)
-		entries.push(...(await block.read({ account, network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey })));
+	/** @type {{ account: string, opening: Record<string, string>, closing: Record<string, string>, method: 'archive' | 'derived', at: any }[]} */
+	const balances = [];
+	for (const account of req.addresses) {
+		if (wantStatement && block.statement) {
+			const st = await block.statement({ ...read, account });
+			entries.push(...st.entries);
+			balances.push({ account, opening: st.opening, closing: st.closing, method: st.method, at: st.at });
+		} else entries.push(...(await block.read({ ...read, account })));
+	}
 	const rates = deps.rates ?? createRates({ fetch: deps.fetch });
 	const valued = await valueEntries(sortEntries(entries), /** @type {any} */ (rates));
-	const doc = buildDocument({
-		payer: req.payer,
-		chain: req.chain,
-		network: req.network,
-		period: req.period,
-		entries: valued,
-		number: req.number,
-		includeKinds: req.includeKinds,
-		issuedAt: (deps.now?.() ?? new Date()).toISOString()
-	});
+	const issuedAt = (deps.now?.() ?? new Date()).toISOString();
+	const doc = buildDocument({ payer: req.payer, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single' });
+	const belege = new Map(doc.transactions.map((t) => [t.hash, t.number]));
+	const statements = balances.map((b, i) =>
+		buildStatement({
+			payer: req.payer,
+			account: b.account,
+			chain: req.chain,
+			network: req.network,
+			period: req.period,
+			entries: valued,
+			opening: b.opening,
+			closing: b.closing,
+			method: b.method,
+			at: b.at,
+			belege,
+			number: balances.length > 1 ? `${req.statementNumber}-${i + 1}` : req.statementNumber,
+			issuedAt
+		})
+	);
 	const summary = {
 		number: doc.number,
+		eigenbelege: doc.transactions.map((t) => t.number),
 		chain: doc.chain,
 		network: doc.network,
 		period: doc.period,
 		positions: doc.positions.length,
+		transactions: doc.transactions.length,
 		notOnIt: doc.excluded.length,
 		totalEur: doc.totals.eur,
-		quantities: doc.totals.quantities
+		quantities: doc.totals.quantities,
+		kontoauszuege: statements.map((s) => ({
+			number: s.number,
+			account: s.account,
+			method: s.method,
+			assets: s.sections.map((x) => ({ asset: x.asset, opening: x.opening, closing: x.closing, reconciled: x.difference === null ? null : /^-?0(\.0+)?$/.test(x.difference) }))
+		}))
 	};
-	const pdf = req.format === 'csv' ? null : await eigenbelegPdf(doc);
+	const pdf = req.format === 'json' || (req.format === 'pdf' && req.document === 'eigenbelege') ? await eigenbelegPdf(doc) : null;
+	const statementPdfs = [];
+	for (const s of statements) if (req.format === 'json' || req.document === 'kontoauszug') statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s) });
 	const csv = req.format === 'pdf' ? null : eigenbelegCsv(doc);
-	return { summary, pdf, csv };
+	return { summary, pdf, statements: statementPdfs, csv };
 }

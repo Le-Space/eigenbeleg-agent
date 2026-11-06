@@ -62,3 +62,11 @@ test('a month is its first to its last day', () => {
 	assert.deepEqual(monthPeriod('2028-02'), { from: '2028-02-01', to: '2028-02-29' });
 	assert.throws(() => monthPeriod('2026-13'));
 });
+
+test('balances derived from today less every movement since', async () => {
+	const { derivedStatement } = await import('../src/index.js');
+	const mk = (id, date, amount) => entry({ ...base, id, hash: id, time: `${date}T10:00:00Z`, type: amount.startsWith('-') ? 'sent' : 'received', kind: 'transfer', amount });
+	const all = [mk('a', '2026-09-30', '5'), mk('b', '2026-10-10', '-2'), mk('c', '2026-11-03', '1')];
+	const r = derivedStatement(all, [{ asset: 'NEAR', amount: '7' }], '2026-10-01', '2026-10-31');
+	assert.deepEqual([r.opening.NEAR, r.closing.NEAR, r.entries.map((e) => e.id), r.method], ['8', '6', ['b'], 'derived']);
+});

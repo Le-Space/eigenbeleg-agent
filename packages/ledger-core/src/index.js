@@ -181,3 +181,26 @@ export function multiply(amount, rate, places = 2) {
 export function round(amount, places) {
 	return multiply(amount, '1', places);
 }
+
+// ---- statements ----------------------------------------------------------
+
+/**
+ * Balances before and after a period, derived from today's balances less every
+ * movement since: for chains whose nodes keep no old balances.
+ *
+ * @param {LedgerEntry[]} all every entry up to now
+ * @param {{ asset: string, amount: string }[]} current balances now
+ * @param {string} from @param {string} to
+ */
+export function derivedStatement(all, current, from, to) {
+	/** @type {Record<string, string>} */
+	const opening = {};
+	/** @type {Record<string, string>} */
+	const closing = {};
+	for (const b of current) {
+		const own = all.filter((e) => e.asset === b.asset && e.success !== false);
+		opening[b.asset] = sum([b.amount, ...own.filter((e) => e.date >= from).map((e) => (e.amount.startsWith('-') ? e.amount.slice(1) : `-${e.amount}`))]);
+		closing[b.asset] = sum([b.amount, ...own.filter((e) => e.date > to).map((e) => (e.amount.startsWith('-') ? e.amount.slice(1) : `-${e.amount}`))]);
+	}
+	return { entries: all.filter((e) => e.date >= from && e.date <= to), opening, closing, method: /** @type {'derived'} */ ('derived'), at: null };
+}

@@ -13,13 +13,10 @@ import { readFile } from 'node:fs/promises';
 import { fixedRates } from '@eigenbeleg/rates';
 import { createApp } from '../../api/src/app.js';
 import { runJob } from './agent.js';
+import { recordedNear } from './recorded.js';
 
 const raw = JSON.parse(await readFile(new URL('../../../packages/chain-near/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
-const recorded = async (/** @type {string} */ url) => {
-	const path = new URL(url).pathname;
-	const body = path.endsWith('/ft-txns') ? { data: [], meta: {} } : { data: raw.txns, meta: {} };
-	return new Response(JSON.stringify(body));
-};
+const recorded = recordedNear(raw);
 const app = createApp({
 	paywall: { middleware: null, info: { mode: 'none', note: 'demo: no payment' } },
 	deps: { fetch: recorded, rates: fixedRates({ NEAR: '1.92' }), probeDay: '2026-11-01' },

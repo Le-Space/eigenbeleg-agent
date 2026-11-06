@@ -103,7 +103,7 @@ async function deliverable(r, dir) {
 	}
 	if (r.status !== 'delivered') return `The Eigenbeleg could not be produced (${r.status}); you were not charged by the API for a failed run.`;
 	const rc = r.receipt;
-	const csv = (await readFile(join(dir, rc.files[1]), 'utf8')).replace(/^\uFEFF/, '').slice(0, 20000);
+	const csv = (await readFile(join(dir, rc.files.find((/** @type {string} */ f) => f.endsWith('.csv'))), 'utf8')).replace(/^\uFEFF/, '').slice(0, 20000);
 	// Token names and accounts come from the chain: a fence longer than any
 	// backtick run in them keeps them inside the code block.
 	const fence = '`'.repeat(Math.max(3, ...(csv.match(/`+/g) ?? []).map((b) => b.length + 1)));

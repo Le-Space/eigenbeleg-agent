@@ -95,3 +95,49 @@ test('letters the fonts lack and bidi or control characters do not break the PDF
 	const bytes = await eigenbelegPdf(odd);
 	assert.ok(bytes.length > 5000);
 });
+
+test('numbers count up from the first; one Eigenbeleg per transaction with all its movements', async () => {
+	const { nthNumber } = await import('../src/document.js');
+	assert.equal(nthNumber('EB-2026-009', 0), 'EB-2026-009');
+	assert.equal(nthNumber('EB-2026-009', 2), 'EB-2026-011');
+	assert.equal(nthNumber('EB-2026-099', 1), 'EB-2026-100');
+	assert.equal(nthNumber('Beleg', 1), 'Beleg-2');
+	const same = await valueEntries(
+		[
+			e({ id: 'tx9:storage', hash: 'tx9', type: 'sent', kind: 'storage', amount: '-0.00125', counterparty: 'usdc.fakes.testnet' }),
+			e({ id: 'tx9:fee', hash: 'tx9', type: 'fee', kind: 'fee', amount: '-0.0003', counterparty: 'near', counterpartyLabel: 'NEAR-Netzwerk' }),
+			e({ id: 'tx8:in', hash: 'tx8', type: 'received', kind: 'transfer', amount: '5', counterparty: 'stromwerk.testnet' })
+		],
+		fixedRates({ NEAR: '2' })
+	);
+	const d = buildDocument({ payer, chain: 'near', network: 'testnet', period: { from: '2026-10-01', to: '2026-10-31' }, entries: same, number: 'EB-2026-009', layout: 'single' });
+	assert.equal(d.transactions.length, 1);
+	const [t] = d.transactions;
+	assert.equal(t.number, 'EB-2026-009');
+	assert.deepEqual([t.from.address, t.to.address], ['wolkenfabrik.testnet', 'usdc.fakes.testnet']);
+	assert.deepEqual(t.movements.map((m) => [m.what, m.onIt]), [['Speicherhinterlegung (Storage Deposit)', true], ['Netzwerkgebühr (Gas)', true]]);
+	assert.equal(t.eurExact, '0.0031');
+	assert.match(eigenbelegCsv(d), /\r\nEB-2026-009;1;/);
+	assert.ok((await eigenbelegPdf(d)).length > 10_000);
+});
+
+test('the Kontoauszug: running balance, sums, and the check against the chain', async () => {
+	const { buildStatement, statementPdf } = await import('../src/index.js');
+	const st = (closing) =>
+		buildStatement({ payer, account: 'wolkenfabrik.testnet', chain: 'near', network: 'testnet', period: { from: '2026-10-01', to: '2026-10-31' }, entries, opening: { NEAR: '10' }, closing: { NEAR: closing }, method: 'archive', belege: new Map([['fee1', 'EB-2026-007']]) });
+	const ok = st('11.99830363');
+	const [near] = ok.sections;
+	assert.deepEqual(near.rows.map((r) => [r.debit, r.credit, r.balance]), [
+		['0.000446365125', '', '9.999553634875'],
+		['0.00125', '', '9.998303634875'],
+		['2', '', '7.998303634875'],
+		['1', '', '6.998303634875'],
+		['', '5', '11.998303634875']
+	]);
+	assert.equal(near.rows[0].beleg, 'EB-2026-007');
+	assert.equal(near.closing, '11.998303634875');
+	assert.equal(near.difference, '-0.000000004875', 'off by what the chain says');
+	assert.equal(st('11.998303634875').sections[0].difference, '0');
+	assert.equal(ok.unlisted, 1, 'the spam token is not a section');
+	assert.ok((await statementPdf(ok)).length > 10_000);
+});

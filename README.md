@@ -1,13 +1,18 @@
 # eigenbeleg-agent
 
-**Eigenbelege for blockchain payments: a paid API and a small agent that write the receipt nobody else will.**
+**Eigenbelege and Kontoauszüge for blockchain accounts: a paid API and a small agent that write the receipts and statements nobody else will.**
 
 When a company pays on a blockchain, often nobody sends it an invoice. Network fees go to a peer-to-peer network; a storage deposit goes to a protocol contract. No organisation stands behind them that could issue an invoice. German bookkeeping still wants a receipt (Beleg) for every booking. The usual answer is an **Eigenbeleg**: a receipt the payer writes for their own payment and signs, saying what was paid, when, to whom, how much, and why there is no receipt from the other side.
 
-This repository writes these Eigenbelege from public blockchain data:
+This repository writes two documents from public blockchain data, both laid out the way a bank lays them out:
 
-- open **building blocks** (AGPL-3.0-or-later): chain readers, a neutral booking format, EUR day rates, the Eigenbeleg as **PDF/A-2b** and **CSV**;
-- an **HTTP API** that sells one Eigenbeleg per request, paid with **x402 on NEAR** (USDC, gasless for the payer);
+- an **Eigenbeleg per transaction**: one receipt with its own number for each payment to the network, with the full hash, who paid whom (full addresses), every movement of the transaction and its explorer link as a QR code;
+- a **Kontoauszug** (account statement) per own account and period: opening balance, every booking with debit, credit and running balance, closing balance – **checked against the balance the chain reports** – and the sums a bookkeeper needs, for every chain supported (NEAR, Akash, Filecoin).
+
+It consists of:
+
+- open **building blocks** (AGPL-3.0-or-later): chain readers, a neutral booking format, EUR day rates, the documents as **PDF/A-2b** and **CSV**;
+- an **HTTP API** that sells them per request, paid with **x402 on NEAR** (USDC, gasless for the payer);
 - a minimal **agent** that takes a job, checks the building block is current, pays the API within its budget, checks the result and keeps a receipt of what it bought. For a chain it cannot serve, it drafts the missing building block as a pull request with tests instead of buying anything.
 
 An Eigenbeleg is **never an invoice**, and it is never written for someone else: the payer issues it for their own payments. Whether and up to what amount your tax adviser accepts Eigenbelege is their call.
@@ -30,7 +35,11 @@ What you should see:
 
 1. `npm test`: about 35 tests pass (the booking format, the NEAR, Akash and Filecoin readers, rates, the PDF/CSV, the API with its x402 paywall, the agent).
 2. `npm run demo`: the agent runs two jobs against the API in the same process, without a paywall (the API says so on every response). The NEAR data comes from a recorded fixture of a **public** account, Aurora's relayer on 1 Nov 2026, which pays only network fees, so the demo works offline.
-   - **Job 1** ends with `Got EB-2026-001: 25 positions … check passed.` Open `out/demo/EB-2026-001.pdf` (the Eigenbeleg, 25 network fees with their full transaction hashes, EUR values, the note and a signature line), `out/demo/EB-2026-001.csv` (the same for a spreadsheet) and `out/demo/EB-2026-001.receipt.json` (the agent's receipt: what it bought, the price, the checks it ran).
+   - **Job 1** ends with `Got 25 Eigenbeleg(e) EB-2026-001 – EB-2026-025 … check passed.` and `Kontoauszug: KA-2026-11-01 (NEAR 25 → 24.98…, reconciled)`. Open:
+     - `out/demo/EB-2026-001.pdf`: 25 Eigenbelege, one page per transaction (a network fee each), with hash, Von/An, movements, QR code, amount and a signature line;
+     - `out/demo/KA-2026-11-01.pdf`: the Kontoauszug of the day, with opening balance, 25 bookings with running balance, closing balance and the check against the chain (in the demo a recorded archival node answers);
+     - `out/demo/EB-2026-001.csv`: every movement for a spreadsheet;
+     - `out/demo/EB-2026-001.receipt.json`: the agent's receipt (what it bought, the price, the checks it ran).
    - **Job 2** asks for Solana, which has no building block. The agent buys nothing. It writes a draft under `out/demo/proposals/chain-solana/`: `PLAN.md`, a package skeleton, contract tests that fail until someone writes the reader, and `PR.md`. Then it prints the `git` and `gh pr create --draft` commands. It runs none of them.
 
 The demo's EUR rate is fixed (1.92 €/NEAR); the API itself uses the day's rate (below).
@@ -75,7 +84,7 @@ You need two testnet accounts: one for the API (receives USDC, relays) and one f
    ```bash
    npm run agent -- --network testnet --address my-eigenbeleg-agent.testnet --month 2026-11 --name "Wolkenfabrik Hosting GmbH" --postal "Musterstraße 1, 12345 Beispielstadt"
    ```
-   You should see the 402 with the price, `Signing the transfer (gasless)`, then `Got EB-2026-001 …` and `Paid: https://testnet.nearblocks.io/txns/…`. In `out/` are the PDF, the CSV and a receipt with the NEAR transaction of the payment. The Eigenbeleg lists the agent account's own network fees and storage deposits for the month.
+   You should see the 402 with the price, `Signing the transfer (gasless)`, then `Got … Eigenbeleg(e)`, `Kontoauszug: … reconciled` and `Paid: https://testnet.nearblocks.io/txns/…`. In `out/` are the Eigenbelege, the Kontoauszug, the CSV and a receipt with the NEAR transaction of the payment.
 
 A run like this on 6 Nov 2026: [`Aqxuj1QQ…ynUX`](https://testnet.nearblocks.io/txns/Aqxuj1QQ6zBRyjhxhF24ocb46Dwtag63cjd5TKD8ynUX). The transaction is signed by the API's relayer (`eigenbeleg-api.testnet`) and carries one `Delegate` action. Inside it, the USDC contract logs an `ft_transfer` of 100000 units (0.10 USDC) from `eigenbeleg-agent.testnet` to `eigenbeleg-api.testnet`, and the agent paid no gas. The Eigenbeleg it bought lists the agent account's storage deposit and network fee for November. veraPDF: `PASS 2b`.
 
@@ -85,24 +94,34 @@ A run like this on 6 Nov 2026: [`Aqxuj1QQ…ynUX`](https://testnet.nearblocks.io
 
 ## What an Eigenbeleg contains, and why
 
-Each PDF is one collective Eigenbeleg (Sammel-Eigenbeleg) for one chain and one period, with numbered positions:
+One Eigenbeleg per transaction, as Belege writes them (`EB-2026-007`, `EB-2026-008`, … counted up from the number you pass):
 
 | On the Eigenbeleg | Why |
 | --- | --- |
-| Number from **your own range** (`EB-2026-007`) | The service stores nothing, so you pass the next number yourself. |
+| Number from **your own range** | The service stores nothing, so you pass the first number yourself. |
 | **Payer and issuer**: name, postal address, own payment addresses | You issue it, for your own payments, from your own addresses. |
-| **Recipient**: the network (e.g. NEAR Protocol, a peer-to-peer network without an invoicing organisation) | The reason there is no other receipt. |
 | The fixed note: *"Eigenbeleg. Für diese Zahlung gibt es keinen Fremdbeleg: Empfänger ist ein Peer-to-Peer-Netzwerk ohne rechnungsstellende Organisation. Ausgestellt vom Zahlenden auf Grundlage der öffentlichen Transaktion …"* | States what kind of document this is. |
-| Per position: date and time (UTC), kind (network fee, storage deposit), recipient, quantity with all decimals, EUR rate, EUR value, the **full transaction hash** | Anyone can check every position in a public block explorer. |
-| Total in the asset and in EUR (rounded to cents; the exact sum below it) | The amount to book. |
-| **Rate source** per day (Kraken day VWAP for the asset in EUR; CoinGecko where Kraken has no day) | The rate can be looked up again. |
-| What is **not** on it, counted by reason | Nothing silently disappears. |
-| "Dies ist keine Rechnung …" and a signature line (place, date, signature of the payer) | It is your document, not ours. |
+| The transaction: date and time (UTC), the **full hash**, **Von** (your address) and **An** (the full recipient address), the explorer link and a **QR code** of it | Anyone can check it from paper. |
+| **Every movement** of the transaction (payment, gas; what is not on the Eigenbeleg greyed, with the reason), quantity with all decimals, EUR rate, EUR value | Nothing of the transaction is left out. |
+| Amount in EUR (rounded to cents; the exact value below it), "Was wurde bezahlt", "Warum kein Fremdbeleg" | The amount to book and the reason. |
+| **Rate source** (Kraken day VWAP for the asset in EUR; CoinGecko where Kraken has no day) | The rate can be looked up again. |
+| "Dies ist keine Rechnung …" and a signature line | It is your document, not ours. |
 
-The file is **PDF/A-2b** (fonts embedded, sRGB output intent, XMP metadata) for archiving. [veraPDF](https://verapdf.org) checks it with `PASS … 2b`:
+## What the Kontoauszug contains
+
+One statement per own account and period (`KA-2026-11-01`), like a bank's: the holder's address top left, statement number, period, chain and date top right, then one section per asset (NEAR, USDC, AKT, FIL, …):
+
+- **Kontostand am … (Beginn)**, then every booking: Buchungstag (with time), Vorgang (kind, to or from whom, short hash, the Eigenbeleg's number where there is one), **Soll**, **Haben**, running **Saldo**, EUR value at the day's rate;
+- **Summe** of debits and credits, **Kontostand am … (Ende)**;
+- **the check**: on NEAR, the balances before and after the period are read from the **archival node** at the exact block, and the closing balance must equal opening balance plus bookings – shown green as *abgestimmt*, or the difference in red. On Akash and Filecoin, whose public nodes keep no old balances, opening and closing balance are derived from today's balance less every movement since, and the statement says so;
+- outgoing, incoming and network fees (expense) in EUR.
+
+It says plainly that it was made by the account holder from public chain data and is **no document of a bank**.
+
+Both files are **PDF/A-2b** (fonts embedded, sRGB output intent, XMP metadata) for archiving. [veraPDF](https://verapdf.org) checks them with `PASS … 2b`:
 
 ```bash
-docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --format text /data/EB-2026-001.pdf
+docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --format text /data/EB-2026-001.pdf /data/KA-2026-11-01.pdf
 ```
 
 **What goes on it.** By default only payments to the network itself: network fees, and storage deposits to protocol contracts. A transfer to another account may well be to a company that does invoice, so it stays off unless you add it (`includeKinds: ["fee","storage","transfer"]`). Some movements are never on it: transfers between your own addresses, incoming payments, failed transactions (only their fee counts), staking, escrow deposits that are not a final amount yet, and tokens without a trusted price (airdropped spam tokens are common). All of these are in the CSV, with the reason.
@@ -116,7 +135,7 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 | `GET /` | What the service is, the price and how to pay (JSON) |
 | `GET /blocks` | The building blocks by chain, with version and data source |
 | `GET /blocks/<chain>/check` | A live check of that block against public data (cached 10 min) |
-| `POST /eigenbeleg` | The Eigenbeleg, behind the paywall |
+| `POST /eigenbeleg` | The Eigenbelege and the Kontoauszug, behind the paywall |
 
 ```json
 {
@@ -124,14 +143,16 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
   "network": "testnet",
   "addresses": ["my-eigenbeleg-agent.testnet"],
   "period": { "month": "2026-11" },
-  "format": "pdf",
+  "format": "json",
+  "document": "eigenbelege",
   "payer": { "name": "Wolkenfabrik Hosting GmbH", "address": "Musterstraße 1\n12345 Beispielstadt" },
   "number": "EB-2026-007",
+  "statementNumber": "KA-2026-11",
   "includeKinds": ["fee", "storage"]
 }
 ```
 
-`format`: `pdf`, `csv`, or `json` (both, PDF as base64). `period` is `{ month }` or `{ from, to }`, at most 92 days. The request is checked **before** a price is named: a wrong chain, address or period gets a `400`, not a `402`. With `format: json` the answer also carries the number, the positions and the total.
+`format`: `json` gives everything – the Eigenbelege (`pdf`, base64), one Kontoauszug per address (`kontoauszuegePdf`), the CSV, and a summary with the Eigenbeleg numbers, totals and each statement's balances and whether they reconciled. `pdf` gives one document: `document: eigenbelege` (one page per transaction) or `document: kontoauszug` (one address). `csv` gives the CSV. `period` is `{ month }` or `{ from, to }`, at most 92 days, finished days only (a period reaching today ends yesterday). The request is checked **before** a price is named: a wrong chain, address or period gets a `400`, not a `402`.
 
 ## The agent
 
@@ -143,7 +164,7 @@ The agent works in five steps:
 
 1. `GET /blocks` and `GET /blocks/<chain>/check`. If there is no block, or the live check fails, it buys nothing and drafts the block or the fix as a PR (`proposals/…`). With `NEARAI_API_KEY` set, it adds notes on data sources from a model on [NEAR AI Cloud](https://docs.near.ai) (private inference), marked as data to check.
 2. It pays through x402 with its own NEAR account, never above `AGENT_BUDGET` per payment (spend controls of the x402 client). It signs only the exact transfer the challenge names and needs no NEAR for gas.
-3. It checks the work: the PDF is PDF/A, the CSV has every position, the number matches.
+3. It checks the work: the PDFs are PDF/A, the CSV has every position and every Eigenbeleg number, and every Kontoauszug the chain could check is reconciled.
 4. It writes `<number>.receipt.json` with what it bought, from whom, the price, the NEAR transaction and whether the checks passed.
 
 How it holds its keys: the near-cli keychain or an environment variable, read by the payer only. What it cannot do without you: pay above the budget, pay other assets or networks than configured, open the PR it drafted, or merge anything.

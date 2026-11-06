@@ -133,24 +133,26 @@ async function txRows(hash, lang) {
 /** What each scene shows and says, per language. The German version is for the German market. */
 const TEXTS = {
 	en: [
-		{ tag: 'NEAR HACKATHON · Real-World Money · Agent Economy', title: 'Paid gas on a blockchain?\nNobody sends you a receipt.', lines: ['eigenbeleg-agent writes the Eigenbeleg – and pays for it itself.'], say: 'A company paid these fees on NEAR. Its bookkeeper wants a receipt for every booking. Nobody will send one: the recipient is a peer-to-peer network.' },
+		{ tag: 'NEAR HACKATHON · Real-World Money · Agent Economy', title: 'Paid gas on a blockchain?\nNobody sends you a receipt.', lines: ['eigenbeleg-agent writes the Eigenbeleg – and pays for it itself.'], say: 'A company paid these fees on NEAR. Its bookkeeper wants a receipt for every booking, and a statement for every account. Nobody will send one: the recipient is a peer-to-peer network.' },
 		{ caption: 'A real run on NEAR testnet: the agent pays the API 0.10 USDC through x402', say: "So the payer issues its own receipt: an Eigenbeleg. Our agent gets the job: this account, this day, this company. It checks that the NEAR building block is current, sees the price of ten cents, compares it to its budget, and signs exactly one USDC transfer. It holds no NEAR: the API's relayer pays the gas." },
 		{ tag: 'NEAR testnet · the transaction, as the NEAR RPC returns it', say: "The payment settles to a NEAR account in one transaction. The API's relayer signed it and paid the gas; inside, the USDC contract moved exactly ten cents from the agent to the API." },
-		{ caption: 'The Eigenbeleg: PDF/A-2b, every transaction hash, the EUR rate of the day', say: 'The Eigenbeleg: every fee and storage deposit with its transaction hash, the euro rate of the day and its source, the reason there is no other receipt, and a line to sign. PDF A, for the archive.' },
+		{ caption: 'One Eigenbeleg per transaction: hash, from and to, every movement, QR code', say: 'One Eigenbeleg per transaction, numbered from your own range: the full hash, who paid whom with full addresses, every movement including the gas, the euro rate of the day, a QR code to check it from paper, and a line to sign. PDF A, for the archive.' },
+		{ caption: 'The Kontoauszug: every booking, running balance, checked against the chain', say: 'And the Kontoauszug, like a bank statement: opening balance, every booking with debit, credit and running balance, and the closing balance, checked against the balance the NEAR archive node reports. It matches to the last yocto.' },
 		{ caption: 'The CSV: every movement, and why it is or is not on the Eigenbeleg', say: 'And the same as CSV, which a German spreadsheet opens as it is. Incoming money, and the payment for the API itself, stay off the Eigenbeleg, with the reason.' },
 		{ caption: "The agent's own receipt", say: 'The agent keeps a receipt of what it bought, from whom, for how much, and whether the work passed its checks.' },
 		{ caption: 'A chain without a building block: nothing bought, a PR drafted', say: "For a chain it can't serve, it buys nothing. It drafts the missing building block as a pull request with tests, and a person merges it." },
-		{ tag: '#NEARHackathon', title: 'github.com/Le-Space/eigenbeleg-agent', lines: ['x402 on NEAR · gasless USDC · PDF/A + CSV · open source (AGPL)', 'Bookkeepers: what would you need on it?'], say: 'Open source, built at NEAR Hackathon. Bookkeepers: what would you need on it?' }
+		{ tag: '#NEARHackathon', title: 'github.com/Le-Space/eigenbeleg-agent', lines: ['x402 on NEAR · gasless USDC · Eigenbelege + Kontoauszug, PDF/A · open source (AGPL)', 'Bookkeepers: what would you need on it?'], say: 'Open source, built at NEAR Hackathon. Bookkeepers: what would you need on it?' }
 	],
 	de: [
-		{ tag: 'NEAR HACKATHON · Real-World Money · Agent Economy', title: 'Gas auf der Blockchain bezahlt?\nEine Rechnung bekommen Sie dafür nie.', lines: ['eigenbeleg-agent schreibt den Eigenbeleg – und bezahlt ihn selbst.'], say: 'Ein Unternehmen hat diese Gebühren auf NEAR bezahlt. Die Buchhaltung braucht für jede Buchung einen Beleg. Eine Rechnung schickt aber niemand: Der Empfänger ist ein Peer-to-Peer-Netzwerk.' },
+		{ tag: 'NEAR HACKATHON · Real-World Money · Agent Economy', title: 'Gas auf der Blockchain bezahlt?\nEine Rechnung bekommen Sie dafür nie.', lines: ['eigenbeleg-agent schreibt den Eigenbeleg – und bezahlt ihn selbst.'], say: 'Ein Unternehmen hat diese Gebühren auf NEAR bezahlt. Die Buchhaltung braucht für jede Buchung einen Beleg und für jedes Konto einen Auszug. Eine Rechnung schickt aber niemand: Der Empfänger ist ein Peer-to-Peer-Netzwerk.' },
 		{ caption: 'Ein echter Lauf auf NEAR-Testnet: Der Agent zahlt der API 0,10 USDC über x402', say: 'Also stellt der Zahlende den Beleg selbst aus: einen Eigenbeleg. Unser Agent bekommt den Auftrag: dieses Konto, dieser Tag, diese Firma. Er prüft, ob der NEAR-Baustein aktuell ist, sieht den Preis von zehn Cent, vergleicht ihn mit seinem Budget und signiert genau eine USDC-Überweisung. NEAR braucht er dafür nicht: Die Gasgebühr zahlt der Relayer der API.' },
 		{ tag: 'NEAR-Testnet · die Transaktion, wie der NEAR-RPC sie liefert', say: 'Die Zahlung landet in einer einzigen Transaktion auf einem NEAR-Konto. Der Relayer der API hat sie signiert und das Gas bezahlt; darin hat der USDC-Contract genau zehn Cent vom Agenten an die API überwiesen.' },
-		{ caption: 'Der Eigenbeleg: PDF/A-2b, jeder Transaktions-Hash, der Euro-Tageskurs', say: 'Der Eigenbeleg: jede Gebühr und jede Speicherhinterlegung mit ihrem Transaktions-Hash, dem Euro-Tageskurs und seiner Quelle, dem Grund, warum es keinen Fremdbeleg gibt, und einer Zeile für die Unterschrift. Als PDF/A, fürs Archiv.' },
+		{ caption: 'Ein Eigenbeleg je Transaktion: Hash, Von und An, alle Bewegungen, QR-Code', say: 'Für jede Transaktion ein eigener Eigenbeleg, nummeriert aus Ihrem Nummernkreis: der vollständige Hash, wer an wen gezahlt hat, mit vollen Adressen, jede Bewegung einschließlich der Gasgebühr, der Euro-Tageskurs, ein QR-Code zum Nachprüfen vom Papier, und eine Zeile für die Unterschrift. Als PDF/A, fürs Archiv.' },
+		{ caption: 'Der Kontoauszug: jede Buchung, laufender Saldo, abgestimmt mit der Chain', say: 'Dazu der Kontoauszug, wie von der Bank: Anfangssaldo, jede Buchung mit Soll, Haben und laufendem Saldo, und der Endsaldo, abgestimmt mit dem Kontostand, den der NEAR-Archivknoten meldet. Er stimmt bis auf das letzte Yocto.' },
 		{ caption: 'Die CSV: jede Bewegung – und warum sie auf dem Eigenbeleg steht oder nicht', say: 'Dasselbe als CSV, die Excel ohne Umwege öffnet. Eingänge und die Zahlung an die API selbst stehen nicht auf dem Eigenbeleg – jeweils mit Begründung.' },
 		{ caption: 'Die Quittung des Agenten', say: 'Der Agent führt Buch über seinen Einkauf: was er bei wem gekauft hat, zu welchem Preis, und ob das Ergebnis seine Prüfung bestanden hat.' },
 		{ caption: 'Eine Chain ohne Baustein: nichts gekauft, ein Pull Request entworfen', say: 'Für eine Chain, die er noch nicht kann, kauft er nichts. Er entwirft den fehlenden Baustein als Pull Request mit Tests, und ein Mensch prüft und übernimmt ihn.' },
-		{ tag: '#NEARHackathon', title: 'github.com/Le-Space/eigenbeleg-agent', lines: ['x402 auf NEAR · USDC ohne Gasgebühr · PDF/A + CSV · Open Source (AGPL)', 'Steuerberater und Buchhalter: Was brauchen Sie auf dem Eigenbeleg?'], say: 'Open Source, entstanden beim NEAR Hackathon. Steuerberater und Buchhalter: Was brauchen Sie auf dem Eigenbeleg?' }
+		{ tag: '#NEARHackathon', title: 'github.com/Le-Space/eigenbeleg-agent', lines: ['x402 auf NEAR · USDC ohne Gasgebühr · Eigenbelege + Kontoauszug, PDF/A · Open Source (AGPL)', 'Steuerberater und Buchhalter: Was brauchen Sie auf dem Eigenbeleg?'], say: 'Open Source, entstanden beim NEAR Hackathon. Steuerberater und Buchhalter: Was brauchen Sie auf dem Eigenbeleg?' }
 	]
 };
 
@@ -159,12 +161,16 @@ async function main() {
 	const tr = JSON.parse(await readFile(join(RUN, 'transcript.json'), 'utf8'));
 	const files = await readdir(RUN);
 	const pdfName = files.find((f) => /^EB-.*\.pdf$/.test(f));
+	const kaName = files.find((f) => /^KA-.*\.pdf$/.test(f));
 	const csvName = files.find((f) => /^EB-.*\.csv$/.test(f));
 	const receipt = JSON.parse(await readFile(join(RUN, files.find((f) => f.endsWith('.receipt.json'))), 'utf8'));
 	if (!receipt.transaction) throw new Error('the run has no payment transaction: is PAYWALL=near set in .env?');
 	const cmd = (args) => `$ npm run agent -- ${args.map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ')}`;
 
-	const T = TEXTS[v.lang];
+	const T = structuredClone(TEXTS[v.lang]);
+	// The narrator says the statement reconciled only when this run's did.
+	const reconciled = (receipt.summary.kontoauszuege ?? []).every((k) => k.assets.every((a) => a.reconciled === true));
+	if (!reconciled) T[4].say = T[4].say.replace(/ (It matches to the last yocto|Er stimmt bis auf das letzte Yocto)\./, v.lang === 'de' ? ' Eine Abweichung stünde offen darauf.' : ' A difference would be shown openly.');
 	const scenes = [
 		{ kind: 'card', ...T[0] },
 		{
@@ -173,13 +179,14 @@ async function main() {
 		},
 		{ kind: 'tx', ...T[2], data: await txRows(receipt.transaction, v.lang), caption: receipt.explorer },
 		{ kind: 'pdf', ...T[3], url: `/run/${pdfName}` },
-		{ kind: 'csv', ...T[4], text: await readFile(join(RUN, csvName), 'utf8') },
-		{ kind: 'json', ...T[5], data: receipt },
+		{ kind: 'pdf', ...T[4], url: `/run/${kaName}` },
+		{ kind: 'csv', ...T[5], text: await readFile(join(RUN, csvName), 'utf8') },
+		{ kind: 'json', ...T[6], data: receipt },
 		{
-			kind: 'terminal', ...T[6],
+			kind: 'terminal', ...T[7],
 			lines: [{ t: 0, line: '$ npm run agent -- --chain solana …' }, ...tr.solana.filter((l) => !/^Wallet:/.test(l.line)).map((l) => ({ t: 1 + l.t, line: l.line }))]
 		},
-		{ kind: 'card', ...T[7] }
+		{ kind: 'card', ...T[8] }
 	];
 
 	await rm(PARTS, { recursive: true, force: true });

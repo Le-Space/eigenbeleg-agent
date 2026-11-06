@@ -12,9 +12,15 @@
 // Eigenbeleg only when the payer says so (`includeKinds`), and is always in
 // the CSV.
 //
-// One Eigenbeleg covers one period (a month, say) of one chain, as a
-// collective receipt (Sammel-Eigenbeleg) with numbered positions; its number
-// comes from the payer's own range, since this service stores nothing.
+// Two layouts, the same content:
+//   collective  one Eigenbeleg for the period (Sammel-Eigenbeleg), one
+//               position per transaction;
+//   single      one Eigenbeleg per transaction (as Belege writes them), each
+//               with its own number, counted up from the first.
+// Every transaction shows its full hash, who paid whom with full addresses,
+// every movement it had (the gas too, and what is not on the Eigenbeleg,
+// with the reason) and its explorer link as a QR code.
+// Numbers come from the payer's own range, since this service stores nothing.
 
 import { normalize, round, sum } from '@eigenbeleg/ledger-core';
 
@@ -59,6 +65,27 @@ export const CHAIN_NAMES = { near: 'NEAR Protocol', akash: 'Akash', filecoin: 'F
  */
 
 /**
+ * @typedef {object} Movement one movement of a transaction
+ * @property {import('@eigenbeleg/rates').ValuedEntry} entry
+ * @property {string} what
+ * @property {boolean} onIt on the Eigenbeleg
+ * @property {string} why why not, when not
+ */
+
+/**
+ * @typedef {object} Transaction one position: a transaction with a payment on the Eigenbeleg
+ * @property {number} pos
+ * @property {string} number its own number in the single layout ('' in the collective one)
+ * @property {string} hash
+ * @property {string} time
+ * @property {string} explorerUrl
+ * @property {{ address: string, label: string }} from the own address that paid
+ * @property {{ address: string, label: string }} to who received the payment
+ * @property {Movement[]} movements every movement of the transaction the period has
+ * @property {string} eurExact what is on the Eigenbeleg, in EUR, positive
+ */
+
+/**
  * @param {object} p
  * @param {Payer} p.payer
  * @param {string} p.chain
@@ -68,8 +95,10 @@ export const CHAIN_NAMES = { near: 'NEAR Protocol', akash: 'Akash', filecoin: 'F
  * @param {string} [p.number] the Eigenbeleg's number in the payer's range, e.g. EB-2026-007
  * @param {string[]} [p.includeKinds]
  * @param {string} [p.issuedAt] ISO; now when not given
+ * @param {'collective' | 'single'} [p.layout]
  */
-export function buildDocument({ payer, chain, network, period, entries, number, includeKinds = DEFAULT_KINDS, issuedAt }) {
+export function buildDocument({ payer, chain, network, period, entries, number, includeKinds = DEFAULT_KINDS, issuedAt, layout = 'collective' }) {
+	if (layout !== 'collective' && layout !== 'single') throw new Error('layout: collective or single');
 	checkPayer(payer);
 	const kinds = new Set(includeKinds);
 	const own = new Set(payer.addresses);
@@ -97,20 +126,50 @@ export function buildDocument({ payer, chain, network, period, entries, number, 
 		if (why) excluded.push({ entry: e, why });
 		else
 			positions.push({
-				pos: positions.length + 1,
+				pos: 0,
 				entry: e,
 				what: KIND_TEXT[/** @type {keyof typeof KIND_TEXT} */ (e.kind)] ?? e.kind,
 				recipient: e.counterpartyLabel || e.counterparty
 			});
 	}
+	const first = number || `EB-${period.to.slice(0, 4)}-001`;
+	/** @type {Transaction[]} */
+	const transactions = [];
+	for (const p of positions) {
+		let t = transactions.find((x) => x.hash === p.entry.hash);
+		if (!t) {
+			const all = entries.filter((e) => e.hash === p.entry.hash);
+			// The payment, not the gas, says to whom; a transaction with only gas paid the network.
+			const main = all.find((e) => e.type === 'sent') ?? p.entry;
+			t = {
+				pos: transactions.length + 1,
+				number: layout === 'single' ? nthNumber(first, transactions.length) : '',
+				hash: p.entry.hash,
+				time: p.entry.time,
+				explorerUrl: p.entry.explorerUrl,
+				from: { address: p.entry.account, label: 'eigene Adresse' },
+				to: { address: main.counterparty, label: main.counterpartyLabel },
+				movements: all.map((e) => {
+					const x = excluded.find((y) => y.entry === e);
+					return { entry: e, what: KIND_TEXT[/** @type {keyof typeof KIND_TEXT} */ (e.kind)] ?? e.kind, onIt: !x, why: x?.why ?? '' };
+				}),
+				eurExact: '0'
+			};
+			transactions.push(t);
+		}
+		p.pos = t.pos;
+	}
+	for (const t of transactions)
+		t.eurExact = sum(t.movements.filter((m) => m.onIt).map((m) => /** @type {any} */ (m.entry.eur).value)).replace(/^-/, '');
 	/** @type {Record<string, string>} */
 	const quantities = {};
 	for (const asset of new Set(positions.map((p) => p.entry.asset)))
 		quantities[asset] = normalize(sum(positions.filter((p) => p.entry.asset === asset).map((p) => p.entry.amount)).replace(/^-/, ''));
 	const eurExact = positions.length ? sum(positions.map((p) => /** @type {any} */ (p.entry.eur).value)) : '0';
-	const year = period.to.slice(0, 4);
 	return {
-		number: number || `EB-${year}-001`,
+		number: layout === 'single' && transactions.length > 1 ? `${first} – ${transactions.at(-1)?.number}` : first,
+		layout,
+		transactions,
 		issuedAt: issuedAt ?? new Date().toISOString(),
 		payer: { name: payer.name.trim(), address: payer.address.trim(), addresses: [...payer.addresses] },
 		chain,
@@ -133,6 +192,19 @@ export function buildDocument({ payer, chain, network, period, entries, number, 
 }
 
 /** @typedef {ReturnType<typeof buildDocument>} EigenbelegDocument */
+
+/**
+ * The n-th number counted up from the first: EB-2026-007 → EB-2026-008 …
+ * A number without digits at its end gets -1, -2 …
+ *
+ * @param {string} first @param {number} n
+ */
+export function nthNumber(first, n) {
+	if (n === 0) return first;
+	const m = /^(.*?)(\d+)$/.exec(first);
+	if (!m) return `${first}-${n + 1}`;
+	return `${m[1]}${String(Number(m[2]) + n).padStart(m[2].length, '0')}`;
+}
 
 /** @param {Payer} payer */
 function checkPayer(payer) {

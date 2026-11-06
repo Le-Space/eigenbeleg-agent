@@ -6,10 +6,11 @@ import { join } from 'node:path';
 
 import { fixedRates } from '@eigenbeleg/rates';
 import { createApp } from '../../api/src/app.js';
+import { recordedNear } from '../src/recorded.js';
 import { runJob } from '../src/agent.js';
 
 const raw = JSON.parse(await readFile(new URL('../../../packages/chain-near/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
-const recorded = async (url) => new Response(JSON.stringify(new URL(url).pathname.endsWith('/ft-txns') ? { data: [], meta: {} } : { data: raw.txns, meta: {} }));
+const recorded = recordedNear(raw);
 const payer = { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' };
 
 async function withApi(fn) {
@@ -30,10 +31,13 @@ test('a job on a chain with a current block: files, checks and a receipt', async
 		runJob({ api, fetch, paidFetch: fetch, outDir, say: (l) => lines.push(l), job: { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' }, payer, number: 'EB-2026-009' } })
 	);
 	assert.equal(r.status, 'delivered');
-	assert.deepEqual(await readdir(outDir).then((f) => f.sort()), ['EB-2026-009.csv', 'EB-2026-009.pdf', 'EB-2026-009.receipt.json']);
+	assert.deepEqual(await readdir(outDir).then((f) => f.sort()), ['EB-2026-009.csv', 'EB-2026-009.pdf', 'EB-2026-009.receipt.json', 'KA-2026-11-01.pdf']);
 	const receipt = JSON.parse(await readFile(join(outDir, 'EB-2026-009.receipt.json'), 'utf8'));
 	assert.equal(receipt.passed, true);
 	assert.equal(receipt.summary.positions, raw.txns.length);
+	assert.equal(receipt.summary.eigenbelege.length, raw.txns.length, 'one Eigenbeleg per transaction');
+	assert.deepEqual(receipt.summary.kontoauszuege[0].assets.map((a) => [a.asset, a.reconciled]), [['NEAR', true]]);
+	assert.equal(receipt.checks.kontoauszuegeReconciled, true);
 });
 
 test('a job on a chain without a block: nothing bought, a draft PR with failing tests, commands only printed', async () => {

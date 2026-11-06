@@ -213,7 +213,9 @@ export function mapRaw({ account, network, txns, ftTxns }) {
 					})
 				);
 			}
-		} else if (receiver === account && deposit > 0n && success) {
+		} else if (receiver === account && deposit > 1n && success) {
+			// 1 yoctoNEAR is a token transfer's security deposit passing through
+			// (a relayed meta transaction hands it on to the token contract), no payment.
 			out.push(
 				entry({
 					...common,
@@ -325,6 +327,137 @@ export async function storageKept(entries, { network = 'mainnet', fetch = global
 	return out;
 }
 
+/** @param {typeof fetch} fetch @param {string} url @param {string} method @param {any} params */
+async function rpc(fetch, url, method, params) {
+	const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+	const body = res.ok ? await res.json() : null;
+	if (!body || body.error) {
+		const e = new Error(`NEAR RPC ${method}: ${String(body?.error?.cause?.name ?? body?.error?.message ?? res.status)}`);
+		/** @type {any} */ (e).cause = body?.error?.cause?.name;
+		throw e;
+	}
+	return body.result;
+}
+
+/**
+ * The last block before a moment (archival RPC): interpolated from block
+ * times, then stepped to the exact one. Heights without a block are skipped.
+ *
+ * @param {{ network?: 'mainnet' | 'testnet', before: string, fetch?: typeof fetch }} p before: ISO
+ * @returns {Promise<{ height: number, time: string }>}
+ */
+export async function blockBefore({ network = 'mainnet', before, fetch = globalThis.fetch }) {
+	const url = NETWORKS[network].rpc;
+	const target = BigInt(Date.parse(before)) * 1_000_000n;
+	/** @type {Map<number, bigint | null>} */
+	const seen = new Map();
+	const ts = async (/** @type {number} */ h) => {
+		if (!seen.has(h)) {
+			try {
+				seen.set(h, BigInt((await rpc(fetch, url, 'block', { block_id: h })).header.timestamp));
+			} catch (e) {
+				if (/** @type {any} */ (e).cause !== 'UNKNOWN_BLOCK') throw e;
+				seen.set(h, null);
+			}
+		}
+		return seen.get(h) ?? null;
+	};
+	/** The nearest existing block at or below h. */
+	const at = async (/** @type {number} */ h) => {
+		for (let i = 0; i < 50; i++) {
+			const t = await ts(h - i);
+			if (t !== null) return { h: h - i, t };
+		}
+		throw new Error(`no block near height ${h}`);
+	};
+	const head = (await rpc(fetch, url, 'block', { finality: 'final' })).header;
+	let hi = { h: Number(head.height), t: BigInt(head.timestamp) };
+	if (target >= hi.t) throw new Error('the moment has not passed on chain yet');
+	let lo = await at(Math.max(1, hi.h - 200_000));
+	// widen until lo is before the target
+	while (lo.t >= target) {
+		const span = hi.h - lo.h;
+		hi = lo;
+		lo = await at(Math.max(1, lo.h - span * 4));
+		if (lo.h <= 1 && lo.t >= target) throw new Error('the moment is before the chain began');
+	}
+	// interpolation search, then bisection
+	for (let i = 0; i < 60 && hi.h - lo.h > 1; i++) {
+		const guess = i < 8 ? lo.h + Number(((target - lo.t) * BigInt(hi.h - lo.h)) / (hi.t - lo.t)) : Math.floor((lo.h + hi.h) / 2);
+		const mid = await at(Math.min(hi.h - 1, Math.max(lo.h + 1, guess)));
+		if (mid.h <= lo.h) break;
+		if (mid.t < target) lo = mid;
+		else hi = mid;
+	}
+	return { height: lo.h, time: new Date(Number(lo.t / 1_000_000n)).toISOString() };
+}
+
+/**
+ * What an account held just before a moment: NEAR (liquid plus staked by a
+ * validator) and the listed tokens asked for. From the archival RPC.
+ *
+ * @param {{ account: string, network?: 'mainnet' | 'testnet', before: string, contracts?: string[], fetch?: typeof fetch }} p
+ * @returns {Promise<{ height: number, time: string, balances: Record<string, { asset: string, amount: string }> }>}
+ */
+export async function balancesBefore({ account, network = 'mainnet', before, contracts = [], fetch = globalThis.fetch }) {
+	if (!isAccountId(account)) throw new Error('not a NEAR account id');
+	const url = NETWORKS[network].rpc;
+	const block = await blockBefore({ network, before, fetch });
+	/** @type {Record<string, { asset: string, amount: string }>} */
+	const balances = {};
+	try {
+		const a = await rpc(fetch, url, 'query', { request_type: 'view_account', block_id: block.height, account_id: account });
+		balances.native = { asset: 'NEAR', amount: fromUnits(BigInt(a.amount) + BigInt(a.locked ?? '0'), NEAR_DECIMALS) };
+	} catch (e) {
+		// The account did not exist yet.
+		if (!/UNKNOWN_ACCOUNT/.test(String(/** @type {any} */ (e).cause))) throw e;
+		balances.native = { asset: 'NEAR', amount: '0' };
+	}
+	const listed = /** @type {Record<string, { symbol: string, decimals: number }>} */ (TOKENS[network]);
+	for (const c of contracts) {
+		const t = listed[c];
+		if (!t) continue;
+		let units = 0n;
+		try {
+			const r = await rpc(fetch, url, 'query', { request_type: 'call_function', block_id: block.height, account_id: c, method_name: 'ft_balance_of', args_base64: Buffer.from(JSON.stringify({ account_id: account })).toString('base64') });
+			units = BigInt(JSON.parse(Buffer.from(r.result).toString()));
+		} catch {
+			units = 0n; // not registered with the token yet
+		}
+		balances[c] = { asset: t.symbol, amount: fromUnits(units, t.decimals) };
+	}
+	return { ...block, balances };
+}
+
+/** `{ native: { asset: 'NEAR', amount } … }` → `{ NEAR: amount … }`. @param {Record<string, { asset: string, amount: string }>} b */
+const bySymbol = (b) => Object.fromEntries(Object.values(b).map((x) => [x.asset, x.amount]));
+
+/**
+ * What a Kontoauszug needs for one account and period: its bookings, and its
+ * balances before the first and after the last day, read from the archival
+ * RPC – so the statement can check that opening balance plus bookings is the
+ * closing balance.
+ *
+ * @param {Parameters<typeof fetchRaw>[0]} p
+ */
+export async function statementNear(p) {
+	const network = p.network ?? 'mainnet';
+	const fetch = p.fetch ?? globalThis.fetch;
+	const entries = await readNear(p);
+	const contracts = [...new Set(entries.filter((e) => e.contract !== 'native' && e.priceAs).map((e) => e.contract))];
+	const end = new Date(`${p.to}T00:00:00Z`);
+	end.setUTCDate(end.getUTCDate() + 1);
+	const opening = await balancesBefore({ account: p.account, network, before: `${p.from}T00:00:00Z`, contracts, fetch });
+	const closing = await balancesBefore({ account: p.account, network, before: end.toISOString(), contracts, fetch });
+	return {
+		entries,
+		opening: bySymbol(opening.balances),
+		closing: bySymbol(closing.balances),
+		method: /** @type {'archive'} */ ('archive'),
+		at: { opening: { height: opening.height, time: opening.time }, closing: { height: closing.height, time: closing.time } }
+	};
+}
+
 /** A public account that signs transactions every day (Aurora's relayer, fees only): the live check reads it. */
 export const PROBE_ACCOUNT = 'relay.aurora';
 
@@ -350,6 +483,7 @@ export const block = {
 	source: 'NearBlocks API v3',
 	version: '0.1.0',
 	read: readNear,
+	statement: statementNear,
 	probe,
 	isAddress: isAccountId
 };

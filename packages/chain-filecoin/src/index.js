@@ -4,7 +4,7 @@
 // every message's sends and receipts, and its miner fee plus burnt fee as
 // one network fee; FIL and USDFC.
 
-import { entry, sortEntries } from '@eigenbeleg/ledger-core';
+import { derivedStatement, entry, sortEntries } from '@eigenbeleg/ledger-core';
 import { FILECOIN } from './chains.js';
 import { createFilecoinClient, isFilecoinAddress, toFilecoinAddress } from './vendor/filecoin.js';
 
@@ -40,11 +40,22 @@ export function toLedger(e, account) {
 /**
  * @param {{ account: string, from: string, to: string, fetch?: typeof fetch }} p
  */
-export async function readFilecoin({ account, from, to, fetch = globalThis.fetch }) {
+async function history({ account, fetch = globalThis.fetch }) {
 	if (!isFilecoinAddress(account)) throw new Error('not a valid Filecoin address');
 	const address = toFilecoinAddress(account) ?? account;
-	const { entries } = await createFilecoinClient({ fetch }).history({ chain: /** @type {any} */ (FILECOIN), address, endpoints: FILECOIN.endpoints });
-	return sortEntries(entries.filter((/** @type {any} */ e) => e.date >= from && e.date <= to).map((/** @type {any} */ e) => toLedger(e, address)));
+	const { entries, balances } = await createFilecoinClient({ fetch }).history({ chain: /** @type {any} */ (FILECOIN), address, endpoints: FILECOIN.endpoints });
+	return { all: sortEntries(entries.map((/** @type {any} */ e) => toLedger(e, address))), balances };
+}
+
+export async function readFilecoin({ account, from, to, fetch = globalThis.fetch }) {
+	const { all } = await history({ account, fetch });
+	return all.filter((e) => e.date >= from && e.date <= to);
+}
+
+/** For a Kontoauszug: balances derived from today's balance less the movements since (as for Akash). @param {{ account: string, from: string, to: string, fetch?: typeof fetch }} p */
+export async function statementFilecoin(p) {
+	const { all, balances } = await history(p);
+	return derivedStatement(all, balances, p.from, p.to);
 }
 
 /** The storage market actor always exists: Filfox answers for it when the source is up. */
@@ -64,6 +75,7 @@ export const block = {
 	source: 'Filfox API; reader from Le-Space/belege',
 	version: '0.1.0',
 	read: readFilecoin,
+	statement: statementFilecoin,
 	probe,
 	isAddress: isFilecoinAddress
 };

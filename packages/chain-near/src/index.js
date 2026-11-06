@@ -181,7 +181,7 @@ export function mapRaw({ account, network, txns, ftTxns }) {
 				out.push(
 					entry({
 						...common,
-						id: `near:${hash}:fee`,
+						id: `near:${account}:${hash}:fee`,
 						type: 'fee',
 						kind: 'fee',
 						amount: fromUnits(-fee, NEAR_DECIMALS),
@@ -200,7 +200,7 @@ export function mapRaw({ account, network, txns, ftTxns }) {
 				out.push(
 					entry({
 						...common,
-						id: `near:${hash}:deposit`,
+						id: `near:${account}:${hash}:deposit`,
 						type: 'sent',
 						kind: kindOf(actions, methods),
 						amount: fromUnits(-deposit, NEAR_DECIMALS),
@@ -216,7 +216,7 @@ export function mapRaw({ account, network, txns, ftTxns }) {
 			out.push(
 				entry({
 					...common,
-					id: `near:${hash}:deposit`,
+					id: `near:${account}:${hash}:deposit`,
 					type: 'received',
 					kind: 'transfer',
 					amount: fromUnits(deposit, NEAR_DECIMALS),
@@ -240,7 +240,7 @@ export function mapRaw({ account, network, txns, ftTxns }) {
 		const listed = /** @type {Record<string, {symbol: string, priceAs: string}>} */ (TOKENS[network])[contract];
 		out.push(
 			entry({
-				id: `near:${hash}:ft:${f.receipt_id ?? ''}:${f.event_index ?? ''}`,
+				id: `near:${account}:${hash}:ft:${f.receipt_id ?? ''}:${f.event_index ?? ''}`,
 				chain: 'near',
 				network,
 				account,

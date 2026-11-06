@@ -78,5 +78,5 @@ export function eigenbelegCsv(doc) {
 	for (const x of doc.excluded) rows.push(line(x.entry, '', false, x.why));
 	rows.push([]);
 	rows.push([doc.number, 'Summe', '', '', doc.chain, doc.network, '', '', '', '', '', '', '', '', num(round(`-${doc.totals.eurExact}`, 2)), 'gerundet auf Cent', '', '', 'ja', '']);
-	return '﻿' + rows.map((r) => r.map(cell).join(';')).join('\r\n') + '\r\n';
+	return '\uFEFF' + rows.map((r) => r.map(cell).join(';')).join('\r\n') + '\r\n';
 }

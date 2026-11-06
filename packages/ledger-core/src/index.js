@@ -18,7 +18,7 @@ export const SCHEMA = 'eigenbeleg.ledger/1';
 /**
  * @typedef {object} LedgerEntry
  * @property {string} schema SCHEMA
- * @property {string} id stable across reads: `<chain>:<hash>:<part>`
+ * @property {string} id stable across reads: `<chain>:<account>:<hash>:<part>`
  * @property {string} chain e.g. `near`
  * @property {string} network e.g. `mainnet`, `testnet`
  * @property {string} account the own address this entry is seen from

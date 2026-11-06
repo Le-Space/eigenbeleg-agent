@@ -61,7 +61,7 @@ test('German number formats', () => {
 test('the CSV: BOM, semicolons, every entry, formulas defused', async () => {
 	const evil = await valueEntries([e({ id: 'evil', type: 'sent', kind: 'transfer', amount: '-1', counterparty: '=HYPERLINK("x")' })], fixedRates({ NEAR: '1' }));
 	const csv = eigenbelegCsv(buildDocument({ payer, chain: 'near', network: 'testnet', period: { from: '2026-10-01', to: '2026-10-31' }, entries: evil }));
-	assert.ok(csv.startsWith('﻿Belegnummer;Position;'));
+	assert.ok(csv.startsWith('\uFEFFBelegnummer;Position;'));
 	assert.match(csv, /;"'=HYPERLINK\(""x""\)";/);
 	const lines = eigenbelegCsv(doc).trim().split('\r\n');
 	assert.equal(lines.length, 1 + entries.length + 2);

@@ -1,0 +1,108 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="de">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="csp-nonce" content="__CSP_NONCE__" />
+		<title>Eigenbeleg</title>
+		<link rel="stylesheet" href="/src/style.css" />
+	</head>
+	<body>
+		<main>
+			<header>
+				<h1>Eigenbeleg für Blockchain-Zahlungen</h1>
+				<p class="lead">
+					Ein Eigenbeleg ist ein Beleg, den Sie selbst für Ihre eigenen Zahlungen ausstellen, wenn niemand eine Rechnung schickt: Netzwerkgebühren,
+					Storage-Deposits, Zahlungen an Peer-to-Peer-Netzwerke. Er ist <strong>keine Rechnung</strong>. Ob Ihr Steuerberater ihn annimmt, entscheidet er.
+				</p>
+				<p class="note">Testnet. Nichts wird gespeichert: Name und Anschrift gehen nur an den bezahlten Abruf und werden nach der Antwort verworfen.</p>
+			</header>
+
+			<section id="step-form" aria-labelledby="h-form">
+				<h2 id="h-form">1. Anfrage</h2>
+				<form id="form" novalidate>
+					<div class="row">
+						<label>Blockchain <select name="chain" id="chain" required></select></label>
+						<label>Netz der Zahlungen <select name="network" id="network" required></select></label>
+					</div>
+					<label
+						>Eigene Adressen (eine pro Zeile, bis zu zehn)
+						<textarea name="addresses" id="addresses" rows="3" required spellcheck="false" autocomplete="off" placeholder="wolkenfabrik.near"></textarea>
+					</label>
+					<fieldset>
+						<legend>Zeitraum (nur abgeschlossene Tage, höchstens 92)</legend>
+						<label class="inline"><input type="radio" name="periodMode" value="month" checked /> Monat</label>
+						<label class="inline"><input type="radio" name="periodMode" value="range" /> Von – bis</label>
+						<div class="row">
+							<label id="l-month">Monat <input type="month" name="month" id="month" /></label>
+							<label id="l-from" hidden>Von <input type="date" name="from" id="from" /></label>
+							<label id="l-to" hidden>Bis <input type="date" name="to" id="to" /></label>
+						</div>
+					</fieldset>
+					<fieldset>
+						<legend>Was auf den Eigenbeleg kommt</legend>
+						<label class="inline"><input type="checkbox" name="includeKinds" value="fee" checked /> Netzwerkgebühren</label>
+						<label class="inline"><input type="checkbox" name="includeKinds" value="storage" checked /> Storage-Deposits</label>
+						<label class="inline"><input type="checkbox" name="includeKinds" value="transfer" /> Überweisungen</label>
+						<label class="inline"><input type="checkbox" name="includeKinds" value="call" /> Vertragsaufrufe mit Deposit</label>
+					</fieldset>
+					<label>Belegnummer (optional, aus Ihrem Nummernkreis) <input name="number" id="number" maxlength="40" placeholder="EB-2026-001" autocomplete="off" /></label>
+					<fieldset>
+						<legend>Zahler (steht auf dem Eigenbeleg, geht nicht in die Vorschau)</legend>
+						<label>Name <input name="name" id="name" maxlength="200" autocomplete="organization" placeholder="Wolkenfabrik Hosting GmbH" /></label>
+						<label
+							>Anschrift
+							<textarea name="postal" id="postal" rows="2" maxlength="500" autocomplete="street-address" placeholder="Musterstraße 1&#10;12345 Beispielstadt"></textarea>
+						</label>
+					</fieldset>
+					<p class="error" id="form-error" role="alert"></p>
+					<button type="submit" id="btn-preview">Vorschau (kostenlos)</button>
+				</form>
+			</section>
+
+			<section id="step-preview" aria-labelledby="h-preview" hidden>
+				<h2 id="h-preview">2. Vorschau</h2>
+				<dl class="summary" id="summary"></dl>
+				<p class="note" id="preview-note"></p>
+			</section>
+
+			<section id="step-pay" aria-labelledby="h-pay" hidden>
+				<h2 id="h-pay">3. Bezahlen und herunterladen</h2>
+				<div id="pay-offer">
+					<p id="price"></p>
+					<div class="actions">
+						<button type="button" id="btn-wallet">Wallet verbinden</button>
+						<button type="button" id="btn-pay" disabled>Eigenbeleg kaufen</button>
+					</div>
+					<p class="note" id="wallet-state">
+						Zahlung per x402 auf NEAR: Sie signieren genau eine USDC-Überweisung, die API reicht sie ein und zahlt das Gas. Unterstützt: Meteor, Intear.
+					</p>
+				</div>
+				<ol class="status" id="status" aria-live="polite"></ol>
+				<p class="error" id="pay-error" role="alert"></p>
+				<div id="result" hidden>
+					<div class="actions">
+						<a class="button" id="dl-pdf" download>PDF/A herunterladen</a>
+						<a class="button" id="dl-csv" download>CSV herunterladen</a>
+					</div>
+					<p>Zahlung: <a id="tx-link" target="_blank" rel="noopener noreferrer"></a></p>
+					<p class="note">Drucken, prüfen und unterschreiben: Ein Eigenbeleg gilt erst mit Ihrer Unterschrift.</p>
+				</div>
+				<details id="cli">
+					<summary>Keine passende Wallet? Mit dem Agenten auf der Kommandozeile kaufen</summary>
+					<p class="note">Im Repository, mit <code>AGENT_ACCOUNT_ID</code> in <code>.env</code> (siehe README). Name und Anschrift selbst einsetzen.</p>
+					<pre><code id="cli-command"></code></pre>
+				</details>
+			</section>
+
+			<footer>
+				<p>
+					<a href="https://github.com/Le-Space/eigenbeleg-agent" rel="noopener noreferrer">Quellcode</a> (AGPL-3.0-or-later) · Daten: NearBlocks.io,
+					Kurse: Kraken · <a href="/">API</a>
+				</p>
+			</footer>
+		</main>
+		<script type="module" src="/src/main.js"></script>
+	</body>
+</html>

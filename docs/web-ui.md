@@ -1,6 +1,6 @@
 # Web UI for the Eigenbeleg API: concept
 
-Status: draft for review (2026-11-06). Testnet only.
+Status: approved with option A (2026-11-06), built in `apps/web`. Testnet only.
 
 ## Goal
 
@@ -130,17 +130,26 @@ chosen network. **Testnet target: Meteor and Intear.** If neither works on
 testnet in practice, the concept's fallback applies: the UI shows the agent
 CLI command, and this document says why.
 
-### A trade-off to decide: NEAR Connect loads wallet code at runtime
+### Decided: NEAR Connect, loaded on click (option A)
 
 NEAR Connect fetches a manifest and each wallet's executor script (GitHub raw,
 `wallet.intear.tech`, …) and runs it in a **sandboxed iframe**. That is remote
 code, against the rule "no remote scripts". The options:
 
-- **A (proposed):** use NEAR Connect, but load it only on the "Wallet
-  verbinden" click (never on page load), pin the manifest to a copy shipped in
-  this repo with only the delegate-capable wallets, and set a CSP whose
-  `frame-src`/`connect-src` lists only those executor origins and NEAR RPC. The
-  page itself still loads no remote script; the wallet's own code runs isolated.
+- **A (chosen):** use NEAR Connect, but load it only on the "Wallet
+  verbinden" click (never on page load), with a manifest copy shipped in this
+  repo (`apps/web/src/wallet-manifest.json`: Meteor and Intear only), so no
+  remote manifest is fetched. The page itself loads no remote script.
+
+  As built, the CSP of `/ui/` is `script-src 'self' 'nonce-…'` with a fresh
+  nonce per response, passed to NEAR Connect (`cspNonce`). The wallet executor
+  runs in a `srcdoc` iframe with `sandbox="allow-scripts"` (opaque origin), and
+  a `srcdoc` iframe inherits the page's CSP. Executors talk to their own
+  backends, so `connect-src` is `'self' https: wss:` rather than a list of
+  origins: a tighter list would break a wallet whenever it changes a backend.
+  The executor URL itself is the wallet's (for Meteor a `latest` file), so the
+  wallet vendor can change that code; this is the trust a user already gives
+  their wallet.
 - **B:** Wallet Selector (`@near-wallet-selector/*`), whose wallet modules are
   bundled at build time. Fewer moving parts at runtime, but it is in
   maintenance, and delegate support per module would have to be checked again.
@@ -161,10 +170,14 @@ code, against the rule "no remote scripts". The options:
 ## Privacy
 
 - Payer name and address go only to `POST /eigenbeleg`, the paid call, and are
-  dropped after the response (as today). The preview never sees them.
-- Nothing is kept in `localStorage` except, optionally, the last chain and
-  network. No analytics, no remote fonts, no third-party requests from the page
-  except NEAR RPC and (after the click) the wallet's sandbox.
+  dropped after the response (as today). The preview refuses a body with `payer`.
+- The page itself stores nothing. After the wallet click, NEAR Connect keeps
+  the chosen wallet in `localStorage` and the executor code in IndexedDB (its
+  own cache). No analytics, no remote fonts, no third-party requests from the
+  page before that click.
+- To show the price, the page asks `POST /eigenbeleg` once with placeholders
+  (`Angebot`) instead of the payer's data; that request stops at the 402. The
+  real name and address go only with the signed payment.
 - Files are made from the response in the browser and never leave it.
 - Logs stay method, path, status, duration.
 
@@ -175,8 +188,11 @@ code, against the rule "no remote scripts". The options:
   path `/eigenbeleg/preview/` → 404), `/ui/` served with the CSP.
 - `apps/web/test`: the request built from the form, the delegate check, the CLI
   command builder (node tests, no browser).
-- A Playwright smoke check (form → preview, `PAYWALL=none`, fixture data, no
-  payment) if it stays cheap; run in CI only if it adds little time.
+- No Playwright: it would add a browser download to CI for one form. Instead
+  the form, the preview, the 402 offer and the wallet dialog (Meteor and Intear
+  listed; the executor loads under the CSP with its nonce) were checked by hand
+  in a browser against the real testnet paywall with recorded chain data.
+- CI builds the UI (`npm run web:build`).
 
 ## Out of scope
 

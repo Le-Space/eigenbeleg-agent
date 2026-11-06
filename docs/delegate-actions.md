@@ -120,7 +120,7 @@ From `@x402/near` (`exact` facilitator), all must hold:
 - **Agent** (`apps/agent/src/payer.js`): `createClientNearSigner` with a local
   key builds and signs the delegate itself. It picks `max_block_height` inside
   the window the 402 gives.
-- **Browser wallet** (planned, [web-ui.md](web-ui.md)): the page asks the wallet
+- **Browser wallet** (`apps/web/src/delegate.js`, [web-ui.md](web-ui.md)): the page asks the wallet
   through NEAR Connect, `wallet.signDelegateActions({ delegateActions: [{
   receiverId: <USDC>, actions: [ft_transfer …] }] })`. The **wallet** picks the
   nonce and `max_block_height` and shows the user what is signed. The page
@@ -129,7 +129,7 @@ From `@x402/near` (`exact` facilitator), all must hold:
 
 Wallets differ in the TTL they choose. Meteor uses 200 blocks, more than the
 120 s window the route allows today, so the browser flow needs a longer window
-(proposed: 300 s, `PAY_TIMEOUT_SECONDS`).
+(now 300 s by default, `PAY_TIMEOUT_SECONDS`).
 
 Wallets that declare `signDelegateActions` in the NEAR Connect manifest
 (checked 2026-11-06): Meteor and Intear (testnet and mainnet), Ledger and

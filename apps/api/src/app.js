@@ -5,11 +5,16 @@
 //   GET  /blocks       the building blocks by chain, for agents
 //   GET  /health
 //   POST /eigenbeleg   the Eigenbeleg, behind the x402 paywall
+//   POST /eigenbeleg/preview  free: positions and total, never the payer
+//   GET  /ui/          the web UI (apps/web/dist), when it is built
 //
 // No storage beyond the request: the body (payer's name and address) lives
 // in memory until the response is sent. Logs carry method, path, status and
 // duration only.
 
+import { randomBytes } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 
 import { checkBlock, describeBlocks } from './blocks.js';
@@ -22,8 +27,17 @@ import { RequestError, parseRequest } from './request.js';
  * @param {Parameters<typeof generate>[1]} [o.deps]
  * @param {(line: string) => void} [o.log]
  * @param {string} [o.source] where the source of this running version is (AGPL-3.0-or-later, section 13)
+ * @param {string | null} [o.web] the built web UI (apps/web/dist); null: no UI
+ * @param {{ max: number, windowMs: number }} [o.previewLimit] free previews per IP
  */
-export function createApp({ paywall, deps = {}, log = (l) => console.log(l), source = 'https://github.com/Le-Space/eigenbeleg-agent' }) {
+export function createApp({
+	paywall,
+	deps = {},
+	log = (l) => console.log(l),
+	source = 'https://github.com/Le-Space/eigenbeleg-agent',
+	web = WEB_DIST,
+	previewLimit = { max: 10, windowMs: 60_000 }
+}) {
 	const app = express();
 	app.disable('x-powered-by');
 	// The paywalls match the exact path: `/eigenbeleg/` or `/EIGENBELEG` must not
@@ -43,6 +57,8 @@ export function createApp({ paywall, deps = {}, log = (l) => console.log(l), sou
 			service: 'eigenbeleg',
 			what: 'Eigenbelege (self-issued proofs of payment, never invoices) for the payments of own blockchain addresses, as PDF/A-2b and CSV',
 			endpoint: 'POST /eigenbeleg',
+			preview: 'POST /eigenbeleg/preview (free; the same body without payer)',
+			ui: hasUi ? '/ui/' : null,
 			payment: paywall.info,
 			request: {
 				chain: 'near',
@@ -62,6 +78,8 @@ export function createApp({ paywall, deps = {}, log = (l) => console.log(l), sou
 			source
 		});
 	});
+	const hasUi = Boolean(web && existsSync(`${web}/index.html`));
+	if (hasUi) mountUi(app, /** @type {string} */ (web));
 	app.get('/blocks', (_req, res) => res.json({ blocks: describeBlocks() }));
 	app.get('/blocks/:chain/check', async (req, res) => res.json(await checkBlock(req.params.chain, deps)));
 	app.get('/health', (_req, res) => res.json({ ok: true, paywall: paywall.info.mode }));
@@ -76,12 +94,45 @@ export function createApp({ paywall, deps = {}, log = (l) => console.log(l), sou
 			else next(e);
 		}
 	};
-	/** @type {import('express').RequestHandler} */
-	const pay = paywall.middleware ?? ((_req, _res, next) => next());
-
 	/** @param {import('express').Response} res @param {unknown} e */
 	const failed = (res, e) =>
 		res.status(502).json({ error: `could not read the chain or the rates: ${String(/** @type {Error} */ (e)?.message ?? e).slice(0, 200)}` });
+
+	// The free preview: same checks and the same reading as the paid route,
+	// but no payer, no files, and a few per minute per IP (it costs the data
+	// sources as much as a paid run).
+	/** @type {Map<string, { n: number, since: number }>} */
+	const previews = new Map();
+	app.post('/eigenbeleg/preview', express.json({ limit: '32kb' }), async (req, res) => {
+		const now = Date.now();
+		for (const [ip, w] of previews) if (now - w.since > previewLimit.windowMs) previews.delete(ip);
+		const key = req.ip ?? '';
+		const w = previews.get(key) ?? { n: 0, since: now };
+		w.n += 1;
+		previews.set(key, w);
+		if (w.n > previewLimit.max) {
+			res.setHeader('Retry-After', String(Math.ceil((w.since + previewLimit.windowMs - now) / 1000)));
+			res.status(429).json({ error: 'too many previews; try again in a minute' });
+			return;
+		}
+		let job;
+		try {
+			job = parseRequest(req.body, { preview: true });
+		} catch (e) {
+			if (e instanceof RequestError) res.status(400).json({ error: e.message });
+			else res.status(500).json({ error: 'internal error' });
+			return;
+		}
+		try {
+			const { summary } = await generate(job, deps, { preview: true });
+			res.json(summary);
+		} catch (e) {
+			failed(res, e);
+		}
+	});
+
+	/** @type {import('express').RequestHandler} */
+	const pay = paywall.middleware ?? ((_req, _res, next) => next());
 
 	// PingPay settles inside its middleware, before the route runs. So for a
 	// request that carries a payment, the work is done first: a run that fails
@@ -139,8 +190,45 @@ export function createApp({ paywall, deps = {}, log = (l) => console.log(l), sou
 	});
 
 	app.use((/** @type {any} */ err, /** @type {any} */ _req, /** @type {any} */ res, /** @type {any} */ _next) => {
-		const status = err?.type === 'entity.too.large' ? 413 : err?.type === 'entity.parse.failed' ? 400 : 500;
-		res.status(status).json({ error: status === 500 ? 'internal error' : String(err.message) });
+		const status = err?.type === 'entity.too.large' ? 413 : err?.type === 'entity.parse.failed' ? 400 : err?.status === 404 ? 404 : 500;
+		res.status(status).json({ error: status === 500 ? 'internal error' : status === 404 ? 'not found' : String(err.message) });
 	});
 	return app;
+}
+
+/** Where `npm run web:build` puts the UI. */
+export const WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
+
+/**
+ * Serves the built UI at /ui/. index.html gets a fresh CSP nonce per response:
+ * the page loads only its own scripts; the nonce lets the wallet's sandboxed
+ * iframe (NEAR Connect, loaded on click) run its executor script. Wallet
+ * executors talk to their own backends, hence connect-src https: wss:.
+ *
+ * @param {import('express').Express} app
+ * @param {string} dir
+ */
+function mountUi(app, dir) {
+	const html = readFileSync(`${dir}/index.html`, 'utf8');
+	app.get('/ui', (_req, res) => res.redirect(301, '/ui/'));
+	app.get('/ui/', (_req, res) => {
+		const nonce = randomBytes(16).toString('base64');
+		res.setHeader(
+			'Content-Security-Policy',
+			[
+				"default-src 'self'",
+				`script-src 'self' 'nonce-${nonce}'`,
+				"style-src 'self' 'unsafe-inline'",
+				"img-src 'self' data: https:",
+				"connect-src 'self' https: wss:",
+				"frame-src 'self' https:",
+				"base-uri 'none'",
+				"form-action 'self'",
+				"frame-ancestors 'none'"
+			].join('; ')
+		);
+		res.setHeader('Referrer-Policy', 'no-referrer');
+		res.type('html').send(html.replaceAll('__CSP_NONCE__', nonce));
+	});
+	app.use('/ui/assets', express.static(`${dir}/assets`, { index: false, fallthrough: false, immutable: true, maxAge: '1y' }));
 }

@@ -11,6 +11,8 @@
     "api": "node apps/api/src/server.js",
     "agent": "node apps/agent/src/cli.js",
     "agent:market": "node apps/agent/src/cli.js --market",
-    "demo": "node apps/agent/src/demo.js"
+    "demo": "node apps/agent/src/demo.js",
+    "web:build": "npm run build -w @eigenbeleg/web",
+    "web:dev": "npm run dev -w @eigenbeleg/web"
   }
 }

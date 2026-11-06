@@ -173,3 +173,91 @@ test('GET / names the licence and where the running source is (AGPL section 13)'
 		close();
 	}
 });
+
+const preview = (base, body, path = '/eigenbeleg/preview') =>
+	globalThis.fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
+test('the free preview: the summary without the payer, the same checks, a limit per IP', async () => {
+	const lines = [];
+	let reads = 0;
+	const counting = { ...deps, fetch: async (/** @type {string} */ u) => (reads++, deps.fetch(u)) };
+	const app = createApp({ paywall: { middleware: null, info: { mode: 'near' } }, deps: counting, log: (l) => lines.push(l), web: null, previewLimit: { max: 3, windowMs: 60_000 } });
+	const { base, close } = await serve(app);
+	const { payer: _payer, ...body } = job;
+	try {
+		const r = await preview(base, body);
+		assert.equal(r.status, 200);
+		const s = await r.json();
+		assert.equal(s.number, 'EB-2026-042');
+		assert.equal(s.positions, raw.txns.length);
+		assert.equal(typeof s.totalEur, 'string');
+		assert.equal(s.pdf, undefined);
+		assert.doesNotMatch(JSON.stringify(s), /preview|Wolkenfabrik/);
+		for (const [k, v] of r.headers) assert.doesNotMatch(`${k}: ${v}`, /totalEur|positions|EB-2026/i, k);
+
+		const before = reads;
+		// The payer's name and address never go to the free route.
+		assert.equal((await preview(base, job)).status, 400);
+		assert.equal((await preview(base, { ...body, chain: 'dogecoin' })).status, 400);
+		assert.equal(reads, before, 'nothing is read for a refused body');
+		assert.equal((await preview(base, body)).status, 429, 'the fourth preview in a minute');
+
+		for (const path of ['/eigenbeleg/preview/', '/eigenbeleg/Preview']) assert.equal((await preview(base, body, path)).status, 404, path);
+		assert.ok(lines.every((l) => !/Wolkenfabrik|Musterstraße|relay\.aurora/.test(l)));
+	} finally {
+		close();
+	}
+});
+
+test('the preview is free behind the paywall; the payment window fits browser wallets', async () => {
+	const facilitator = {
+		verify: async () => ({ isValid: true }),
+		settle: async () => ({ success: true, transaction: 'T', network: 'near:testnet' }),
+		getSupported: async () => ({ kinds: [{ x402Version: 2, scheme: 'exact', network: 'near:testnet' }], extensions: [], signers: {} })
+	};
+	const server = new x402ResourceServer(/** @type {any} */ (facilitator)).register('near:testnet', new ExactNearScheme());
+	const middleware = paymentMiddleware(/** @type {any} */ ({ 'POST /eigenbeleg': { accepts: [{ scheme: 'exact', price: '$0.10', network: 'near:testnet', payTo: 'eigenbeleg.testnet' }] } }), server);
+	const { base, close } = await serve(createApp({ paywall: { middleware, info: { mode: 'near' } }, deps, log: () => {}, web: null }));
+	const { payer: _payer, ...body } = job;
+	try {
+		assert.equal((await preview(base, body)).status, 200);
+		assert.equal((await post(base, job)).status, 402);
+	} finally {
+		close();
+	}
+	// Meteor signs with 200 blocks ahead; the route must accept that (1 block ≈ 1 s).
+	const src = await readFile(new URL('../src/paywall.js', import.meta.url), 'utf8');
+	assert.match(src, /maxTimeoutSeconds: c\.timeoutSeconds \?\? 300/);
+});
+
+test('GET /ui/ serves the built UI with a CSP and a fresh nonce; no UI, no route', async () => {
+	const { mkdtemp, writeFile, mkdir } = await import('node:fs/promises');
+	const { tmpdir } = await import('node:os');
+	const dir = await mkdtemp(`${tmpdir()}/eb-web-`);
+	await mkdir(`${dir}/assets`);
+	await writeFile(`${dir}/index.html`, '<meta name="csp-nonce" content="__CSP_NONCE__"><script type="module" src="/ui/assets/app.js"></script>');
+	await writeFile(`${dir}/assets/app.js`, 'export {};');
+	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {}, web: dir }));
+	try {
+		const a = await globalThis.fetch(base + '/ui/');
+		const b = await globalThis.fetch(base + '/ui/');
+		assert.equal(a.status, 200);
+		const csp = a.headers.get('content-security-policy') ?? '';
+		assert.match(csp, /default-src 'self'/);
+		assert.match(csp, /frame-ancestors 'none'/);
+		const nonce = /'nonce-([^']+)'/.exec(csp)?.[1];
+		assert.ok(nonce && (await a.text()).includes(`content="${nonce}"`));
+		assert.notEqual(nonce, /'nonce-([^']+)'/.exec(b.headers.get('content-security-policy') ?? '')?.[1]);
+		assert.equal((await globalThis.fetch(base + '/ui/assets/app.js')).status, 200);
+		assert.equal((await globalThis.fetch(base + '/ui/assets/nope.js')).status, 404);
+		assert.equal((await (await globalThis.fetch(base + '/')).json()).ui, '/ui/');
+	} finally {
+		close();
+	}
+	const none = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {}, web: null }));
+	try {
+		assert.equal((await globalThis.fetch(none.base + '/ui/')).status, 404);
+	} finally {
+		none.close();
+	}
+});

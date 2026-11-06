@@ -11,8 +11,9 @@ import { BLOCKS } from './blocks.js';
 /**
  * @param {ReturnType<typeof import('./request.js').parseRequest>} req
  * @param {{ fetch?: typeof fetch, rates?: { rateFor: Function }, nearblocksKey?: string, now?: () => Date, probeDay?: string }} [deps]
+ * @param {{ preview?: boolean }} [opts] preview: the summary only, no files
  */
-export async function generate(req, deps = {}) {
+export async function generate(req, deps = {}, { preview = false } = {}) {
 	const block = BLOCKS[req.chain];
 	const wantBelege = req.document !== 'kontoauszug';
 	const wantStatement = req.document !== 'eigenbelege';
@@ -68,6 +69,7 @@ export async function generate(req, deps = {}) {
 			assets: s.sections.map((x) => ({ asset: x.asset, opening: x.opening, closing: x.closing, reconciled: x.difference === null ? null : /^-?0(\.0+)?$/.test(x.difference) }))
 		}))
 	};
+	if (preview) return { summary, pdf: null, statements: [], csv: null };
 	const pdf = req.format !== 'csv' && wantBelege ? await eigenbelegPdf(doc) : null;
 	const statementPdfs = [];
 	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s) });

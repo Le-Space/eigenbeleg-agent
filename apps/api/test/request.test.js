@@ -26,3 +26,11 @@ test('addresses are trimmed and read once', () => {
 	assert.deepEqual(r.payer.addresses, ['relay.aurora']);
 	refused({ addresses: [{ toString: () => 'relay.aurora' }] });
 });
+
+test('the preview mode takes no payer and needs none', () => {
+	const body = { chain: 'near', network: 'testnet', addresses: ['own.testnet'], period: { from: '2026-10-01', to: '2026-10-31' } };
+	const job = parseRequest(body, { preview: true });
+	assert.equal(job.format, 'json');
+	assert.throws(() => parseRequest({ ...body, payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1' } }, { preview: true }), RequestError);
+	assert.throws(() => parseRequest(body), RequestError, 'the paid route still needs the payer');
+});

@@ -35,6 +35,7 @@ function values() {
 		name: s('name'),
 		postal: s('postal'),
 		number: s('number'),
+		statementNumber: s('statementNumber'),
 		includeKinds: fd.getAll('includeKinds').map(String)
 	};
 }
@@ -123,18 +124,31 @@ async function onPreview(e) {
 	}
 }
 
+/** @param {unknown} v */
+const eur = (v) => {
+	const n = Number(v);
+	return Number.isFinite(n) ? n.toLocaleString('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 4 }) : String(v);
+};
+
 /** @param {any} s */
 function showSummary(s) {
-	const eur = Number(s.totalEur);
 	const rows = [
-		['Belegnummer', s.number],
+		['Eigenbelege', `${s.eigenbelege?.length ?? s.transactions ?? '?'} (${s.number})`],
 		['Blockchain', `${s.chain} (${s.network})`],
 		['Zeitraum', `${s.period.from} bis ${s.period.to}`],
 		['Positionen', String(s.positions)],
-		['Nicht auf dem Beleg (andere Arten)', String(s.notOnIt)],
-		['Summe', Number.isFinite(eur) ? eur.toLocaleString('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 4 }) : String(s.totalEur)],
+		['Nicht auf den Belegen (andere Arten)', String(s.notOnIt)],
+		['Summe', eur(s.totalEur)],
 		...Object.entries(s.quantities ?? {}).map(([asset, q]) => [`Menge ${asset}`, String(q)])
 	];
+	for (const k of s.kontoauszuege ?? []) {
+		const how = k.method === 'archive' ? 'mit der Chain abgeglichen' : 'vom heutigen Saldo abgeleitet';
+		rows.push([`Kontoauszug ${k.number}`, `${k.account} (${how})`]);
+		for (const a of k.assets ?? []) {
+			const ok = a.reconciled === true ? ' ✓' : a.reconciled === false ? ' (Abweichung)' : '';
+			rows.push([`  ${a.asset}`, `${a.opening} → ${a.closing}${ok}`]);
+		}
+	}
 	$('summary').replaceChildren(
 		...rows.flatMap(([k, v]) => {
 			const dt = document.createElement('dt');
@@ -250,17 +264,35 @@ async function onPay() {
 	}
 }
 
+/** @type {string[]} */
+let blobUrls = [];
+
+/** @param {string} label @param {BlobPart} data @param {string} type @param {string} name */
+function download(label, data, type, name) {
+	const a = document.createElement('a');
+	a.className = 'button';
+	a.href = URL.createObjectURL(new Blob([data], { type }));
+	a.download = name;
+	a.textContent = label;
+	blobUrls.push(a.href);
+	return a;
+}
+
+/** @param {string} b64 */
+const bytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+/** @param {unknown} n */
+const fileName = (n) => String(n).replace(/[^A-Za-z0-9._-]/g, '_');
+
 /** @param {any} out @param {any} settlement */
 function showResult(out, settlement) {
-	const file = String(out.number).replace(/[^A-Za-z0-9._-]/g, '_');
-	const pdf = Uint8Array.from(atob(out.pdf), (c) => c.charCodeAt(0));
-	const pdfA = /** @type {HTMLAnchorElement} */ ($('dl-pdf'));
-	const csvA = /** @type {HTMLAnchorElement} */ ($('dl-csv'));
-	for (const a of [pdfA, csvA]) if (a.href.startsWith('blob:')) URL.revokeObjectURL(a.href);
-	pdfA.href = URL.createObjectURL(new Blob([pdf], { type: 'application/pdf' }));
-	pdfA.download = `${file}.pdf`;
-	csvA.href = URL.createObjectURL(new Blob([out.csv], { type: 'text/csv;charset=utf-8' }));
-	csvA.download = `${file}.csv`;
+	for (const u of blobUrls) URL.revokeObjectURL(u);
+	blobUrls = [];
+	const first = fileName(out.eigenbelege?.[0] ?? out.number);
+	const links = [download(`Eigenbelege (PDF/A, ${out.eigenbelege?.length ?? 1})`, bytes(out.pdf), 'application/pdf', `${first}.pdf`)];
+	for (const k of out.kontoauszuegePdf ?? [])
+		links.push(download(`Kontoauszug ${k.account} (PDF/A)`, bytes(k.pdf), 'application/pdf', `${fileName(k.number)}.pdf`));
+	links.push(download('Alle Bewegungen (CSV)', out.csv, 'text/csv;charset=utf-8', `${first}.csv`));
+	$('downloads').replaceChildren(...links);
 	const tx = /** @type {HTMLAnchorElement} */ ($('tx-link'));
 	const url = settlement?.transaction ? explorerUrl(settlement.network, settlement.transaction) : null;
 	if (url) {
@@ -270,7 +302,7 @@ function showResult(out, settlement) {
 		tx.removeAttribute('href');
 		tx.textContent = settlement?.transaction ?? 'ohne Zahlung (Entwicklungsmodus)';
 	}
-	status(`Fertig: ${out.number}, ${out.positions} Positionen.`);
+	status(`Fertig: ${out.number}, ${out.positions} Positionen, ${(out.kontoauszuegePdf ?? []).length} Kontoauszug/-auszüge.`);
 	$('result').hidden = false;
 }
 

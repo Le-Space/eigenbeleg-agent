@@ -22,6 +22,7 @@ const form = {
 	name: ' Wolkenfabrik Hosting GmbH ',
 	postal: 'Musterstraße 1\n12345 Beispielstadt',
 	number: 'EB-2026-007',
+	statementNumber: 'KA-2026-10',
 	includeKinds: ['fee', 'storage']
 };
 
@@ -45,6 +46,9 @@ test('the CLI command is the same request, quoted, with placeholders for the pay
 	assert.match(c, /^npm run agent -- --api http:\/\/127\.0\.0\.1:4402 --chain near --network testnet --address wolkenfabrik\.testnet --address lager\.testnet --month 2026-10 /);
 	assert.match(c, /--number 'EB'\\''1'/);
 	assert.match(c, /--include fee,storage/);
+	assert.match(c, /--statement KA-2026-10/);
+	assert.equal(previewBody(form).statementNumber, 'KA-2026-10');
+	assert.equal('statementNumber' in previewBody({ ...form, statementNumber: ' ' }), false);
 	assert.doesNotMatch(c, /Wolkenfabrik Hosting|Musterstraße/);
 	assert.match(c, /--name '<Name des Zahlers>'/);
 });

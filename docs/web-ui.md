@@ -24,9 +24,12 @@ rules as for agents. No account, no storage, no tracking.
    Validation in the browser mirrors `apps/api/src/request.js`, but the server
    is the authority: its 400 message is shown next to the form.
 2. **Preview.** "Vorschau" sends the form **without payer name and address** to
-   a new free route `POST /eigenbeleg/preview`. It shows: number of positions,
+   a new free route `POST /eigenbeleg/preview`. It shows: the Eigenbeleg
+   numbers (one per transaction, counting up from the given one), number of positions,
    positions not on it (other kinds), the EUR total, the quantities per asset,
-   and the period actually used (a period reaching today ends yesterday). If
+   the period actually used (a period reaching today ends yesterday), and per
+   address the Kontoauszug's opening and closing balance and whether it is
+   reconciled with the chain. If
    there are zero positions, the UI says so and does not offer to pay.
 3. **Connect wallet.** Only after the preview, on an explicit click. Lists the
    wallets that can sign a delegate action on the chosen network (see below).
@@ -37,7 +40,9 @@ rules as for agents. No account, no storage, no tracking.
    gets `402` with `PAYMENT-REQUIRED`, shows amount, asset, recipient and
    network, and asks the wallet to sign one `ft_transfer`. It retries with
    `PAYMENT-SIGNATURE`. The API verifies, generates, settles, answers `200`.
-5. **Download.** Two buttons: `EB-….pdf` and `EB-….csv` (Blob URLs made in
+5. **Download.** One button per document: the Eigenbelege (one PDF/A, a
+   page per transaction), a Kontoauszug PDF/A per own address, and the CSV
+   of all movements (Blob URLs made in
    the browser from the JSON response; nothing is uploaded anywhere). The NEAR
    transaction hash from `PAYMENT-RESPONSE` is shown as a link to the testnet
    explorer. The page reminds the payer to sign the PDF.

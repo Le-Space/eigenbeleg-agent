@@ -180,7 +180,7 @@ const preview = (base, body, path = '/eigenbeleg/preview') =>
 test('the free preview: the summary without the payer, the same checks, a limit per IP', async () => {
 	const lines = [];
 	let reads = 0;
-	const counting = { ...deps, fetch: async (/** @type {string} */ u) => (reads++, deps.fetch(u)) };
+	const counting = { ...deps, fetch: async (/** @type {string} */ u, /** @type {any} */ init) => (reads++, deps.fetch(u, init)) };
 	const app = createApp({ paywall: { middleware: null, info: { mode: 'near' } }, deps: counting, log: (l) => lines.push(l), web: null, previewLimit: { max: 3, windowMs: 60_000 } });
 	const { base, close } = await serve(app);
 	const { payer: _payer, ...body } = job;
@@ -188,9 +188,12 @@ test('the free preview: the summary without the payer, the same checks, a limit 
 		const r = await preview(base, body);
 		assert.equal(r.status, 200);
 		const s = await r.json();
-		assert.equal(s.number, 'EB-2026-042');
+		assert.equal(s.number, 'EB-2026-042 – EB-2026-066');
+		assert.equal(s.eigenbelege.length, 25);
 		assert.equal(s.positions, raw.txns.length);
 		assert.equal(typeof s.totalEur, 'string');
+		assert.equal(s.kontoauszuege.length, 1, 'the preview shows the Kontoauszug balances too');
+		assert.equal(s.kontoauszuege[0].account, 'relay.aurora');
 		assert.equal(s.pdf, undefined);
 		assert.doesNotMatch(JSON.stringify(s), /preview|Wolkenfabrik/);
 		for (const [k, v] of r.headers) assert.doesNotMatch(`${k}: ${v}`, /totalEur|positions|EB-2026/i, k);

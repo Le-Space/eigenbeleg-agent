@@ -15,7 +15,8 @@
  * @property {string} to YYYY-MM-DD
  * @property {string} name
  * @property {string} postal
- * @property {string} number
+ * @property {string} number first Eigenbeleg number; the others count up from it
+ * @property {string} statementNumber Kontoauszug number (default KA-<from>)
  * @property {string[]} includeKinds
  */
 
@@ -36,6 +37,7 @@ export function previewBody(f) {
 		addresses: splitAddresses(f.addresses),
 		period: f.periodMode === 'month' ? { month: f.month } : { from: f.from, to: f.to },
 		...(f.number.trim() ? { number: f.number.trim() } : {}),
+		...(f.statementNumber.trim() ? { statementNumber: f.statementNumber.trim() } : {}),
 		includeKinds: [...f.includeKinds]
 	};
 }
@@ -71,6 +73,7 @@ export function cliCommand(f, api) {
 	if ('month' in b.period) parts.push('--month', sh(b.period.month));
 	else parts.push('--from', sh(b.period.from), '--to', sh(b.period.to));
 	if (b.number) parts.push('--number', sh(b.number));
+	if (b.statementNumber) parts.push('--statement', sh(b.statementNumber));
 	parts.push('--include', sh(b.includeKinds.join(',')));
 	parts.push('--name', sh('<Name des Zahlers>'), '--postal', sh('<Straße Nr., PLZ Ort>'));
 	return parts.join(' ');

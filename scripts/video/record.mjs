@@ -81,7 +81,7 @@ async function realRun() {
 	api.stdout.on('data', (d) => (apiLine ||= String(d).split('\n')[0]));
 	try {
 		for (let i = 0; i < 40 && !(await fetch('http://127.0.0.1:4402/health').then((r) => r.ok, () => false)); i++) await sleep(250);
-		const agentArgs = ['--network', 'testnet', '--address', v.account, '--from', v.day, '--to', v.day, '--name', PAYER.name, '--postal', PAYER.postal, '--out', 'out/video/run'];
+		const agentArgs = ['--document', 'beide', '--network', 'testnet', '--address', v.account, '--from', v.day, '--to', v.day, '--name', PAYER.name, '--postal', PAYER.postal, '--out', 'out/video/run'];
 		const paid = await capture('node', ['apps/agent/src/cli.js', ...agentArgs]);
 		const solana = await capture('node', ['apps/agent/src/cli.js', '--chain', 'solana', '--address', 'ExampleSolanaAddress1111111111111111111111', '--month', v.day.slice(0, 7), '--name', PAYER.name, '--postal', PAYER.postal, '--out', 'out/video/run']);
 		await writeFile(join(RUN, 'transcript.json'), JSON.stringify({ apiLine: apiLine.replace(/^> .*$/, ''), paid, solana, agentArgs }, null, 2));

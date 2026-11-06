@@ -50,7 +50,7 @@ export function createApp({ paywall, deps = {}, log = (l) => console.log(l), sou
 				addresses: ['own-account.near'],
 				period: { month: 'YYYY-MM' },
 				format: 'pdf | csv | json (all files, PDFs base64)',
-				document: 'eigenbelege (one per transaction) | kontoauszug (one account) – for format pdf',
+				document: 'eigenbelege (default; one per transaction) | kontoauszug (per address) | beide (format json only)',
 				payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' },
 				number: 'EB-2026-001 (optional, from your own range)',
 				includeKinds: ['fee', 'storage']
@@ -131,8 +131,8 @@ export function createApp({ paywall, deps = {}, log = (l) => console.log(l), sou
 		} else {
 			res.json({
 				...out.summary,
-				pdf: Buffer.from(/** @type {Uint8Array} */ (out.pdf)).toString('base64'),
-				kontoauszuegePdf: out.statements.map((s) => ({ account: s.account, number: s.number, pdf: Buffer.from(s.pdf).toString('base64') })),
+				...(out.pdf ? { pdf: Buffer.from(out.pdf).toString('base64') } : {}),
+				...(out.statements.length ? { kontoauszuegePdf: out.statements.map((s) => ({ account: s.account, number: s.number, pdf: Buffer.from(s.pdf).toString('base64') })) } : {}),
 				csv: out.csv
 			});
 		}

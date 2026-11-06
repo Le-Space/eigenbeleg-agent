@@ -39,6 +39,7 @@ const { values: v } = parseArgs({
 		postal: { type: 'string' },
 		number: { type: 'string' },
 		include: { type: 'string' },
+		document: { type: 'string' },
 		api: { type: 'string' },
 		out: { type: 'string' }
 	}
@@ -53,7 +54,8 @@ const job = v.market ? null : v.job
 			period: v.month ? { month: v.month } : { from: v.from, to: v.to },
 			payer: { name: v.name ?? '', address: (v.postal ?? '').replace(/,\s*/g, '\n') },
 			...(v.number ? { number: v.number } : {}),
-			...(v.include ? { includeKinds: v.include.split(',') } : {})
+			...(v.include ? { includeKinds: v.include.split(',') } : {}),
+			...(v.document ? { document: v.document } : {})
 		};
 
 const env = process.env;

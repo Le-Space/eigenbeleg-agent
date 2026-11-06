@@ -28,7 +28,7 @@ test('a job on a chain with a current block: files, checks and a receipt', async
 	const outDir = await mkdtemp(join(tmpdir(), 'eb-agent-'));
 	const lines = [];
 	const r = await withApi((api) =>
-		runJob({ api, fetch, paidFetch: fetch, outDir, say: (l) => lines.push(l), job: { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' }, payer, number: 'EB-2026-009' } })
+		runJob({ api, fetch, paidFetch: fetch, outDir, say: (l) => lines.push(l), job: { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' }, payer, number: 'EB-2026-009', document: 'beide' } })
 	);
 	assert.equal(r.status, 'delivered');
 	assert.deepEqual(await readdir(outDir).then((f) => f.sort()), ['EB-2026-009.csv', 'EB-2026-009.pdf', 'EB-2026-009.receipt.json', 'KA-2026-11-01.pdf']);

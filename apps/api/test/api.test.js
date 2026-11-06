@@ -44,7 +44,12 @@ test('without a paywall: PDF, CSV and JSON; bad requests are 400 before anything
 		const csv = await post(base, { ...job, format: 'csv' });
 		assert.match(Buffer.from(await csv.arrayBuffer()).toString('utf8'), /^\uFEFFBelegnummer;/);
 
-		const both = await (await post(base, { ...job, format: 'json' })).json();
+		const only = await (await post(base, { ...job, format: 'json' })).json();
+		assert.ok(only.pdf && !only.kontoauszuegePdf, 'Eigenbelege only, unless both are asked for');
+		const kaOnly = await (await post(base, { ...job, format: 'json', document: 'kontoauszug' })).json();
+		assert.ok(!kaOnly.pdf && kaOnly.kontoauszuegePdf.length === 1);
+		assert.equal((await post(base, { ...job, document: 'beide' })).status, 400, 'a PDF is one document');
+		const both = await (await post(base, { ...job, format: 'json', document: 'beide' })).json();
 		assert.equal(both.eigenbelege[0], 'EB-2026-042');
 		assert.equal(both.eigenbelege.length, raw.txns.length);
 		assert.equal(both.kontoauszuegePdf.length, 1);

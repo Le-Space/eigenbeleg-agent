@@ -14,7 +14,8 @@ import { BLOCKS } from './blocks.js';
  */
 export async function generate(req, deps = {}) {
 	const block = BLOCKS[req.chain];
-	const wantStatement = req.format === 'json' || (req.format === 'pdf' && req.document === 'kontoauszug');
+	const wantBelege = req.document !== 'kontoauszug';
+	const wantStatement = req.document !== 'eigenbelege';
 	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey };
 	/** @type {import('@eigenbeleg/ledger-core').LedgerEntry[]} */
 	const entries = [];
@@ -67,9 +68,9 @@ export async function generate(req, deps = {}) {
 			assets: s.sections.map((x) => ({ asset: x.asset, opening: x.opening, closing: x.closing, reconciled: x.difference === null ? null : /^-?0(\.0+)?$/.test(x.difference) }))
 		}))
 	};
-	const pdf = req.format === 'json' || (req.format === 'pdf' && req.document === 'eigenbelege') ? await eigenbelegPdf(doc) : null;
+	const pdf = req.format !== 'csv' && wantBelege ? await eigenbelegPdf(doc) : null;
 	const statementPdfs = [];
-	for (const s of statements) if (req.format === 'json' || req.document === 'kontoauszug') statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s) });
+	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s) });
 	const csv = req.format === 'pdf' ? null : eigenbelegCsv(doc);
 	return { summary, pdf, statements: statementPdfs, csv };
 }

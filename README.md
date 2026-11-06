@@ -34,7 +34,7 @@ npm run demo
 What you should see:
 
 1. `npm test`: about 35 tests pass (the booking format, the NEAR, Akash and Filecoin readers, rates, the PDF/CSV, the API with its x402 paywall, the agent).
-2. `npm run demo`: the agent runs two jobs against the API in the same process, without a paywall (the API says so on every response). The NEAR data comes from a recorded fixture of a **public** account, Aurora's relayer on 1 Nov 2026, which pays only network fees, so the demo works offline.
+2. `npm run demo`: the agent runs two jobs against the API in the same process (the first asks for both documents, `document: beide`), without a paywall (the API says so on every response). The NEAR data comes from a recorded fixture of a **public** account, Aurora's relayer on 1 Nov 2026, which pays only network fees, so the demo works offline.
    - **Job 1** ends with `Got 25 Eigenbeleg(e) EB-2026-001 – EB-2026-025 … check passed.` and `Kontoauszug: KA-2026-11-01 (NEAR 25 → 24.98…, reconciled)`. Open:
      - `out/demo/EB-2026-001.pdf`: 25 Eigenbelege, one page per transaction (a network fee each), with hash, Von/An, movements, QR code, amount and a signature line;
      - `out/demo/KA-2026-11-01.pdf`: the Kontoauszug of the day, with opening balance, 25 bookings with running balance, closing balance and the check against the chain (in the demo a recorded archival node answers);
@@ -82,7 +82,7 @@ You need two testnet accounts: one for the API (receives USDC, relays) and one f
    npm run api
    ```
    ```bash
-   npm run agent -- --network testnet --address my-eigenbeleg-agent.testnet --month 2026-11 --name "Wolkenfabrik Hosting GmbH" --postal "Musterstraße 1, 12345 Beispielstadt"
+   npm run agent -- --network testnet --address my-eigenbeleg-agent.testnet --month 2026-11 --name "Wolkenfabrik Hosting GmbH" --postal "Musterstraße 1, 12345 Beispielstadt" --document beide
    ```
    You should see the 402 with the price, `Signing the transfer (gasless)`, then `Got … Eigenbeleg(e)`, `Kontoauszug: … reconciled` and `Paid: https://testnet.nearblocks.io/txns/…`. In `out/` are the Eigenbelege, the Kontoauszug, the CSV and a receipt with the NEAR transaction of the payment.
 
@@ -143,7 +143,7 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
   "network": "testnet",
   "addresses": ["my-eigenbeleg-agent.testnet"],
   "period": { "month": "2026-11" },
-  "format": "json",
+  "format": "pdf",
   "document": "eigenbelege",
   "payer": { "name": "Wolkenfabrik Hosting GmbH", "address": "Musterstraße 1\n12345 Beispielstadt" },
   "number": "EB-2026-007",
@@ -152,12 +152,12 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 }
 ```
 
-`format`: `json` gives everything – the Eigenbelege (`pdf`, base64), one Kontoauszug per address (`kontoauszuegePdf`), the CSV, and a summary with the Eigenbeleg numbers, totals and each statement's balances and whether they reconciled. `pdf` gives one document: `document: eigenbelege` (one page per transaction) or `document: kontoauszug` (one address). `csv` gives the CSV. `period` is `{ month }` or `{ from, to }`, at most 92 days, finished days only (a period reaching today ends yesterday). The request is checked **before** a price is named: a wrong chain, address or period gets a `400`, not a `402`.
+`document` says what you get, and you get only that: `eigenbelege` (the default; one page per transaction), `kontoauszug` (one per address), or `beide` when you ask for both. `format`: `pdf` gives one document as the file (a Kontoauszug as PDF for one address); `json` gives what `document` names – the Eigenbelege as `pdf` (base64), the statements as `kontoauszuegePdf` – plus the CSV and a summary (Eigenbeleg numbers, totals, each statement's balances and whether they reconciled); `csv` gives the CSV. `period` is `{ month }` or `{ from, to }`, at most 92 days, finished days only (a period reaching today ends yesterday). The request is checked **before** a price is named: a wrong chain, address or period gets a `400`, not a `402`.
 
 ## The agent
 
 ```bash
-npm run agent -- --chain near --network mainnet --address some-account.near --month 2026-10 --name "…" --postal "…"
+npm run agent -- --chain near --network mainnet --address some-account.near --month 2026-10 --name "…" --postal "…" --document beide
 ```
 
 The agent works in five steps:

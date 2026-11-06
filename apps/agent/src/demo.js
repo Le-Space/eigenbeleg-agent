@@ -38,7 +38,9 @@ await runJob({
 		addresses: ['relay.aurora'],
 		period: { from: '2026-11-01', to: '2026-11-01' },
 		payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' },
-		number: 'EB-2026-001'
+		number: 'EB-2026-001',
+		// both documents, asked for: the API delivers only what is asked
+		document: 'beide'
 	}
 });
 

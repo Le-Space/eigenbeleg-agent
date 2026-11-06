@@ -27,6 +27,7 @@ import { proposeBlock } from './propose.js';
  * @property {{ name: string, address: string }} payer
  * @property {string} [number]
  * @property {string[]} [includeKinds]
+ * @property {'eigenbelege' | 'kontoauszug' | 'beide'} [document] what to buy; Eigenbelege when not said
  */
 
 /**
@@ -79,12 +80,12 @@ export async function runJob({ job, api, fetch, paidFetch, outDir, say = console
 	// 3. check the work
 	const isPdfA = (/** @type {Buffer} */ b) => b.subarray(0, 8).toString() === '%PDF-1.7' && b.includes('<pdfaid:part>2</pdfaid:part>');
 	const safe = (/** @type {string} */ n) => n.replace(/[^A-Za-z0-9._-]/g, '_');
-	const pdf = Buffer.from(body.pdf, 'base64');
+	const pdf = body.pdf ? Buffer.from(body.pdf, 'base64') : null;
 	const statements = (body.kontoauszuegePdf ?? []).map((/** @type {any} */ s) => ({ ...s, bytes: Buffer.from(s.pdf, 'base64') }));
 	const csvLines = String(body.csv).trim().split('\r\n');
 	const positionLines = csvLines.filter((l) => /^[^;]+;\d+;/.test(l)).length;
 	const checks = {
-		eigenbelegeArePdfA: isPdfA(pdf),
+		eigenbelegeArePdfA: pdf === null || isPdfA(pdf),
 		kontoauszuegeArePdfA: statements.every((/** @type {any} */ s) => isPdfA(s.bytes)),
 		csvHasEveryPosition: positionLines === body.positions,
 		everyEigenbelegInCsv: (body.eigenbelege ?? []).every((/** @type {string} */ n) => String(body.csv).includes(n)),
@@ -93,17 +94,17 @@ export async function runJob({ job, api, fetch, paidFetch, outDir, say = console
 	};
 	const passed = Object.values(checks).every(Boolean);
 	const base = safe(body.eigenbelege?.[0] ?? body.number);
-	const files = [`${base}.pdf`, `${base}.csv`, ...statements.map((/** @type {any} */ s) => `${safe(s.number)}.pdf`)];
-	await writeFile(join(outDir, files[0]), pdf);
-	await writeFile(join(outDir, files[1]), body.csv);
+	const files = [...(pdf ? [`${base}.pdf`] : []), `${base}.csv`, ...statements.map((/** @type {any} */ s) => `${safe(s.number)}.pdf`)];
+	if (pdf) await writeFile(join(outDir, `${base}.pdf`), pdf);
+	await writeFile(join(outDir, `${base}.csv`), body.csv);
 	for (const s of statements) await writeFile(join(outDir, `${safe(s.number)}.pdf`), s.bytes);
 
 	// 4. the receipt
 	const payment = lastPayment().payment;
 	const receipt = {
-		task: `Eigenbelege ${body.number} and Kontoauszug`,
+		task: [pdf && `Eigenbelege ${body.number}`, statements.length && `Kontoauszug ${statements.map((/** @type {any} */ s) => s.number).join(', ')}`].filter(Boolean).join(' and '),
 		boughtFrom: api,
-		what: 'Eigenbelege (one per transaction), Kontoauszug per account (PDF/A-2b), CSV',
+		what: [pdf && 'Eigenbelege (one per transaction, PDF/A-2b)', statements.length && 'Kontoauszug per account (PDF/A-2b)', 'CSV'].filter(Boolean).join(', '),
 		price: payment ? { amount: payment.amount, asset: payment.asset, network: payment.network, payTo: payment.payTo } : paywall ? { note: paywall } : null,
 		transaction: settlement?.transaction ?? null,
 		explorer: settlement?.transaction && settlement.network ? explorerUrl(settlement.network, settlement.transaction) : null,
@@ -115,8 +116,9 @@ export async function runJob({ job, api, fetch, paidFetch, outDir, say = console
 	};
 	await writeFile(join(outDir, `${base}.receipt.json`), JSON.stringify(receipt, null, 2) + '\n');
 	const ka = (body.kontoauszuege ?? []).map((/** @type {any} */ k) => `${k.number} (${k.assets.map((/** @type {any} */ a) => `${a.asset} ${a.opening} → ${a.closing}${a.reconciled ? ', reconciled' : a.reconciled === false ? ', NOT reconciled' : ''}`).join('; ')})`);
-	say(`Got ${(body.eigenbelege ?? []).length} Eigenbeleg(e) ${body.number}: ${body.positions} payments, ${body.totalEur} EUR; check ${passed ? 'passed' : 'FAILED'}.`);
-	if (ka.length) say(`Kontoauszug: ${ka.join('; ')}`);
+	if (pdf) say(`Got ${(body.eigenbelege ?? []).length} Eigenbeleg(e) ${body.number}: ${body.positions} payments, ${body.totalEur} EUR.`);
+	if (ka.length) say(`Got Kontoauszug ${ka.join('; ')}.`);
+	say(`Check ${passed ? 'passed' : 'FAILED'}.`);
 	if (receipt.transaction) say(`Paid: ${receipt.explorer ?? receipt.transaction}`);
 	say(`Files: ${files.map((f) => join(outDir, f)).join(', ')} (+ receipt)`);
 	return { status: passed ? 'delivered' : 'check-failed', receipt };

@@ -10,7 +10,7 @@ import { BLOCKS } from './blocks.js';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const NUMBER = /^[A-Za-z0-9][A-Za-z0-9._\/-]{0,39}$/;
 const FORMATS = new Set(['pdf', 'csv', 'json']);
-const DOCUMENTS = new Set(['eigenbelege', 'kontoauszug']);
+const DOCUMENTS = new Set(['eigenbelege', 'kontoauszug', 'beide']);
 const KINDS = new Set(['fee', 'storage', 'transfer', 'call']);
 const MAX_DAYS = 92;
 
@@ -25,7 +25,7 @@ function isDate(d) {
 
 /**
  * @param {any} body
- * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[] }}
+ * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[] }}
  */
 export function parseRequest(body) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
@@ -60,9 +60,11 @@ export function parseRequest(body) {
 
 	const format = body.format ?? 'pdf';
 	if (!FORMATS.has(format)) throw new RequestError('format: pdf, csv or json (every file)');
-	// pdf: one document – the Eigenbelege (one per transaction) or the Kontoauszug of one account
+	// What is delivered: the Eigenbelege (one per transaction, the default), the
+	// Kontoauszug per address, or both when asked for. Never both unasked.
 	const document = body.document ?? 'eigenbelege';
-	if (!DOCUMENTS.has(document)) throw new RequestError('document: eigenbelege or kontoauszug');
+	if (!DOCUMENTS.has(document)) throw new RequestError('document: eigenbelege, kontoauszug or beide');
+	if (format === 'pdf' && document === 'beide') throw new RequestError('a PDF is one document; ask for format json to get both');
 	if (format === 'pdf' && document === 'kontoauszug' && body.addresses.length > 1) throw new RequestError('a Kontoauszug as PDF is for one address; ask for format json to get one per address');
 	const statementNumber = body.statementNumber ?? `KA-${period.from}`;
 	if (!NUMBER.test(String(statementNumber))) throw new RequestError('statementNumber: up to 40 letters, digits and . _ / -');

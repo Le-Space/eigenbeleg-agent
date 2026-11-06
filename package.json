@@ -1,5 +1,5 @@
 {
-  "name": "eigenbeleg-monorepo",
+  "name": "eigenbeleg-agent",
   "private": true,
   "type": "module",
   "description": "Eigenbelege (self-issued proofs of payment) from public blockchain transactions: open building blocks, a paid API and a minimal agent.",

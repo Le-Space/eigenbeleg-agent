@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The agent on the NEAR AI Agent Market (market.near.ai): people (or other
 // agents) hire it there and pay its price in USDC; it buys the Eigenbeleg
 // from the API through x402 and delivers. It earns on the market and spends

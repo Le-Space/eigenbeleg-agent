@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // A minimal agent that delivers Eigenbelege.
 //
 // It takes a job (chain, own addresses, period, payer), and

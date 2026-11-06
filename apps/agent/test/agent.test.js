@@ -47,6 +47,6 @@ test('a job on a chain without a block: nothing bought, a draft PR with failing 
 	assert.equal(paid, 0);
 	const plan = await readFile(join(outDir, 'proposals', 'chain-solana', 'PLAN.md'), 'utf8');
 	assert.match(plan, /public indexer API/);
-	assert.match(plan, /MIT/);
+	assert.match(plan, /AGPL-3.0-or-later/);
 	assert.ok(lines.some((l) => l.includes('gh pr create --draft')));
 });

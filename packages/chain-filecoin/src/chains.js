@@ -1,6 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Filecoin as the Filecoin reader needs it. A trimmed copy of the Filecoin
-// entry of Le-Space/belege bridge/src/chains/registry.js (relicensed MIT by
-// its rights holder, Le Space UG, 2026-11-06).
+// entry of Le-Space/belege bridge/src/chains/registry.js (AGPL-3.0-or-later,
+// as in Belege; rights holder: Le Space UG).
 
 export const FILECOIN = {
 	id: 'filecoin',

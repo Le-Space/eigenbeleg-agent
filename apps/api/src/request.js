@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Checks a POST /eigenbeleg body before anything is paid or fetched.
 // What the payer sends (name, postal address) is used for this one response
 // and dropped; it is never logged or stored.

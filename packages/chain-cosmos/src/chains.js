@@ -1,6 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The Cosmos SDK chains this block reads, and their explorers. A trimmed
 // copy of the Cosmos part of Le-Space/belege bridge/src/chains/registry.js
-// (relicensed MIT by its rights holder, Le Space UG, 2026-11-06).
+// (AGPL-3.0-or-later, as in Belege; rights holder: Le Space UG).
 
 /**
  * @typedef {object} Explorer

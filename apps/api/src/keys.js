@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // A NEAR account's secret key for the relayer, from the environment or from
 // the near-cli legacy keychain file (~/.near-credentials/<network>/<id>.json).
 // The key is passed to the signer and never printed, logged or answered.

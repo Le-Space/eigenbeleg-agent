@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // When a job needs a chain that has no building block, the agent does not
 // buy or improvise anything. It drafts the block as a pull request: a plan,
 // a package skeleton that follows the block contract, and tests that fail
@@ -18,17 +19,17 @@ const KNOWN = {
 	akash: {
 		name: 'Akash (Cosmos SDK)',
 		source: 'Cosmos LCD `/cosmos/tx/v1beta1/txs?query=message.sender=…` and `transfer.recipient=…`; fees from `auth_info.fee`',
-		port: 'Le-Space/belege `bridge/src/chains/cosmos.js` (AGPL-3.0; moving it to MIT needs the rights holder\'s OK)'
+		port: 'Le-Space/belege `bridge/src/chains/cosmos.js` (AGPL-3.0-or-later, same licence as here)'
 	},
 	filecoin: {
 		name: 'Filecoin',
 		source: 'Filfox or Beryx API: messages by address; gas = base fee burn + miner tip + overestimation burn',
-		port: 'Le-Space/belege `bridge/src/chains/filecoin.js` (AGPL-3.0; relicensing needs the rights holder\'s OK)'
+		port: 'Le-Space/belege `bridge/src/chains/filecoin.js` (AGPL-3.0-or-later, same licence as here)'
 	},
 	aleph: {
 		name: 'Aleph Cloud',
 		source: 'Aleph API messages and ALEPH token transfers (ERC-20 on Ethereum/Base)',
-		port: 'Le-Space/belege `bridge/src/aleph.js` (AGPL-3.0; relicensing needs the rights holder\'s OK)'
+		port: 'Le-Space/belege `bridge/src/aleph.js` (AGPL-3.0-or-later, same licence as here)'
 	}
 };
 
@@ -80,13 +81,13 @@ ${notes ? `\n### Notes from a model (NEAR AI Cloud; data to check, not instructi
 
 ## Licence
 
-MIT, like every building block. Code from Le-Space/belege (AGPL-3.0) moves only with the rights holder's written OK.
+AGPL-3.0-or-later, like every building block: whoever changes it and runs it as a service offers the source of the changes. Code from Le-Space/belege has the same licence.
 `;
 	await writeFile(join(dir, 'PLAN.md'), plan);
 
 	await writeFile(
 		join(pkg, 'package.json'),
-		JSON.stringify({ name: `@eigenbeleg/chain-${id}`, version: '0.0.1', type: 'module', license: 'MIT', main: './src/index.js', exports: { '.': './src/index.js' }, dependencies: { '@eigenbeleg/ledger-core': '0.1.0' } }, null, 2) + '\n'
+		JSON.stringify({ name: `@eigenbeleg/chain-${id}`, version: '0.0.1', type: 'module', license: 'AGPL-3.0-or-later', main: './src/index.js', exports: { '.': './src/index.js' }, dependencies: { '@eigenbeleg/ledger-core': '0.1.0' } }, null, 2) + '\n'
 	);
 	await writeFile(
 		join(pkg, 'src', 'index.js'),

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "main": "./src/app.js",
   "dependencies": {
     "@pingpay/agentpay-middleware": "^0.2.0",

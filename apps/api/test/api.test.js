@@ -151,3 +151,14 @@ test('the paid route has one spelling; a failed settlement leaks nothing of the 
 		close();
 	}
 });
+
+test('GET / names the licence and where the running source is (AGPL section 13)', async () => {
+	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {}, source: 'https://example.com/fork' }));
+	try {
+		const info = await (await globalThis.fetch(base + '/')).json();
+		assert.equal(info.license, 'AGPL-3.0-or-later');
+		assert.equal(info.source, 'https://example.com/fork');
+	} finally {
+		close();
+	}
+});

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // A demo that runs anywhere, offline: the API (without paywall, said so on
 // every response) in this process, NearBlocks answered from a recorded
 // fixture of a public account (Aurora's relayer, 1 Nov 2026, network fees

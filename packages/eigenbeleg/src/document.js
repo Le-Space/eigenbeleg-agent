@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // What an Eigenbeleg says, before it is drawn (pdf.js) or written (csv.js).
 //
 // An Eigenbeleg is a receipt the payer writes for a payment that has no

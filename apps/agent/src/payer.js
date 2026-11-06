@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The agent's wallet for x402: a NEAR account that signs one NEP-366
 // delegate action per payment (one USDC ft_transfer); the API's relayer
 // submits it, so the agent needs USDC but no NEAR.

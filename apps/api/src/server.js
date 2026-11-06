@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Starts the API with the settings from the environment (.env.example).
 import { readFileSync } from 'node:fs';
 import { createApp } from './app.js';
@@ -26,7 +27,7 @@ const paywall = await createPaywall({
 	pingUrl: env.PING_FACILITATOR_URL,
 	pingAmountOut: env.PING_AMOUNT_OUT
 });
-const app = createApp({ paywall, deps: { nearblocksKey: env.NEARBLOCKS_API_KEY } });
+const app = createApp({ paywall, deps: { nearblocksKey: env.NEARBLOCKS_API_KEY }, source: env.SOURCE_URL });
 const host = env.HOST ?? '127.0.0.1';
 const port = Number(env.PORT ?? 4402);
 app.listen(port, host, () => {

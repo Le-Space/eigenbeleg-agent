@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // What an own Filecoin address paid and received in a period, as ledger
 // entries. The reading is Le Space's Filfox reader from Belege (vendor/):
 // every message's sends and receipts, and its miner fee plus burnt fee as

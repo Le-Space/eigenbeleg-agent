@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The x402 paywall in front of POST /eigenbeleg.
 //
 //   near  x402 `exact` on NEAR (testnet by default): the client signs a

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The neutral booking format every chain reader produces and every output
 // (Eigenbeleg PDF, CSV, later DATEV) reads. One entry is one movement of
 // value seen from one own address: a payment sent, a payment received, or a

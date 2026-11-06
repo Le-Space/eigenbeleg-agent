@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Reads what an own NEAR account paid and received in a period, from the
 // NearBlocks API (v3), and maps it to ledger entries (@eigenbeleg/ledger-core).
 //

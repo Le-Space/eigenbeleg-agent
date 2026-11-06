@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The agent on the command line.
 //
 //   npm run agent -- --chain near --network testnet --address me.testnet --month 2026-10 \

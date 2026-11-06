@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The euro value of a payment on the day it was made.
 //
 // The rate is the day's volume-weighted average price (VWAP) on Kraken for

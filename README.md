@@ -6,7 +6,7 @@ When a company pays on a blockchain, often nobody sends it an invoice. Network f
 
 This repository writes these Eigenbelege from public blockchain data:
 
-- open **building blocks** (MIT): chain readers, a neutral booking format, EUR day rates, the Eigenbeleg as **PDF/A-2b** and **CSV**;
+- open **building blocks** (AGPL-3.0-or-later): chain readers, a neutral booking format, EUR day rates, the Eigenbeleg as **PDF/A-2b** and **CSV**;
 - an **HTTP API** that sells one Eigenbeleg per request, paid with **x402 on NEAR** (USDC, gasless for the payer);
 - a minimal **agent** that takes a job, checks the building block is current, pays the API within its budget, checks the result and keeps a receipt of what it bought. For a chain it cannot serve, it drafts the missing building block as a pull request with tests instead of buying anything.
 
@@ -174,11 +174,11 @@ The payer's name and address live only for the request. Nothing is stored, and l
 | `apps/api` | The HTTP API and the paywall (`near` / `ping` / `none`) |
 | `apps/agent` | The agent, its x402 payer, the PR drafts |
 
-A new chain is a package that exports `block = { chain, networks, version, source, read, probe, isAddress }`; `read` returns ledger entries. `npm run agent` for that chain drafts exactly this.
+A new chain is a package (AGPL-3.0-or-later, like the others) that exports `block = { chain, networks, version, source, read, probe, isAddress }`; `read` returns ledger entries. `npm run agent` for that chain drafts exactly this.
 
 ## What was built during the hackathon
 
-Everything in this repository was written for NEAR HACKATHON from 6 Nov 2026 (see the git history), with one exception. The readers under `packages/chain-cosmos/src/vendor/` (Akash) and `packages/chain-filecoin/src/vendor/` (Filecoin) are Le Space's own pre-hackathon code from [Belege](https://github.com/Le-Space/belege) (Oct 2026). They were relicensed MIT by their rights holder and count as baseline; the adapters around them are new. Libraries used: `pdf-lib`, `@noble/hashes`, `@scure/base`, `@pdf-lib/fontkit`, DejaVu fonts, `express`, `@x402/core`, `@x402/express`, `@x402/fetch`, `@x402/near`, `@pingpay/agentpay-middleware`, and a CC0 sRGB profile ([Compact-ICC-Profiles](https://github.com/saucecontrol/Compact-ICC-Profiles)).
+Everything in this repository was written for NEAR HACKATHON from 6 Nov 2026 (see the git history), with one exception. The readers under `packages/chain-cosmos/src/vendor/` (Akash) and `packages/chain-filecoin/src/vendor/` (Filecoin) are Le Space's own pre-hackathon code from [Belege](https://github.com/Le-Space/belege) (Oct 2026). They carry the same licence as Belege, AGPL-3.0-or-later, and count as baseline; the adapters around them are new. Libraries used: `pdf-lib`, `@noble/hashes`, `@scure/base`, `@pdf-lib/fontkit`, DejaVu fonts, `express`, `@x402/core`, `@x402/express`, `@x402/fetch`, `@x402/near`, `@pingpay/agentpay-middleware`, and a CC0 sRGB profile ([Compact-ICC-Profiles](https://github.com/saucecontrol/Compact-ICC-Profiles)).
 
 ## Limits
 
@@ -188,4 +188,12 @@ Everything in this repository was written for NEAR HACKATHON from 6 Nov 2026 (se
 
 ## Licence and attribution
 
-MIT, © 2026 Le Space UG (haftungsbeschränkt). Chain data powered by [NearBlocks.io](https://nearblocks.io) APIs. Rates from Kraken and CoinGecko.
+[AGPL-3.0-or-later](LICENSE), © 2026 Le Space UG (haftungsbeschränkt), the same licence as [Belege](https://github.com/Le-Space/belege). Every source file says so in its `SPDX-License-Identifier` line.
+
+What this means in practice:
+
+- **Using it** (running the demo, the agent, or generating your own Eigenbelege) puts no duty on you.
+- **Changing it** is allowed; changed versions stay under the AGPL.
+- **Running it as a service for others**: anyone who runs the API, changed or not, for users over a network must offer those users the complete source of the version they run, changes included (AGPL section 13). The API does this itself. `GET /` answers with a `source` link, set with `SOURCE_URL` (default: this repository). Point it at your fork if you changed something.
+
+Chain data powered by [NearBlocks.io](https://nearblocks.io) APIs. Rates from Kraken and CoinGecko. Third-party parts keep their own licences: DejaVu fonts (Bitstream Vera licence) and the CC0 sRGB profile; the npm dependencies are MIT or Apache-2.0.

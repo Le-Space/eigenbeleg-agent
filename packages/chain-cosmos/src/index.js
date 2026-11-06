@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // What an own address on a Cosmos SDK chain (Akash) paid and received in a
 // period, as ledger entries (@eigenbeleg/ledger-core).
 //

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The Eigenbeleg as an A4 PDF/A-2b: fonts embedded (DejaVu, subset), an sRGB
 // output intent, XMP metadata that matches the document info, and a
 // document id. PDF/A is what an archive for bookkeeping records expects.

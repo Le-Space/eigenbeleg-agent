@@ -1,5 +1,5 @@
 // Ported from Le-Space/belege bridge/src/chains/bech32.js at 3029ce0 (AGPL-3.0 there).
-// Relicensed under MIT for this repository by the rights holder, Le Space UG, on 2026-11-06.
+// SPDX-License-Identifier: AGPL-3.0-or-later (as in Belege; rights holder: Le Space UG).
 // Pre-hackathon code (baseline); see the README.
 
 // Bech32 (BIP-173), the address format of Cosmos chains: `n1…` on Nyx,

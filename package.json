@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "description": "Eigenbelege (self-issued proofs of payment) from public blockchain transactions: open building blocks, a paid API and a minimal agent.",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "engines": { "node": ">=20" },
   "workspaces": ["packages/*", "apps/*"],
   "scripts": {

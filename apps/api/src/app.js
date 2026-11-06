@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The HTTP API.
 //
 //   GET  /             what this is, the price and how to pay (JSON)
@@ -20,8 +21,9 @@ import { RequestError, parseRequest } from './request.js';
  * @param {{ middleware: import('express').RequestHandler | null, info: Record<string, unknown> }} o.paywall
  * @param {Parameters<typeof generate>[1]} [o.deps]
  * @param {(line: string) => void} [o.log]
+ * @param {string} [o.source] where the source of this running version is (AGPL-3.0-or-later, section 13)
  */
-export function createApp({ paywall, deps = {}, log = (l) => console.log(l) }) {
+export function createApp({ paywall, deps = {}, log = (l) => console.log(l), source = 'https://github.com/Le-Space/eigenbeleg-agent' }) {
 	const app = express();
 	app.disable('x-powered-by');
 	// The paywalls match the exact path: `/eigenbeleg/` or `/EIGENBELEG` must not
@@ -54,7 +56,9 @@ export function createApp({ paywall, deps = {}, log = (l) => console.log(l) }) {
 			},
 			blocks: describeBlocks(),
 			privacy: 'Nothing is stored beyond the request; logs hold method, path, status and duration only.',
-			data: 'Powered by NearBlocks.io APIs; EUR rates from Kraken (VWAP of the day) or CoinGecko.'
+			data: 'Powered by NearBlocks.io APIs; EUR rates from Kraken (VWAP of the day) or CoinGecko.',
+			license: 'AGPL-3.0-or-later',
+			source
 		});
 	});
 	app.get('/blocks', (_req, res) => res.json({ blocks: describeBlocks() }));

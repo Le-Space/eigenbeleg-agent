@@ -13,6 +13,6 @@ One complete moment: an agent gets a job, pays the API on NEAR, and a bookkeeper
 | 1:05 | CSV opened in a spreadsheet (semicolons, decimal commas) | "And the same as CSV, which a German spreadsheet opens as it is." |
 | 1:12 | `out/EB-2026-001.receipt.json` | "The agent keeps a receipt of what it bought, from whom, for how much, and whether the work passed its checks." |
 | 1:18 | Terminal: a job for `solana` → `No building block … drafting one as a pull request` and the printed `gh pr create --draft` | "For a chain it can't serve, it buys nothing. It drafts the missing building block as a pull request with tests, and a person merges it." |
-| 1:28 | README top, repo URL | "Building blocks are MIT. Built at NEAR HACKATHON. Bookkeepers: what would you need on it?" |
+| 1:28 | README top, repo URL | "The building blocks are open source under the AGPL. Built at NEAR HACKATHON. Bookkeepers: what would you need on it?" |
 
 Before recording: the agent account needs testnet USDC (faucet.circle.com), and `.env` set as in the README. Record at 1080p, terminal font ≥ 16 pt.

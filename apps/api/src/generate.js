@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // One request, start to end: read the chain, value in EUR, build the
 // Eigenbeleg, draw the files. Nothing is kept afterwards.
 

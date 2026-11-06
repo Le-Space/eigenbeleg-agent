@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The building blocks this service has, by chain: what the agent checks
 // before it takes a job (GET /blocks).
 

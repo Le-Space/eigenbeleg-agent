@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The Eigenbeleg as CSV, for a German spreadsheet or bookkeeping import:
 // semicolons, decimal commas, UTF-8 with BOM, CRLF. Every entry of the
 // period is a line, the ones not on the Eigenbeleg too, with the reason.

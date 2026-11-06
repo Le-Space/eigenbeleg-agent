@@ -131,6 +131,9 @@ Wallets differ in the TTL they choose. Meteor uses 200 blocks, more than the
 120 s window the route allows today, so the browser flow needs a longer window
 (now 300 s by default, `PAY_TIMEOUT_SECONDS`).
 
+Verified on 6 Nov 2026 with the Meteor web wallet on testnet: [`DJePEa…YtgM`](https://testnet.nearblocks.io/txns/DJePEaGxPS4ePyjJfa6NJ36wobLKSCpJNaS75wDBtYgM). The
+payer had 0 NEAR; only a USDC registration and USDC.
+
 Wallets that declare `signDelegateActions` in the NEAR Connect manifest
 (checked 2026-11-06): Meteor and Intear (testnet and mainnet), Ledger and
 near-cli connect, HOT (mainnet only; its executor refuses testnet), NEAR Mobile

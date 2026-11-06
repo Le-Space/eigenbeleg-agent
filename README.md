@@ -119,18 +119,19 @@ A run like this on 6 Nov 2026: [`Aqxuj1QQ…ynUX`](https://testnet.nearblocks.io
 
 A small page for people: fill in the form, see a free preview, pay 0.10 USDC with a NEAR browser wallet, download the Eigenbelege, the Kontoauszug per address and the CSV. Same API, same price, same rules. Concept: [docs/web-ui.md](docs/web-ui.md); how the wallet's signature pays: [docs/delegate-actions.md](docs/delegate-actions.md).
 
-1. Build the page and start the API (steps 1–4 above for the accounts and `.env`):
+1. Open **https://eigenbeleg.le-space.de/ui/** (testnet payments). You see the form with the chains from `GET /blocks`.
+
+   Locally instead: build the page and start the API (steps 1–4 above for the accounts and `.env`), then open http://127.0.0.1:4402/ui/:
    ```bash
    npm run web:build
    ```
    ```bash
    npm run api
    ```
-2. Open http://127.0.0.1:4402/ui/. You see the form with the chains from `GET /blocks`.
-3. Choose the chain and the network of **your** payments, enter your addresses and a month or a range, pick the documents (**Eigenbelege**, the default; **Kontoauszug**; or **Beide**, one price), and click **Vorschau (kostenlos)**. You see how many Eigenbelege it will be and their numbers (`EB-2026-001 – EB-2026-025`), the positions, the EUR total, the quantities, and per address the Kontoauszug's opening and closing balance (✓ when reconciled with the chain). The preview never gets your name or address.
-4. Below it you see the price from the API's 402: `0,10 USDC an eigenbeleg-api.testnet (near:testnet)`. Click **Wallet verbinden** and choose Meteor or Intear (the wallets that can sign a delegate action on testnet). Only now does the page load the wallet code, in a sandboxed iframe.
-5. Fill in name and postal address, click **Kaufen**, and approve the one USDC transfer in the wallet. The account in the wallet pays; it needs testnet USDC ([faucet.circle.com](https://faucet.circle.com)) but no NEAR for gas.
-6. You see the downloads for what you picked: **Eigenbelege (PDF/A, n)** and/or **Kontoauszug <address> (PDF/A)** for each address, and always **Alle Bewegungen (CSV)**, and the NEAR transaction of your payment as a link to testnet NearBlocks.
+2. Choose the chain and the network of **your** payments, enter your addresses and a month or a range, pick the documents (**Eigenbelege**, the default; **Kontoauszug**; or **Beide**, one price), and click **Vorschau (kostenlos)**. You see how many Eigenbelege it will be and their numbers (`EB-2026-001 – EB-2026-025`), the positions, the EUR total, the quantities, and per address the Kontoauszug's opening and closing balance (✓ when reconciled with the chain). The preview never gets your name or address.
+3. Below it you see the price from the API's 402, e.g. `Preis für die Eigenbelege: 0,10 USDC an eigenbeleg-api.testnet (near:testnet)`. Click **Wallet verbinden** and choose Meteor or Intear (the wallets that can sign a delegate action on testnet). Only now does the page load the wallet code, in a sandboxed iframe.
+4. Fill in name and postal address, click **Kaufen**, and approve the one USDC transfer in the wallet. The account in the wallet pays; it needs testnet USDC ([faucet.circle.com](https://faucet.circle.com)) but no NEAR for gas.
+5. You see the downloads for what you picked: **Eigenbelege (PDF/A, n)** and/or **Kontoauszug <address> (PDF/A)** for each address, and always **Alle Bewegungen (CSV)**, and the NEAR transaction of your payment as a link to testnet NearBlocks.
 
 No browser wallet? The section *Keine passende Wallet?* shows the `npm run agent` command for the same request.
 
@@ -232,7 +233,7 @@ docker compose -f deploy/compose.yaml --env-file deploy/.env up -d --build
 - as the non-root user `node`, with no published ports;
 - only on the external network `edge`, where the proxy reaches it as `eigenbeleg:3000`.
 
-The image holds only the API's production dependencies (no agent, no Playwright) and has a `HEALTHCHECK` on `GET /health`.
+The image holds only the API's production dependencies (no agent, no Playwright) and the web UI, built in a first stage with Vite and served at `/ui/`, and has a `HEALTHCHECK` on `GET /health`.
 
 A Caddy site for it:
 
@@ -251,6 +252,7 @@ eigenbeleg.example.com {
 | `PAYWALL` | `near` (x402 on NEAR), `ping` (PingPay, mainnet only), `none` (development: free, and says so) | no |
 | `PAY_NETWORK` | `near:testnet` or `near:mainnet`: where the payment is made (not which chain is read) | no |
 | `PRICE` | price per request in USDC, e.g. `$0.10` | no |
+| `PAY_TIMEOUT_SECONDS` | how far ahead a signed payment may expire (default 300; browser wallets such as Meteor sign 200 blocks ahead) | no |
 | `PAY_TO` | the NEAR account that receives the USDC; it must be registered with the USDC contract (`storage_deposit`) | no |
 | `RELAYER_ACCOUNT_ID` | the NEAR account that submits the payer's signed delegate action and pays its gas; needs a little NEAR | no |
 | `RELAYER_SECRET_KEY` | the relayer's full-access key (`ed25519:…`) | **yes** |

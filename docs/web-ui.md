@@ -172,6 +172,9 @@ code, against the rule "no remote scripts". The options:
   folder exists, and `GET /` (JSON) gets a `ui` field pointing there. Same
   origin, so no CORS and the `PAYMENT-*` headers are readable.
 - `npm run web:dev` runs Vite with a proxy to the API on `:4402` for development.
+- The container (`Dockerfile`) builds the UI in a first stage and copies only
+  `apps/web/dist` into the API image; the API reads it once at start, so the
+  read-only root filesystem is fine. Hosted: https://eigenbeleg.le-space.de/ui/.
 - The UI is static: no server-side rendering, no session, no cookies.
 
 ## Privacy

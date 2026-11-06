@@ -2,6 +2,16 @@
 # The Eigenbeleg API (and the web UI it serves), for a container with a
 # read-only root filesystem. Only the API's production dependencies: no
 # agent, no Playwright, no video tools.
+# Stage 1: build the web UI (Vite) into apps/web/dist.
+FROM node:22-alpine AS web
+WORKDIR /build
+COPY package.json package-lock.json ./
+COPY packages ./packages
+COPY apps ./apps
+RUN npm ci --workspace=apps/web --include-workspace-root=false --ignore-scripts --no-audit --no-fund \
+ && npm run build --workspace=apps/web
+
+# Stage 2: the API, which serves the built UI at /ui/.
 FROM node:22-alpine
 
 WORKDIR /app
@@ -15,7 +25,8 @@ COPY packages ./packages
 COPY apps ./apps
 RUN npm ci --omit=dev --workspace=apps/api --include-workspace-root=false --ignore-scripts --no-audit --no-fund \
  && npm cache clean --force \
- && rm -rf apps/agent/test apps/api/test packages/*/test
+ && rm -rf apps/agent/test apps/api/test apps/web/test packages/*/test
+COPY --from=web /build/apps/web/dist ./apps/web/dist
 
 USER node
 EXPOSE 3000

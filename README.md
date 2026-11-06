@@ -28,7 +28,7 @@ npm run demo
 
 What you should see:
 
-1. `npm test`: about 30 tests pass (the booking format, the NEAR and Akash readers, rates, the PDF/CSV, the API with its x402 paywall, the agent).
+1. `npm test`: about 35 tests pass (the booking format, the NEAR, Akash and Filecoin readers, rates, the PDF/CSV, the API with its x402 paywall, the agent).
 2. `npm run demo`: the agent runs two jobs against the API in the same process, without a paywall (the API says so on every response). The NEAR data comes from a recorded fixture of a **public** account, Aurora's relayer on 1 Nov 2026, which pays only network fees, so the demo works offline.
    - **Job 1** ends with `Got EB-2026-001: 25 positions … check passed.` Open `out/demo/EB-2026-001.pdf` (the Eigenbeleg, 25 network fees with their full transaction hashes, EUR values, the note and a signature line), `out/demo/EB-2026-001.csv` (the same for a spreadsheet) and `out/demo/EB-2026-001.receipt.json` (the agent's receipt: what it bought, the price, the checks it ran).
    - **Job 2** asks for Solana, which has no building block. The agent buys nothing. It writes a draft under `out/demo/proposals/chain-solana/`: `PLAN.md`, a package skeleton, contract tests that fail until someone writes the reader, and `PR.md`. Then it prints the `git` and `gh pr create --draft` commands. It runs none of them.
@@ -166,6 +166,7 @@ The payer's name and address live only for the request. Nothing is stored, and l
 | `packages/ledger-core` | The neutral booking format `eigenbeleg.ledger/1` (one entry per movement, from one own address), and decimal arithmetic on strings |
 | `packages/chain-near` | NEAR via NearBlocks API v3: NEAR sent and received, gas fee per signed transaction, NEP-141 transfers; spam tokens listed but never valued |
 | `packages/chain-cosmos` | Akash: node `tx_search` plus the Akash Console indexer for older history; escrow deposits as their own kind |
+| `packages/chain-filecoin` | Filecoin via Filfox: FIL sends and receipts, miner tip plus burnt fee as one network fee, USDFC (valued at the USD stablecoin rate) |
 | `packages/rates` | EUR per asset and UTC day: Kraken day VWAP, CoinGecko fallback |
 | `packages/eigenbeleg` | The document, the PDF/A-2b and the CSV |
 | `apps/api` | The HTTP API and the paywall (`near` / `ping` / `none`) |
@@ -175,7 +176,7 @@ A new chain is a package that exports `block = { chain, networks, version, sourc
 
 ## What was built during the hackathon
 
-Everything in this repository was written for NEAR HACKATHON from 6 Nov 2026 (see the git history), with one exception. The Akash reader under `packages/chain-cosmos/src/vendor/` is Le Space's own pre-hackathon code from [Belege](https://github.com/Le-Space/belege) (Oct 2026). It was relicensed MIT by its rights holder and counts as baseline. Libraries used: `pdf-lib`, `@pdf-lib/fontkit`, DejaVu fonts, `express`, `@x402/core`, `@x402/express`, `@x402/fetch`, `@x402/near`, `@pingpay/agentpay-middleware`, and a CC0 sRGB profile ([Compact-ICC-Profiles](https://github.com/saucecontrol/Compact-ICC-Profiles)).
+Everything in this repository was written for NEAR HACKATHON from 6 Nov 2026 (see the git history), with one exception. The readers under `packages/chain-cosmos/src/vendor/` (Akash) and `packages/chain-filecoin/src/vendor/` (Filecoin) are Le Space's own pre-hackathon code from [Belege](https://github.com/Le-Space/belege) (Oct 2026). They were relicensed MIT by their rights holder and count as baseline; the adapters around them are new. Libraries used: `pdf-lib`, `@noble/hashes`, `@scure/base`, `@pdf-lib/fontkit`, DejaVu fonts, `express`, `@x402/core`, `@x402/express`, `@x402/fetch`, `@x402/near`, `@pingpay/agentpay-middleware`, and a CC0 sRGB profile ([Compact-ICC-Profiles](https://github.com/saucecontrol/Compact-ICC-Profiles)).
 
 ## Limits
 

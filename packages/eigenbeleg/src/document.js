@@ -40,7 +40,7 @@ export const KIND_TEXT = {
 	escrow: 'Hinterlegung für ein Deployment (Escrow)'
 };
 
-export const CHAIN_NAMES = { near: 'NEAR Protocol', akash: 'Akash' };
+export const CHAIN_NAMES = { near: 'NEAR Protocol', akash: 'Akash', filecoin: 'Filecoin' };
 
 /**
  * @typedef {object} Payer who pays and issues the Eigenbeleg

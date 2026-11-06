@@ -15,6 +15,7 @@
     "@eigenbeleg/rates": "0.1.0",
     "@eigenbeleg/eigenbeleg": "0.1.0",
     "@eigenbeleg/ledger-core": "0.1.0",
-    "@eigenbeleg/chain-cosmos": "0.1.0"
+    "@eigenbeleg/chain-cosmos": "0.1.0",
+    "@eigenbeleg/chain-filecoin": "0.1.0"
   }
 }

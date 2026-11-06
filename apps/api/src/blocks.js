@@ -3,9 +3,10 @@
 
 import { block as near } from '@eigenbeleg/chain-near';
 import { block as akash } from '@eigenbeleg/chain-cosmos';
+import { block as filecoin } from '@eigenbeleg/chain-filecoin';
 
 /** @type {Record<string, typeof near>} */
-export const BLOCKS = { near, akash };
+export const BLOCKS = { near, akash, filecoin };
 
 /** What GET /blocks says about each block (no functions). */
 export function describeBlocks() {

@@ -18,6 +18,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The pipeline's browser test runs the same code in Chromium (packages/pipeline/test/browser.test.js).
+      - run: npx playwright install --with-deps chromium
       - run: npm test
       - run: npm run web:build
       - run: npm run demo

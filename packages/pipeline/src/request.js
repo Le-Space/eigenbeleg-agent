@@ -25,11 +25,11 @@ function isDate(d) {
 
 /**
  * @param {any} body
- * @param {{ preview?: boolean }} [opts] preview: the free POST /eigenbeleg/preview, which
+ * @param {{ preview?: boolean, today?: string }} [opts] today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
  *   must not get the payer's name and address (a body with `payer` is refused) and has no format
  * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[] }}
  */
-export function parseRequest(body, { preview = false } = {}) {
+export function parseRequest(body, { preview = false, today } = {}) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
 	const chain = typeof body.chain === 'string' ? body.chain : '';
 	const block = Object.hasOwn(BLOCKS, chain) ? BLOCKS[chain] : null;
@@ -56,7 +56,7 @@ export function parseRequest(body, { preview = false } = {}) {
 	if (!(days >= 1 && days <= MAX_DAYS)) throw new RequestError(`period: 1 to ${MAX_DAYS} days`);
 	// Only finished days: a period that reaches today or later ends yesterday,
 	// and the Eigenbeleg says so.
-	const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+	const yesterday = new Date((today ? Date.parse(`${today}T00:00:00Z`) : Date.now()) - 86400000).toISOString().slice(0, 10);
 	if (period.from > yesterday) throw new RequestError('period has no finished day yet');
 	if (period.to > yesterday) period = { from: period.from, to: yesterday };
 

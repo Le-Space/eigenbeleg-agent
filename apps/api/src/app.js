@@ -12,7 +12,6 @@
 // in memory until the response is sent. Logs carry method, path, status and
 // duration only.
 
-import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -223,10 +222,11 @@ export function origin(req, publicUrl) {
 export const WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
 
 /**
- * Serves the built UI at /ui/. index.html gets a fresh CSP nonce per response:
- * the page loads only its own scripts; the nonce lets the wallet's sandboxed
- * iframe (NEAR Connect, loaded on click) run its executor script. Wallet
- * executors talk to their own backends, hence connect-src https: wss:.
+ * Serves the built UI (a static PWA) at /ui/. The page talks to no route of
+ * this API: it reads the chains from the data sources itself. Its
+ * Content-Security-Policy comes from the build (dist/csp.txt, made from the
+ * pipeline's data sources), plus frame-ancestors, which the page's <meta>
+ * cannot carry.
  *
  * The share-card meta tags need absolute URLs: __PUBLIC_URL__ becomes `publicUrl`,
  * or else the request's origin, taken only if the Host is a plain host name.
@@ -237,26 +237,16 @@ export const WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url)
  */
 function mountUi(app, dir, publicUrl) {
 	const html = readFileSync(`${dir}/index.html`, 'utf8');
+	const csp = existsSync(`${dir}/csp.txt`) ? readFileSync(`${dir}/csp.txt`, 'utf8').trim() : "default-src 'self'";
 	app.get('/ui', (_req, res) => res.redirect(301, '/ui/'));
 	app.get('/ui/', (req, res) => {
-		const nonce = randomBytes(16).toString('base64');
-		res.setHeader(
-			'Content-Security-Policy',
-			[
-				"default-src 'self'",
-				`script-src 'self' 'nonce-${nonce}'`,
-				"style-src 'self' 'unsafe-inline'",
-				"img-src 'self' data: https:",
-				"connect-src 'self' https: wss:",
-				"frame-src 'self' https:",
-				"base-uri 'none'",
-				"form-action 'self'",
-				"frame-ancestors 'none'"
-			].join('; ')
-		);
+		res.setHeader('Content-Security-Policy', `${csp}; frame-ancestors 'none'`);
 		res.setHeader('Referrer-Policy', 'no-referrer');
-		res.type('html').send(html.replaceAll('__CSP_NONCE__', nonce).replaceAll('__PUBLIC_URL__', origin(req, publicUrl)));
+		res.setHeader('Cache-Control', 'no-cache');
+		res.type('html').send(html.replaceAll('__PUBLIC_URL__', origin(req, publicUrl)));
 	});
-	app.use('/ui/social', express.static(`${dir}/social`, { index: false, fallthrough: false, maxAge: '1d' }));
 	app.use('/ui/assets', express.static(`${dir}/assets`, { index: false, fallthrough: false, immutable: true, maxAge: '1y' }));
+	// The service worker, the manifest, icons and share cards: revalidated, so a new version is seen.
+	app.get('/ui/index.html', (_req, res) => res.redirect(301, '/ui/'));
+	app.use('/ui', express.static(dir, { index: false, fallthrough: false, maxAge: 0 }));
 }

@@ -235,24 +235,25 @@ test('the preview is free behind the paywall; the payment window fits browser wa
 	assert.match(src, /maxTimeoutSeconds: c\.timeoutSeconds \?\? 300/);
 });
 
-test('GET /ui/ serves the built UI with a CSP and a fresh nonce; no UI, no route', async () => {
+test('GET /ui/ serves the built PWA with the build\'s CSP; no UI, no route', async () => {
 	const { mkdtemp, writeFile, mkdir } = await import('node:fs/promises');
 	const { tmpdir } = await import('node:os');
 	const dir = await mkdtemp(`${tmpdir()}/eb-web-`);
 	await mkdir(`${dir}/assets`);
-	await writeFile(`${dir}/index.html`, '<meta name="csp-nonce" content="__CSP_NONCE__"><script type="module" src="/ui/assets/app.js"></script>');
+	await writeFile(`${dir}/index.html`, '<script type="module" src="./assets/app.js"></script>');
 	await writeFile(`${dir}/assets/app.js`, 'export {};');
+	await writeFile(`${dir}/sw.js`, '// sw');
+	await writeFile(`${dir}/csp.txt`, "default-src 'self'; connect-src 'self' https://api.nearblocks.io\n");
 	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {}, web: dir }));
 	try {
 		const a = await globalThis.fetch(base + '/ui/');
-		const b = await globalThis.fetch(base + '/ui/');
 		assert.equal(a.status, 200);
-		const csp = a.headers.get('content-security-policy') ?? '';
-		assert.match(csp, /default-src 'self'/);
-		assert.match(csp, /frame-ancestors 'none'/);
-		const nonce = /'nonce-([^']+)'/.exec(csp)?.[1];
-		assert.ok(nonce && (await a.text()).includes(`content="${nonce}"`));
-		assert.notEqual(nonce, /'nonce-([^']+)'/.exec(b.headers.get('content-security-policy') ?? '')?.[1]);
+		assert.equal(a.headers.get('content-security-policy'), "default-src 'self'; connect-src 'self' https://api.nearblocks.io; frame-ancestors 'none'");
+		assert.equal(a.headers.get('referrer-policy'), 'no-referrer');
+		const sw = await globalThis.fetch(base + '/ui/sw.js');
+		assert.equal(sw.status, 200);
+		assert.doesNotMatch(sw.headers.get('cache-control') ?? '', /immutable/);
+		assert.equal((await globalThis.fetch(base + '/ui/nope.png')).status, 404);
 		assert.equal((await globalThis.fetch(base + '/ui/assets/app.js')).status, 200);
 		assert.equal((await globalThis.fetch(base + '/ui/assets/nope.js')).status, 404);
 		assert.equal((await (await globalThis.fetch(base + '/')).json()).ui, '/ui/');

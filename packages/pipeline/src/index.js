@@ -5,3 +5,4 @@
 export { RequestError, parseRequest } from './request.js';
 export { generate } from './generate.js';
 export { BLOCKS, checkBlock, describeBlocks } from './blocks.js';
+export { dataSources } from './sources.js';

@@ -42,7 +42,6 @@ test('without a paywall: PDF, CSV and JSON; bad requests are 400 before anything
 		assert.equal(pdf.status, 200);
 		assert.equal(pdf.headers.get('content-type'), 'application/pdf');
 		assert.match(pdf.headers.get('content-disposition') ?? '', /EB-2026-042\.pdf/);
-		assert.equal(JSON.parse(pdf.headers.get('x-eigenbeleg-summary') ?? '{}').positions, raw.txns.length);
 		assert.ok(Buffer.from(await pdf.arrayBuffer()).subarray(0, 8).toString() === '%PDF-1.7');
 
 		const csv = await post(base, { ...job, format: 'csv' });
@@ -50,6 +49,7 @@ test('without a paywall: PDF, CSV and JSON; bad requests are 400 before anything
 
 		const both = await (await post(base, { ...job, format: 'json' })).json();
 		assert.equal(both.number, 'EB-2026-042');
+		assert.equal(both.positions, raw.txns.length);
 		assert.ok(both.pdf.length > 1000 && both.csv.length > 100);
 
 		for (const bad of [{ ...job, chain: 'dogecoin' }, { ...job, addresses: ['../x'] }, { ...job, payer: { name: 'X' } }, { ...job, period: { month: '2026-13' } }, { ...job, number: '<script>' }]) {
@@ -121,6 +121,32 @@ test('a failed chain read is not charged', async () => {
 		const r = await post(base, job, { 'PAYMENT-SIGNATURE': Buffer.from(JSON.stringify(payload)).toString('base64') });
 		assert.equal(r.status, 502);
 		assert.equal(settles, 0);
+	} finally {
+		close();
+	}
+});
+
+test('the paid route has one spelling; a failed settlement leaks nothing of the result', async () => {
+	const facilitator = {
+		verify: async () => ({ isValid: true }),
+		settle: async () => ({ success: false, errorReason: 'settlement_failed', transaction: '', network: 'near:testnet' }),
+		getSupported: async () => ({ kinds: [{ x402Version: 2, scheme: 'exact', network: 'near:testnet' }], extensions: [], signers: {} })
+	};
+	const server = new x402ResourceServer(/** @type {any} */ (facilitator)).register('near:testnet', new ExactNearScheme());
+	const middleware = paymentMiddleware(/** @type {any} */ ({ 'POST /eigenbeleg': { accepts: [{ scheme: 'exact', price: '$0.10', network: 'near:testnet', payTo: 'eigenbeleg.testnet' }] } }), server);
+	const { base, close } = await serve(createApp({ paywall: { middleware, info: { mode: 'near' } }, deps, log: () => {} }));
+	try {
+		for (const path of ['/eigenbeleg/', '/EIGENBELEG', '/Eigenbeleg']) {
+			const r = await globalThis.fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(job) });
+			assert.equal(r.status, 404, path);
+		}
+		const required = JSON.parse(Buffer.from((await post(base, { ...job, format: 'json' })).headers.get('payment-required') ?? '', 'base64').toString());
+		const payload = { x402Version: 2, resource: required.resource, accepted: required.accepts[0], payload: { signedDelegateAction: 'AAAA' } };
+		const r = await post(base, { ...job, format: 'json' }, { 'PAYMENT-SIGNATURE': Buffer.from(JSON.stringify(payload)).toString('base64') });
+		assert.equal(r.status, 402);
+		const text = await r.text();
+		assert.doesNotMatch(text, /totalEur|positions|Belegnummer/);
+		for (const [k, v] of r.headers) assert.doesNotMatch(`${k}: ${v}`, /totalEur|positions|filename/i, k);
 	} finally {
 		close();
 	}

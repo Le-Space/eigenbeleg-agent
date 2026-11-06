@@ -14,19 +14,28 @@ const MAX_DAYS = 92;
 
 export class RequestError extends Error {}
 
+/** A YYYY-MM-DD string that is a real day (2026-02-31 is not). @param {unknown} d */
+function isDate(d) {
+	if (typeof d !== 'string' || !DATE.test(d)) return false;
+	const t = new Date(`${d}T00:00:00Z`);
+	return !Number.isNaN(t.getTime()) && t.toISOString().slice(0, 10) === d;
+}
+
 /**
  * @param {any} body
  * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[] }}
  */
 export function parseRequest(body) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
-	const chain = String(body.chain ?? '');
-	const block = BLOCKS[chain];
+	const chain = typeof body.chain === 'string' ? body.chain : '';
+	const block = Object.hasOwn(BLOCKS, chain) ? BLOCKS[chain] : null;
 	if (!block) throw new RequestError(`no building block for chain "${chain}" yet; see GET /blocks`);
 	const network = body.network ?? 'mainnet';
 	if (!block.networks.includes(network)) throw new RequestError(`network must be one of ${block.networks.join(', ')}`);
-	const addresses = body.addresses;
-	if (!Array.isArray(addresses) || addresses.length < 1 || addresses.length > 10) throw new RequestError('addresses: one to ten own addresses');
+	if (!Array.isArray(body.addresses) || body.addresses.length < 1 || body.addresses.length > 10) throw new RequestError('addresses: one to ten own addresses');
+	// Trimmed before they are checked and compared: the same address twice
+	// would be read twice, and a transfer between own addresses look like a payment.
+	const addresses = [...new Set(body.addresses.map((/** @type {unknown} */ a) => (typeof a === 'string' ? a.trim() : '')))];
 	for (const a of addresses) if (!block.isAddress(a)) throw new RequestError(`not a ${chain} address: ${String(a).slice(0, 80)}`);
 
 	let period;
@@ -37,11 +46,15 @@ export function parseRequest(body) {
 		} catch {
 			throw new RequestError('period.month must be YYYY-MM');
 		}
-	} else if (DATE.test(p.from ?? '') && DATE.test(p.to ?? '')) period = { from: p.from, to: p.to };
-	else throw new RequestError('period: { month: "YYYY-MM" } or { from, to } as YYYY-MM-DD');
+	} else if (isDate(p.from) && isDate(p.to)) period = { from: p.from, to: p.to };
+	else throw new RequestError('period: { month: "YYYY-MM" } or { from, to } as real dates YYYY-MM-DD');
 	const days = (Date.parse(period.to) - Date.parse(period.from)) / 86400000 + 1;
 	if (!(days >= 1 && days <= MAX_DAYS)) throw new RequestError(`period: 1 to ${MAX_DAYS} days`);
-	if (Date.parse(period.from) > Date.now()) throw new RequestError('period lies in the future');
+	// Only finished days: a period that reaches today or later ends yesterday,
+	// and the Eigenbeleg says so.
+	const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+	if (period.from > yesterday) throw new RequestError('period has no finished day yet');
+	if (period.to > yesterday) period = { from: period.from, to: yesterday };
 
 	const format = body.format ?? 'pdf';
 	if (!FORMATS.has(format)) throw new RequestError('format: pdf, csv or json (both files)');
@@ -59,10 +72,10 @@ export function parseRequest(body) {
 	return {
 		chain,
 		network,
-		addresses: [...new Set(addresses)],
+		addresses,
 		period,
 		format,
-		payer: { name: payer.name, address: payer.address, addresses: [...new Set(addresses)] },
+		payer: { name: payer.name, address: payer.address, addresses },
 		number: String(number),
 		includeKinds
 	};

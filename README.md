@@ -131,7 +131,7 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 }
 ```
 
-`format`: `pdf`, `csv`, or `json` (both, PDF as base64). `period` is `{ month }` or `{ from, to }`, at most 92 days. The request is checked **before** a price is named: a wrong chain, address or period gets a `400`, not a `402`. The `X-Eigenbeleg-Summary` header carries the number, the positions and the total.
+`format`: `pdf`, `csv`, or `json` (both, PDF as base64). `period` is `{ month }` or `{ from, to }`, at most 92 days. The request is checked **before** a price is named: a wrong chain, address or period gets a `400`, not a `402`. With `format: json` the answer also carries the number, the positions and the total.
 
 ## The agent
 

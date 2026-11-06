@@ -125,3 +125,26 @@ test('account ids are checked before anything is fetched', async () => {
 	assert.ok(!isAccountId('Upper.near'));
 	await assert.rejects(fetchRaw({ account: 'x/../y', from: '2026-10-01', to: '2026-10-31' }), /not a NEAR account id/);
 });
+
+test('a storage deposit counts what the contract kept, not what was attached', async () => {
+	const { storageKept } = await import('../src/index.js');
+	const account = 'wolkenfabrik.testnet';
+	const [sent] = mapRaw({ account, network: 'testnet', txns: [row({ transaction_hash: 'S', receiver_account_id: 'usdc.fakes.testnet', actions: [{ action: 'FUNCTION_CALL', method: 'storage_deposit' }], actions_agg: { deposit: '125000000000000000000000' } })], ftTxns: [] }).filter((e) => e.type === 'sent');
+	const rpc = (refund) => async () =>
+		new Response(JSON.stringify({ result: { receipts: [
+			{ predecessor_id: account, receiver_id: 'usdc.fakes.testnet', receipt: { Action: { actions: [{ FunctionCall: { deposit: '125000000000000000000000' } }] } } },
+			{ predecessor_id: 'system', receiver_id: account, receipt: { Action: { actions: [{ Transfer: { deposit: '999' } }] } } },
+			...(refund ? [{ predecessor_id: 'usdc.fakes.testnet', receiver_id: account, receipt: { Action: { actions: [{ Transfer: { deposit: refund } }] } } }] : [])
+		] } }));
+	assert.equal((await storageKept([sent], { network: 'testnet', fetch: rpc('123750000000000000000000') }))[0].amount, '-0.00125');
+	assert.equal((await storageKept([sent], { network: 'testnet', fetch: rpc('125000000000000000000000') })).length, 0);
+	assert.equal((await storageKept([sent], { network: 'testnet', fetch: rpc('') }))[0].amount, '-0.125');
+	await assert.rejects(storageKept([sent], { network: 'testnet', fetch: async () => new Response('', { status: 503 }) }), /could not tell/);
+});
+
+test('a listed token keeps its decimals without the indexer; an unknown one without decimals is skipped', () => {
+	const account = 'wolkenfabrik.testnet';
+	const ft = (contract, meta) => ({ affected_account_id: account, involved_account_id: 'stromwerk.testnet', contract_account_id: contract, delta_amount: '-1500000', transaction_hash: 'U', receipt_id: 'R', event_index: 1, block_timestamp: '1791000001000000000', block: { block_height: '2' }, cause: 'TRANSFER', ...(meta ? { meta } : {}) });
+	const e = mapRaw({ account, network: 'testnet', txns: [], ftTxns: [ft('3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af'), ft('mystery.testnet')] });
+	assert.deepEqual(e.map((x) => [x.asset, x.amount]), [['USDC', '-1.5']]);
+});

@@ -14,18 +14,18 @@
 //
 // Powered by NearBlocks.io APIs.
 
-import { entry, fromUnits, sortEntries } from '@eigenbeleg/ledger-core';
+import { entry, fromUnits, sortEntries, toUnits } from '@eigenbeleg/ledger-core';
 
 export const NETWORKS = {
 	mainnet: {
 		api: 'https://api.nearblocks.io',
 		explorer: 'https://nearblocks.io/txns/',
-		rpc: 'https://rpc.mainnet.near.org'
+		rpc: 'https://archival-rpc.mainnet.fastnear.com'
 	},
 	testnet: {
 		api: 'https://api-testnet.nearblocks.io',
 		explorer: 'https://testnet.nearblocks.io/txns/',
-		rpc: 'https://rpc.testnet.near.org'
+		rpc: 'https://archival-rpc.testnet.fastnear.com'
 	}
 };
 
@@ -47,15 +47,15 @@ export function isAccountId(id) {
  */
 export const TOKENS = {
 	mainnet: {
-		'17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1': { symbol: 'USDC', priceAs: 'USDC' },
-		'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near': { symbol: 'USDC.e', priceAs: 'USDC' },
-		'usdt.tether-token.near': { symbol: 'USDT', priceAs: 'USDT' },
-		'wrap.near': { symbol: 'wNEAR', priceAs: 'NEAR' }
+		'17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1': { symbol: 'USDC', priceAs: 'USDC', decimals: 6 },
+		'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near': { symbol: 'USDC.e', priceAs: 'USDC', decimals: 6 },
+		'usdt.tether-token.near': { symbol: 'USDT', priceAs: 'USDT', decimals: 6 },
+		'wrap.near': { symbol: 'wNEAR', priceAs: 'NEAR', decimals: 24 }
 	},
 	testnet: {
-		'3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af': { symbol: 'USDC', priceAs: 'USDC' },
-		'usdc.fakes.testnet': { symbol: 'USDC.e', priceAs: 'USDC' },
-		'wrap.testnet': { symbol: 'wNEAR', priceAs: 'NEAR' }
+		'3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af': { symbol: 'USDC', priceAs: 'USDC', decimals: 6 },
+		'usdc.fakes.testnet': { symbol: 'USDC.e', priceAs: 'USDC', decimals: 6 },
+		'wrap.testnet': { symbol: 'wNEAR', priceAs: 'NEAR', decimals: 24 }
 	}
 };
 
@@ -235,9 +235,13 @@ export function mapRaw({ account, network, txns, ftTxns }) {
 		if (delta === 0n) continue;
 		const hash = String(f.transaction_hash);
 		const meta = f.meta ?? f.ft ?? {};
-		const decimals = Number(meta.decimals ?? 0);
 		const contract = String(f.contract_account_id ?? meta.contract ?? '');
-		const listed = /** @type {Record<string, {symbol: string, priceAs: string}>} */ (TOKENS[network])[contract];
+		const listed = /** @type {Record<string, {symbol: string, priceAs: string, decimals: number}>} */ (TOKENS[network])[contract];
+		// A listed token's decimals are ours; an unlisted one's come from the
+		// indexer and, where it has none, the token is skipped: a wrong scale
+		// would turn 1.5 into 1,500,000.
+		const decimals = listed?.decimals ?? (Number.isInteger(meta.decimals) ? meta.decimals : NaN);
+		if (!Number.isInteger(decimals)) continue;
 		out.push(
 			entry({
 				id: `near:${account}:${hash}:ft:${f.receipt_id ?? ''}:${f.event_index ?? ''}`,
@@ -280,7 +284,44 @@ function kindOf(actions, methods) {
  * @param {Parameters<typeof fetchRaw>[0]} p
  */
 export async function readNear(p) {
-	return mapRaw(await fetchRaw(p));
+	return storageKept(mapRaw(await fetchRaw(p)), p);
+}
+
+/**
+ * A storage deposit attaches more than the contract keeps, or the account
+ * was registered already: the contract sends the rest back in an inner
+ * receipt. The entry becomes what was kept; one fully refunded goes.
+ * Read from an archival RPC (EXPERIMENTAL_tx_status); if that cannot be
+ * read, the whole read fails rather than overstate a payment.
+ *
+ * @param {import('@eigenbeleg/ledger-core').LedgerEntry[]} entries
+ * @param {{ network?: 'mainnet' | 'testnet', fetch?: typeof fetch }} p
+ */
+export async function storageKept(entries, { network = 'mainnet', fetch = globalThis.fetch }) {
+	const out = [];
+	for (const e of entries) {
+		if (e.kind !== 'storage' || e.type !== 'sent') {
+			out.push(e);
+			continue;
+		}
+		const res = await fetch(NETWORKS[network].rpc, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'EXPERIMENTAL_tx_status', params: { tx_hash: e.hash, sender_account_id: e.account, wait_until: 'NONE' } })
+		});
+		const body = res.ok ? await res.json() : null;
+		const receipts = body?.result?.receipts;
+		if (!Array.isArray(receipts)) throw new Error(`NEAR RPC could not tell what the storage deposit in ${e.hash} kept`);
+		let refund = 0n;
+		for (const r of receipts) {
+			if (r.predecessor_id !== e.counterparty || r.receiver_id !== e.account) continue;
+			for (const a of r.receipt?.Action?.actions ?? []) if (a?.Transfer?.deposit) refund += BigInt(a.Transfer.deposit);
+		}
+		const kept = -toUnits(e.amount, NEAR_DECIMALS) - refund;
+		if (kept <= 0n) continue;
+		out.push(refund ? entry({ ...e, amount: fromUnits(-kept, NEAR_DECIMALS) }) : e);
+	}
+	return out;
 }
 
 /** A public account that signs transactions every day (Aurora's relayer, fees only): the live check reads it. */

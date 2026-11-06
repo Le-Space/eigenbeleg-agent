@@ -124,7 +124,7 @@ the connector NEAR now recommends over Wallet Selector) and its wallet manifest
 
 | Wallet | Delegate action | Testnet | Note |
 |---|---|---|---|
-| Meteor Wallet (extension, web) | yes | yes | TTL 200 blocks → needs the 300 s window above |
+| Meteor Wallet (extension, web) | yes | yes | TTL 200 blocks → needs the 300 s window above. **Verified** on testnet with the web wallet: [`DJePEa…YtgM`](https://testnet.nearblocks.io/txns/DJePEaGxPS4ePyjJfa6NJ36wobLKSCpJNaS75wDBtYgM) |
 | Intear Wallet | yes | yes | |
 | Ledger (via NEAR Connect) | yes | yes | hardware; untested here |
 | near-cli connect | yes | yes | developer tool |
@@ -133,7 +133,8 @@ the connector NEAR now recommends over Wallet Selector) and its wallet manifest
 | MyNearWallet, OKX, Nightly, WalletConnect, others | not declared | | not offered |
 
 The UI asks NEAR Connect only for wallets with `signDelegateActions` and the
-chosen network. **Testnet target: Meteor and Intear.** If neither works on
+chosen network. **Testnet target: Meteor and Intear.** Meteor works (verified
+above); Intear is not tried yet. If neither had worked on
 testnet in practice, the concept's fallback applies: the UI shows the agent
 CLI command, and this document says why.
 

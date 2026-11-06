@@ -44,6 +44,27 @@ What you should see:
 
 The demo's EUR rate is fixed (1.92 €/NEAR); the API itself uses the day's rate (below).
 
+## Try the hosted API (NEAR testnet)
+
+A public instance runs at **https://eigenbeleg.le-space.de** (testnet payments, open source, AGPL).
+
+```bash
+curl -s https://eigenbeleg.le-space.de/
+```
+You should see the service, its price (`$0.10`, USDC on `near:testnet` to `eigenbeleg-api.testnet`), the building blocks (`near`, `akash`, `filecoin`), the licence and the source link.
+
+```bash
+curl -s https://eigenbeleg.le-space.de/blocks/near/check
+```
+You should see `"ok":true`: the NEAR building block, checked against live data.
+
+```bash
+curl -si -X POST https://eigenbeleg.le-space.de/eigenbeleg -H 'content-type: application/json' -d '{"chain":"near","network":"mainnet","addresses":["relay.aurora"],"period":{"from":"2026-11-01","to":"2026-11-01"},"payer":{"name":"Wolkenfabrik Hosting GmbH","address":"Musterstraße 1\n12345 Beispielstadt"}}'
+```
+You should see `HTTP/2 402` and a `payment-required` header (base64 JSON, x402 v2). Before paying, the request was checked: change `chain` to `dogecoin` and you get a `400` instead.
+
+With a funded testnet account (next section), the agent pays it: add `--api https://eigenbeleg.le-space.de` to `npm run agent`. A run like this on 6 Nov 2026: [`73J2MB…bedV`](https://testnet.nearblocks.io/txns/73J2MBmkf9BuBJfK2jsMyqPY1pGDM6PyKtWcp5BnbedV).
+
 ## Pay for it with x402 on NEAR testnet
 
 This is the real flow: the API asks for 0.10 USDC, and the agent signs one USDC transfer and gets the Eigenbelege.

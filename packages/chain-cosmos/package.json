@@ -1,0 +1,9 @@
+{
+  "name": "@eigenbeleg/chain-cosmos",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "dependencies": { "@eigenbeleg/ledger-core": "0.1.0" }
+}

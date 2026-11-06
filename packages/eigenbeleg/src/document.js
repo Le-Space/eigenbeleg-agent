@@ -36,10 +36,11 @@ export const KIND_TEXT = {
 	stake: 'Staking (keine Zahlung)',
 	unstake: 'Unstaking',
 	reward: 'Staking-Ertrag',
-	swap: 'Tausch'
+	swap: 'Tausch',
+	escrow: 'Hinterlegung für ein Deployment (Escrow)'
 };
 
-export const CHAIN_NAMES = { near: 'NEAR Protocol' };
+export const CHAIN_NAMES = { near: 'NEAR Protocol', akash: 'Akash' };
 
 /**
  * @typedef {object} Payer who pays and issues the Eigenbeleg
@@ -86,7 +87,9 @@ export function buildDocument({ payer, chain, network, period, entries, number, 
 						: !kinds.has(e.kind)
 							? e.kind === 'transfer' || e.kind === 'call'
 								? 'Zahlung an ein Konto: Fremdbeleg anfordern oder bewusst einbeziehen'
-								: 'keine Zahlung an das Netzwerk'
+								: e.kind === 'escrow'
+									? 'Hinterlegung (Escrow), noch kein Endbetrag'
+									: 'keine Zahlung an das Netzwerk'
 							: !e.eur
 								? 'kein verlässlicher Kurs (unbekannter Token)'
 								: '';

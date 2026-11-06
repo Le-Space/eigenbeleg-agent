@@ -11,9 +11,9 @@
 import { multiply } from '@eigenbeleg/ledger-core';
 
 /** Kraken pairs by the asset an entry is priced as. */
-export const KRAKEN_PAIRS = { NEAR: 'NEAREUR', USDC: 'USDCEUR', USDT: 'USDTEUR' };
+export const KRAKEN_PAIRS = { NEAR: 'NEAREUR', USDC: 'USDCEUR', USDT: 'USDTEUR', AKT: 'AKTEUR', FIL: 'FILEUR' };
 /** CoinGecko coin ids, for the fallback. */
-export const COINGECKO_IDS = { NEAR: 'near', USDC: 'usd-coin', USDT: 'tether' };
+export const COINGECKO_IDS = { NEAR: 'near', USDC: 'usd-coin', USDT: 'tether', AKT: 'akash-network', FIL: 'filecoin', ALEPH: 'aleph' };
 
 /**
  * @typedef {object} Rate

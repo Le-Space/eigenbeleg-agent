@@ -2,9 +2,10 @@
 // before it takes a job (GET /blocks).
 
 import { block as near } from '@eigenbeleg/chain-near';
+import { block as akash } from '@eigenbeleg/chain-cosmos';
 
 /** @type {Record<string, typeof near>} */
-export const BLOCKS = { near };
+export const BLOCKS = { near, akash };
 
 /** What GET /blocks says about each block (no functions). */
 export function describeBlocks() {

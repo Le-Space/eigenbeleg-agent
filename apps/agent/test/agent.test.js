@@ -41,12 +41,12 @@ test('a job on a chain without a block: nothing bought, a draft PR with failing 
 	let paid = 0;
 	const lines = [];
 	const r = await withApi((api) =>
-		runJob({ api, fetch, paidFetch: async (...a) => (paid++, fetch(...a)), outDir, say: (l) => lines.push(l), job: { chain: 'akash', network: 'mainnet', addresses: ['akash1example'], period: { month: '2026-10' }, payer } })
+		runJob({ api, fetch, paidFetch: async (...a) => (paid++, fetch(...a)), outDir, say: (l) => lines.push(l), job: { chain: 'solana', network: 'mainnet', addresses: ['ExampleSolanaAddress1111111111111111111111'], period: { month: '2026-10' }, payer } })
 	);
 	assert.equal(r.status, 'proposed');
 	assert.equal(paid, 0);
-	const plan = await readFile(join(outDir, 'proposals', 'chain-akash', 'PLAN.md'), 'utf8');
-	assert.match(plan, /Cosmos LCD/);
-	assert.match(plan, /AGPL-3.0/);
+	const plan = await readFile(join(outDir, 'proposals', 'chain-solana', 'PLAN.md'), 'utf8');
+	assert.match(plan, /public indexer API/);
+	assert.match(plan, /MIT/);
 	assert.ok(lines.some((l) => l.includes('gh pr create --draft')));
 });

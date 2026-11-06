@@ -13,7 +13,7 @@
 export const SCHEMA = 'eigenbeleg.ledger/1';
 
 /** @typedef {'sent' | 'received' | 'fee'} EntryType */
-/** @typedef {'transfer' | 'fee' | 'call' | 'stake' | 'unstake' | 'reward' | 'swap' | 'storage'} EntryKind */
+/** @typedef {'transfer' | 'fee' | 'call' | 'stake' | 'unstake' | 'reward' | 'swap' | 'storage' | 'escrow'} EntryKind */
 
 /**
  * @typedef {object} LedgerEntry
@@ -43,7 +43,7 @@ export const SCHEMA = 'eigenbeleg.ledger/1';
  */
 
 const TYPES = new Set(['sent', 'received', 'fee']);
-const KINDS = new Set(['transfer', 'fee', 'call', 'stake', 'unstake', 'reward', 'swap', 'storage']);
+const KINDS = new Set(['transfer', 'fee', 'call', 'stake', 'unstake', 'reward', 'swap', 'storage', 'escrow']);
 const DECIMAL = /^-?\d+(\.\d+)?$/;
 
 /**

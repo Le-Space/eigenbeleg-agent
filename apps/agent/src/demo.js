@@ -44,12 +44,12 @@ await runJob({
 	}
 });
 
-console.log('\n— Demo 2: a job on a chain without a building block —\n');
+console.log('\n— Demo 2: a job on a chain without a building block (Solana) —\n');
 await runJob({
 	api,
 	fetch,
 	paidFetch: fetch,
 	outDir: 'out/demo',
-	job: { chain: 'akash', network: 'mainnet', addresses: ['akash1example'], period: { month: '2026-10' }, payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' } }
+	job: { chain: 'solana', network: 'mainnet', addresses: ['ExampleSolanaAddress1111111111111111111111'], period: { month: '2026-10' }, payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' } }
 });
 server.close();

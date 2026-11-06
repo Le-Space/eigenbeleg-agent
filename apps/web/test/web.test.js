@@ -130,3 +130,20 @@ test('a wallet that signs something else, or a changed price, is refused before 
 	const s4 = walletSigner({ wallet: /** @type {any} */ (elsewhere.wallet), accountId: 'zahler.testnet', network: 'testnet', confirmed: () => req });
 	await assert.rejects(s4.createSignedDelegateAction({ paymentRequirements: req }), /Absender/);
 });
+
+test('German and English have the same texts and placeholders; German is the default', async () => {
+	const { TEXTS, t, setLang, lang, detectLang } = await import('../src/i18n.js');
+	const vars = (/** @type {string} */ s) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');
+	assert.deepEqual(Object.keys(TEXTS.en).sort(), Object.keys(TEXTS.de).sort());
+	for (const k of Object.keys(TEXTS.de)) assert.equal(vars(TEXTS.en[k]), vars(TEXTS.de[k]), k);
+	assert.equal(lang(), 'de');
+	assert.equal(t('price', { docs: t('docsBeide'), amount: '0,10 USDC', payTo: 'eigenbeleg-api.testnet', network: 'near:testnet' }), 'Preis für Eigenbelege und Kontoauszug: 0,10 USDC an eigenbeleg-api.testnet (near:testnet). Gas zahlt die API.');
+	setLang('en');
+	try {
+		assert.equal(t('btnPay'), 'Buy');
+		assert.equal(t('mismatch', { why: t('whyAmount') }), 'The wallet signed something other than asked (another amount). Nothing was sent.');
+	} finally {
+		setLang('de');
+	}
+	assert.match(detectLang(), /^(de|en)$/);
+});

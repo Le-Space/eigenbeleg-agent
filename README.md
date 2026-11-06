@@ -119,7 +119,7 @@ A run like this on 6 Nov 2026: [`Aqxuj1QQ…ynUX`](https://testnet.nearblocks.io
 
 A small page for people: fill in the form, see a free preview, pay 0.10 USDC with a NEAR browser wallet, download the Eigenbelege, the Kontoauszug per address and the CSV. Same API, same price, same rules. Concept: [docs/web-ui.md](docs/web-ui.md); how the wallet's signature pays: [docs/delegate-actions.md](docs/delegate-actions.md).
 
-1. Open **https://eigenbeleg.le-space.de/ui/** (testnet payments). You see the form with the chains from `GET /blocks`.
+1. Open **https://eigenbeleg.le-space.de/ui/** (testnet payments). You see the form with the chains from `GET /blocks`, in German, or in English if your browser is set to another language; **English** / **Deutsch** at the top right switches. The PDFs stay German.
 
    Locally instead: build the page and start the API (steps 1–4 above for the accounts and `.env`), then open http://127.0.0.1:4402/ui/:
    ```bash

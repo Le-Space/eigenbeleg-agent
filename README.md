@@ -179,7 +179,7 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 
 | | |
 | --- | --- |
-| `GET /` | What the service is, the price and how to pay (JSON) |
+| `GET /` | What the service is, the price and how to pay (JSON). A browser (`Accept: text/html`) is redirected to `/ui/` instead; `curl`, `fetch` and agents get the JSON |
 | `GET /blocks` | The building blocks by chain, with version and data source |
 | `GET /blocks/<chain>/check` | A live check of that block against public data (cached 10 min) |
 | `POST /eigenbeleg` | The Eigenbelege and the Kontoauszug, behind the paywall |

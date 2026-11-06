@@ -79,6 +79,8 @@ scripts from a CDN in the page itself; plain CSS, system fonts.
 
 ## How the browser pays the x402 challenge
 
+What a delegate action is, who signs and who sends it: [delegate-actions.md](delegate-actions.md).
+
 The browser uses the same x402 client as the agent (`@x402/fetch` with
 `ExactNearScheme` from `@x402/near/exact/client`), but with its own
 `ClientNearSigner` that asks the wallet instead of holding a key:

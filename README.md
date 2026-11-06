@@ -80,6 +80,8 @@ agent ── POST /eigenbeleg + PAYMENT-SIGNATURE ──────▶ API
 agent ◀─ 200 + PDF/CSV + PAYMENT-RESPONSE (NEAR transaction hash)
 ```
 
+What is delegated to whom, step by step: [docs/delegate-actions.md](docs/delegate-actions.md).
+
 This follows the x402 v2 `exact` scheme for NEAR ([spec](https://github.com/x402-foundation/x402/blob/main/specs/schemes/exact/scheme_exact_near.md), package `@x402/near`). The payer needs **USDC but no NEAR**. The API's relayer pays the gas, and the USDC goes straight to the API's NEAR account. If the API fails after the payment was verified (the chain cannot be read, say), it answers with an error and **does not settle**, so the payer is not charged.
 
 You need two testnet accounts: one for the API (receives USDC, relays) and one for the agent (pays).

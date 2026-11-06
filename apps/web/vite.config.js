@@ -11,7 +11,8 @@
 // Settings (env at build time):
 //   VITE_AKASH_INDEXER  the Akash CORS proxy (deploy/akash-proxy), e.g. https://….workers.dev
 //   VITE_PUBLIC_URL     the public origin for the share cards when no API fills it in
-import { writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
 import { dataSources } from '@eigenbeleg/pipeline';
@@ -48,6 +49,24 @@ export default defineConfig(({ mode }) => {
 				},
 				async writeBundle() {
 					await writeFile(join(outDir, 'csp.txt'), csp + '\n');
+					// The service worker's precache list: every file the app needs offline (the share cards are for
+					// crawlers, csp.txt for the API), as ./paths relative to the worker; the cache's name is a hash
+					// of the files' contents, so every new build installs afresh.
+					const files = (await readdir(outDir, { recursive: true, withFileTypes: true }))
+						.filter((d) => d.isFile())
+						.map((d) => join(d.parentPath, d.name).slice(outDir.length + 1).split('\\').join('/'))
+						.filter((f) => f !== 'sw.js' && f !== 'csp.txt' && !f.startsWith('social/') && !f.endsWith('.woff'))
+						.sort();
+					const hash = createHash('sha256');
+					for (const f of files) hash.update(f).update(await readFile(join(outDir, f)));
+					const list = ['./', ...files.filter((f) => f !== 'index.html').map((f) => `./${f}`)];
+					const sw = join(outDir, 'sw.js');
+					const src = await readFile(sw, 'utf8');
+					const out = src
+						.replace('const PRECACHE = /** @type {string[]} */ ([]);', `const PRECACHE = ${JSON.stringify(list)};`)
+						.replace("const CACHE = 'eigenbeleg-dev';", `const CACHE = 'eigenbeleg-${hash.digest('hex').slice(0, 12)}';`);
+					if (out === src) throw new Error('sw.js: the precache placeholders are gone');
+					await writeFile(sw, out);
 				}
 			}
 		]

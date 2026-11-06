@@ -15,4 +15,13 @@ One complete moment: an agent gets a job, pays the API on NEAR, and a bookkeeper
 | 1:18 | Terminal: a job for `solana` → `No building block … drafting one as a pull request` and the printed `gh pr create --draft` | "For a chain it can't serve, it buys nothing. It drafts the missing building block as a pull request with tests, and a person merges it." |
 | 1:28 | README top, repo URL | "The building blocks are open source under the AGPL. Built at NEAR HACKATHON. Bookkeepers: what would you need on it?" |
 
-Before recording: the agent account needs testnet USDC (faucet.circle.com), and `.env` set as in the README. Record at 1080p, terminal font ≥ 16 pt.
+## Recording it automatically
+
+`scripts/video/record.mjs` makes the whole video from a **real paid run** on NEAR testnet. It starts the API, lets the agent pay 0.10 USDC, captures the output, records every scene in Chromium (Playwright), voices it with macOS `say` and joins it with ffmpeg. The explorer scene shows the payment transaction as the NEAR RPC returns it; the explorer itself sits behind a bot check.
+
+```bash
+cd scripts/video && npm install --workspaces=false
+node record.mjs --account eigenbeleg-agent.testnet --day 2026-11-06 --voice Samantha
+```
+
+`--day` must be a finished UTC day on which the account made payments. Output: `out/video/eigenbeleg-demo.mp4` (1920×1080, H.264/AAC, about 80 s). Needs macOS, ffmpeg, `.env` as in the README (PAYWALL=near) and testnet USDC on the agent account. `--skip-run` re-renders from the last captured run without paying again.

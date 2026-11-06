@@ -1,0 +1,120 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>eigenbeleg demo scene</title>
+<style>
+	:root { --bg: #0f1115; --fg: #e8e6e3; --dim: #8b8f98; --accent: #7ee2a8; --warn: #f2c66d; --link: #8ab4ff; }
+	* { box-sizing: border-box; }
+	#root { height: 100%; }
+	html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; }
+	.card { height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 0 160px; gap: 28px; }
+	.card h1 { font-size: 64px; margin: 0; line-height: 1.15; white-space: pre-line; overflow-wrap: anywhere; }
+	.card p { font-size: 34px; margin: 0; color: var(--dim); line-height: 1.4; }
+	.card .tag { color: var(--accent); font-size: 28px; }
+	.term { height: 100%; padding: 56px 72px; font-family: Menlo, Monaco, monospace; font-size: 25px; line-height: 1.55; white-space: pre-wrap; overflow: hidden; }
+	.term .cmd { color: var(--accent); }
+	.term .pay { color: var(--warn); }
+	.term .ok { color: var(--accent); font-weight: bold; }
+	.term .url { color: var(--link); }
+	.caption { position: fixed; left: 0; right: 0; bottom: 0; padding: 18px 72px; background: rgba(0,0,0,.72); font-size: 26px; color: var(--fg); }
+	.pdf { height: 100%; display: flex; justify-content: center; align-items: flex-start; overflow: hidden; background: #2a2d33; }
+	.pdf canvas { margin-top: 24px; box-shadow: 0 8px 40px rgba(0,0,0,.6); transition: transform 6s ease-in-out; transform-origin: top center; }
+	table { border-collapse: collapse; font-size: 18px; margin: 48px 56px; }
+	td, th { border: 1px solid #3a3d44; padding: 6px 10px; text-align: left; white-space: nowrap; }
+	th { background: #1d2027; color: var(--dim); }
+	td.num { text-align: right; font-variant-numeric: tabular-nums; }
+	tr.on td { color: var(--fg); } tr.off td { color: var(--dim); }
+	.json { padding: 56px 72px; font-family: Menlo, monospace; font-size: 24px; white-space: pre; line-height: 1.45; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
+	// Every text here comes from a real run or from this repository; it is
+	// set with textContent only.
+	const S = window.SCENE;
+	const root = document.getElementById('root');
+	const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+
+	function card() {
+		const c = el('div', 'card');
+		if (S.tag) c.append(el('div', 'tag', S.tag));
+		c.append(el('h1', '', S.title));
+		for (const p of S.lines ?? []) c.append(el('p', '', p));
+		root.append(c);
+	}
+
+	function terminal() {
+		const t = el('div', 'term');
+		root.append(t);
+		const classOf = (l) => /^\$ /.test(l) ? 'cmd' : /^402:|Signing/.test(l) ? 'pay' : /^Got |check passed|Paid:/.test(l) ? 'ok' : '';
+		const span = S.lines.at(-1).t || 1;
+		for (const { t: at, line } of S.lines) {
+			setTimeout(() => {
+				const row = el('div', classOf(line));
+				for (const part of line.split(/(https:\/\/\S+)/)) row.append(/^https:/.test(part) ? el('span', 'url', part) : document.createTextNode(part));
+				t.append(row);
+				t.scrollTop = t.scrollHeight;
+			}, 400 + (at / span) * (S.duration - 2200));
+		}
+	}
+
+	async function pdf() {
+		const pdfjs = await import('/node_modules/pdfjs-dist/build/pdf.mjs');
+		pdfjs.GlobalWorkerOptions.workerSrc = '/node_modules/pdfjs-dist/build/pdf.worker.mjs';
+		const doc = await pdfjs.getDocument(S.url).promise;
+		const wrap = el('div', 'pdf');
+		root.append(wrap);
+		const page = await doc.getPage(1);
+		const vp = page.getViewport({ scale: (innerWidth * 0.62) / page.getViewport({ scale: 1 }).width });
+		const canvas = el('canvas');
+		canvas.width = vp.width; canvas.height = vp.height;
+		wrap.append(canvas);
+		await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+		window.READY = true;
+		// Slowly down the page: head, note, positions, total, signature.
+		setTimeout(() => { canvas.style.transform = `translateY(-${Math.max(0, vp.height - innerHeight + 60)}px)`; canvas.style.transitionDuration = `${(S.duration - 3000) / 1000}s`; }, 1500);
+	}
+
+	function csv() {
+		const rows = S.text.replace(/^﻿/, '').trim().split('\r\n').map((r) => r.split(';'));
+		const pick = [1, 2, 7, 9, 10, 12, 13, 14, 18, 19];
+		const table = el('table');
+		rows.forEach((r, i) => {
+			if (r.length < 2) return;
+			const tr = el('tr', i === 0 ? '' : r[18] === 'ja' ? 'on' : 'off');
+			for (const k of pick) {
+				const v = (r[k] ?? '').length > 34 ? r[k].slice(0, 14) + '…' + r[k].slice(-6) : r[k] ?? '';
+				tr.append(el(i === 0 ? 'th' : 'td', /^-?[\d,]+$/.test(v) ? 'num' : '', v));
+			}
+			table.append(tr);
+		});
+		root.append(table);
+	}
+
+	function tx() {
+		const c = el('div', 'card');
+		c.append(el('div', 'tag', 'NEAR testnet · transaction, as the NEAR RPC returns it'));
+		c.append(el('h1', '', S.data.hash));
+		const t = el('table');
+		for (const [k, val] of S.data.rows) {
+			const tr = el('tr');
+			tr.append(el('th', '', k), el('td', '', val));
+			t.append(tr);
+		}
+		t.style.fontSize = '28px';
+		t.style.margin = '0';
+		c.append(t);
+		root.append(c);
+	}
+
+	function json() { root.append(el('div', 'json', JSON.stringify(S.data, null, 2))); }
+
+	({ card, terminal, pdf, csv, json, tx })[S.kind]();
+	if (S.caption) document.body.append(el('div', 'caption', S.caption));
+	if (S.kind !== 'pdf') window.READY = true;
+</script>
+</body>
+</html>

@@ -290,7 +290,13 @@ The addresses of a request go to the data sources of its chain, and nowhere else
 
 ## Privacy
 
-The payer's name and address live only for the request. Nothing is stored, and logs hold method, path, status and duration only. There are no request bodies in the logs, and there is no database. Fixtures are public chain data of protocol accounts; every name and address in examples is made up (*Wolkenfabrik Hosting GmbH*, *Musterstraße 1*).
+The payer's name and address live only for the request. Nothing is stored, and logs hold method, path, status and duration only. There are no request bodies in the logs, and there is no database.
+
+**In the web UI**, the page loads only its own files until you click *Wallet verbinden*. Then your browser loads the code of the wallet you pick from that wallet's provider and runs it isolated in an iframe:
+- Meteor from `raw.githubusercontent.com` (GitHub);
+- Intear from `wallet.intear.tech`.
+
+GitHub or the wallet provider sees your IP address. To sign, the wallet may open its own page (`wallet.meteorwallet.app`, `wallet.intear.tech`). It learns your NEAR account and the one payment you sign, and may talk to NEAR RPC nodes of its choice. Your name and postal address go only to this API, never to the wallet. The UI says this next to the button, before anything is loaded. The free preview takes no name or address at all. Fixtures are public chain data of protocol accounts; every name and address in examples is made up (*Wolkenfabrik Hosting GmbH*, *Musterstraße 1*).
 
 ## Building blocks
 

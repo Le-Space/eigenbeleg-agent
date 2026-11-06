@@ -130,3 +130,13 @@ test('a wallet that signs something else, or a changed price, is refused before 
 	const s4 = walletSigner({ wallet: /** @type {any} */ (elsewhere.wallet), accountId: 'zahler.testnet', network: 'testnet', confirmed: () => req });
 	await assert.rejects(s4.createSignedDelegateAction({ paymentRequirements: req }), /Absender/);
 });
+
+test('the page names the wallet code hosts before anything is loaded', async () => {
+	const { readFile } = await import('node:fs/promises');
+	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+	const notice = /<p class="note" id="wallet-privacy">([\s\S]*?)<\/p>/.exec(html)?.[1] ?? '';
+	for (const host of ['raw.githubusercontent.com', 'wallet.intear.tech']) assert.ok(notice.includes(host), host);
+	const manifest = JSON.parse(await readFile(new URL('../src/wallet-manifest.json', import.meta.url), 'utf8'));
+	const wallets = Array.isArray(manifest) ? manifest : manifest.wallets;
+	for (const w of wallets) assert.ok(notice.includes(new URL(w.executor).host), `notice names ${w.executor}`);
+});

@@ -87,6 +87,13 @@
 					<p class="note" id="wallet-state">
 						Zahlung per x402 auf NEAR: Sie signieren genau eine USDC-Überweisung, die API reicht sie ein und zahlt das Gas. Unterstützt: Meteor, Intear.
 					</p>
+					<p class="note" id="wallet-privacy">
+						Datenschutz: Erst wenn Sie auf „Wallet verbinden“ klicken, lädt Ihr Browser den Code der Wallet, die Sie dann wählen, von deren Anbieter –
+						Meteor von raw.githubusercontent.com (GitHub), Intear von wallet.intear.tech – und führt ihn abgeschottet in einem eingebetteten Rahmen aus.
+						Dabei sehen GitHub bzw. der Wallet-Anbieter Ihre IP-Adresse; zum Signieren kann die Wallet ihre eigene Seite öffnen (wallet.meteorwallet.app bzw. wallet.intear.tech)
+						und erfährt Ihr NEAR-Konto und die Zahlung, die Sie signieren.
+						Vorher lädt diese Seite keinen fremden Code. Name und Anschrift gehen nur an diese API und nie an die Wallet.
+					</p>
 				</div>
 				<ol class="status" id="status" aria-live="polite"></ol>
 				<p class="error" id="pay-error" role="alert"></p>

@@ -15,7 +15,7 @@
 //
 // Powered by NearBlocks.io APIs.
 
-import { entry, fromUnits, sortEntries, toUnits } from '@eigenbeleg/ledger-core';
+import { entry, fromUnits, fromUtf8, sortEntries, toBase64, toUnits, utf8 } from '@eigenbeleg/ledger-core';
 
 export const NETWORKS = {
 	mainnet: {
@@ -110,8 +110,17 @@ async function walk({ url, fromTs, toTs, fetch, headers, maxPages, partial = fal
 /** @param {typeof fetch} fetch @param {string} url @param {Record<string,string>} headers */
 async function getJson(fetch, url, headers) {
 	for (let attempt = 0; ; attempt++) {
-		const res = await fetch(url, { headers });
-		if (res.status === 429 && attempt < 4) {
+		/** @type {Response} */
+		let res;
+		try {
+			res = await fetch(url, { headers });
+		} catch (e) {
+			// In a browser a 429 without CORS headers, or a dropped connection, is a TypeError.
+			if (!(e instanceof TypeError) || attempt >= 4) throw e;
+			await new Promise((r) => setTimeout(r, 2000 * 2 ** attempt));
+			continue;
+		}
+		if ((res.status === 429 || res.status >= 500) && attempt < 4) {
 			await new Promise((r) => setTimeout(r, 2000 * 2 ** attempt));
 			continue;
 		}
@@ -328,8 +337,25 @@ export async function storageKept(entries, { network = 'mainnet', fetch = global
 }
 
 /** @param {typeof fetch} fetch @param {string} url @param {string} method @param {any} params */
-async function rpc(fetch, url, method, params) {
-	const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+async function rpc(fetch, url, method, params, { tries = 4, wait = 1000 } = {}) {
+	/** @type {Response | null} */
+	let res = null;
+	// A rate limit (429) or a hiccup (5xx) is asked again, a little later each time. In a
+	// browser such an answer often comes without CORS headers and so shows up as a failed
+	// fetch (TypeError); that is retried the same way.
+	for (let attempt = 0; ; attempt++) {
+		try {
+			res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+			if ((res.status === 429 || res.status >= 500) && attempt < tries) {
+				await new Promise((r) => setTimeout(r, wait * 2 ** attempt));
+				continue;
+			}
+			break;
+		} catch (e) {
+			if (!(e instanceof TypeError) || attempt >= tries) throw e;
+			await new Promise((r) => setTimeout(r, wait * 2 ** attempt));
+		}
+	}
 	const body = res.ok ? await res.json() : null;
 	if (!body || body.error) {
 		const e = new Error(`NEAR RPC ${method}: ${String(body?.error?.cause?.name ?? body?.error?.message ?? res.status)}`);
@@ -419,8 +445,8 @@ export async function balancesBefore({ account, network = 'mainnet', before, con
 		if (!t) continue;
 		let units = 0n;
 		try {
-			const r = await rpc(fetch, url, 'query', { request_type: 'call_function', block_id: block.height, account_id: c, method_name: 'ft_balance_of', args_base64: Buffer.from(JSON.stringify({ account_id: account })).toString('base64') });
-			units = BigInt(JSON.parse(Buffer.from(r.result).toString()));
+			const r = await rpc(fetch, url, 'query', { request_type: 'call_function', block_id: block.height, account_id: c, method_name: 'ft_balance_of', args_base64: toBase64(utf8(JSON.stringify({ account_id: account }))) });
+			units = BigInt(JSON.parse(fromUtf8(Uint8Array.from(r.result))));
 		} catch {
 			units = 0n; // not registered with the token yet
 		}

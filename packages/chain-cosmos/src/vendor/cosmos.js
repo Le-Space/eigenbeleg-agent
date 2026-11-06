@@ -1,6 +1,8 @@
 // Ported from Le-Space/belege bridge/src/chains/cosmos.js at 3029ce0 (AGPL-3.0 there).
 // SPDX-License-Identifier: AGPL-3.0-or-later (as in Belege; rights holder: Le Space UG).
 // Pre-hackathon code (baseline); see the README.
+// Changed here: base64 without Node's Buffer, so it runs in a browser too.
+import { fromBase64, fromUtf8 } from '@eigenbeleg/ledger-core/bytes';
 
 // A Cosmos SDK wallet, read only, by its address: every transfer in or out,
 // the fees it paid, and its balance. Nyx (Nym) first; any chain in
@@ -178,7 +180,7 @@ export function readEvents(events) {
 	const keys = list.flatMap((e) => (Array.isArray(e?.attributes) ? e.attributes : []));
 	const plain = keys.every((a) => typeof a?.key === 'string' && /^[a-z_.]+$/.test(a.key));
 	const read = (/** @type {unknown} */ v) =>
-		typeof v !== 'string' ? '' : plain ? v : Buffer.from(v, 'base64').toString('utf8');
+		typeof v !== 'string' ? '' : plain ? v : fromUtf8(fromBase64(v));
 	return list.map((e) => ({
 		type: String(e?.type ?? ''),
 		attributes: (Array.isArray(e?.attributes) ? e.attributes : []).map((/** @type {any} */ a) => ({

@@ -1,6 +1,7 @@
 # Components: what runs where, and what it talks to
 
 Status: 6 Nov 2026, testnet payments. Hosted at https://eigenbeleg.le-space.de.
+The web UI runs the same pipeline in the browser and talks to none of this (see below and [web-ui.md](web-ui.md)).
 
 ## One process on our side
 
@@ -10,7 +11,8 @@ not separate services:
 
 | Part | Code | Does |
 |---|---|---|
-| Web server (Express) | `apps/api/src/app.js` | `GET /`, `/blocks`, `/health`; `POST /eigenbeleg/preview` (free); `POST /eigenbeleg` (paid); serves the UI at `/ui/` |
+| Web server (Express) | `apps/api/src/app.js` | `GET /`, `/llms.txt`, `/blocks`, `/health`; `POST /eigenbeleg/preview` (free); `POST /eigenbeleg` (paid); serves the UI's static files at `/ui/` |
+| Pipeline | `packages/pipeline` | checks the request, runs readers, rates and documents; the same package the web UI runs in the browser |
 | Paywall (x402 resource server) | `@x402/express`, `apps/api/src/paywall.js` | answers 402 with `PAYMENT-REQUIRED`; on a request with `PAYMENT-SIGNATURE` asks the facilitator to verify, lets the route run, then asks it to settle; sends `PAYMENT-RESPONSE` |
 | Facilitator (in-process) | `@x402/near` `exact` facilitator | checks the signed delegate (signature, one `ft_transfer`, token, recipient, amount, nonce, expiry, USDC balance); on settle hands it to the relayer |
 | Relayer | `createFacilitatorNearSigner` with `RELAYER_ACCOUNT_ID` and its key | wraps the payer's signed delegate into its own NEAR transaction, signs it with its key, pays the gas, waits for the `ft_transfer` receipt |
@@ -23,17 +25,22 @@ On testnet the relayer and the recipient are the same account,
 accounts. The relayer's key is the only secret the process holds.
 
 The UI (`apps/web`) is static files served by the same process. It runs in the
-user's browser.
+user's browser and does the whole run there: it asks the data sources directly
+(NearBlocks, FastNEAR, PublicNode, Filfox, Kraken, CoinGecko; Akash's indexer
+through the Cloudflare Worker in `deploy/akash-proxy`) and draws the files on
+the device. It sends nothing to the API, has no wallet and pays nothing.
 
 ## Who connects to what
 
 ```
-Browser (UI at /ui/)
- ├─ same origin ─────────────▶ our API: /blocks, /eigenbeleg/preview, /eigenbeleg
- └─ after "Wallet verbinden"
-     NEAR Connect ─ loads ───▶ wallet executor script (Meteor: raw.githubusercontent.com; Intear: wallet.intear.tech)
-     wallet (Meteor) ────────▶ its own servers and a NEAR RPC: block height, access-key nonce
-                               (the wallet signs; it sends nothing to the chain itself)
+Browser (UI at /ui/, a PWA)
+ ├─ same origin ─────────────▶ only the page's own files (HTML, JS, fonts, icons)
+ ├─ chain readers ───────────▶ NearBlocks API, FastNEAR archival RPC, PublicNode (Akash), Filfox
+ │                          └▶ Cloudflare Worker (deploy/akash-proxy) ─▶ console-api.akash.network
+ └─ rates ───────────────────▶ api.kraken.com, api.coingecko.com
+
+Agent (x402 client)
+ └─ ────────────────────────▶ our API: /llms.txt, /blocks, /eigenbeleg/preview, /eigenbeleg
 
 Our API process
  ├─ facilitator + relayer ───▶ NEAR RPC rpc.testnet.fastnear.com (NEAR_RPC_URL)
@@ -57,11 +64,11 @@ Two different "networks" are in play and need not match:
 
 ## One paid request, step by step
 
-1. The browser posts the request without a payment. The paywall answers 402 with
+1. The agent posts the request without a payment. The paywall answers 402 with
    price, token, `payTo` and network. Nothing is read from any chain yet.
-2. The wallet builds and signs the delegate action (one `ft_transfer`). For the
+2. The agent's wallet or key builds and signs the delegate action (one `ft_transfer`). For the
    nonce and the expiry it asks a NEAR RPC itself. The page checks the result.
-3. The browser posts again with `PAYMENT-SIGNATURE`.
+3. The agent posts again with `PAYMENT-SIGNATURE`.
 4. The facilitator verifies against NEAR RPC: access key, nonce, expiry, USDC
    balance, recipient registered. Nothing is sent yet.
 5. The route reads the chain (NearBlocks, archival RPC), the rates (Kraken), and

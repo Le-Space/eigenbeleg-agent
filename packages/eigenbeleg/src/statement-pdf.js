@@ -6,13 +6,13 @@
 // closing balance with its check against the chain, and the sums a
 // bookkeeper needs. German, for German bookkeeping.
 
-import { readFile } from 'node:fs/promises';
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 
 import { round } from '@eigenbeleg/ledger-core';
 import { deDate, deEuro, deNumber } from './document.js';
-import { fontPath, makePdfA } from './pdf.js';
+import { makePdfA } from './pdf.js';
+import { asset, FONTS } from './assets.js';
 
 const A4 = /** @type {[number, number]} */ ([595.28, 841.89]);
 const M = 44;
@@ -53,9 +53,11 @@ export async function statementPdf(st) {
 	pdf.setCreationDate(created);
 	pdf.setModificationDate(created);
 	pdf.setLanguage('de-DE');
-	const [regular, bold, mono] = await Promise.all(
-		['DejaVuSansCondensed.ttf', 'DejaVuSansCondensed-Bold.ttf', 'DejaVuSansMono.ttf'].map(async (f) => pdf.embedFont(await readFile(fontPath(f)), { subset: true }))
-	);
+	// Loaded together, embedded in a fixed order: the same document is the same file.
+	const fontBytes = await Promise.all(FONTS.map((f) => asset(f)));
+	const regular = await pdf.embedFont(fontBytes[0], { subset: true });
+	const bold = await pdf.embedFont(fontBytes[1], { subset: true });
+	const mono = await pdf.embedFont(fontBytes[2], { subset: true });
 	const charsets = new Map([regular, bold, mono].map((f) => [f, new Set(f.getCharacterSet())]));
 	const width = A4[0] - 2 * M;
 	let page = pdf.addPage(A4);

@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# The Akash Console CORS proxy (worker.js). Deploy: npx wrangler deploy
+# (needs CLOUDFLARE_API_TOKEN with "Workers Scripts: Edit" for the account).
+name = "eigenbeleg-akash-proxy"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+# The web UI's origins; nothing else gets an answer.
+[vars]
+ALLOWED_ORIGINS = "https://eigenbeleg.le-space.de,http://localhost:5173,http://localhost:4403"
+
+# No request logs, no traces: the paths carry Akash addresses.
+[observability]
+enabled = false
+
+# 60 requests a minute per IP (Workers rate limiting binding).
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1001"
+simple = { limit = 60, period = 60 }

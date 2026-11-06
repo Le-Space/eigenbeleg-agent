@@ -6,22 +6,22 @@
 // fixture's day and that balance plus the day's movements after it – what a
 // real archival node would say for an account that did only this.
 
-import { sum, toUnits } from '@eigenbeleg/ledger-core';
+import { sum, toUnits, utf8 } from '@eigenbeleg/ledger-core';
 import { mapRaw } from '@eigenbeleg/chain-near';
 
 const T0 = Date.parse('2026-01-01T00:00:00Z');
 
 /**
  * @param {{ account: string, network: 'mainnet' | 'testnet', txns: any[], ftTxns: any[] }} raw
- * @param {{ opening?: string }} [o] NEAR before the day
+ * @param {{ opening?: string, now?: number }} [o] NEAR before the day; now: the chain's head time in ms (default: the clock)
  * @returns {typeof fetch}
  */
-export function recordedNear(raw, { opening = '25' } = {}) {
+export function recordedNear(raw, { opening = '25', now = Date.now() } = {}) {
 	const entries = mapRaw(raw).filter((e) => e.asset === 'NEAR');
 	const firstMs = Math.min(...entries.map((e) => Date.parse(e.time)));
 	const closing = sum([opening, ...entries.map((e) => e.amount)]);
 	const time = (/** @type {number} */ h) => (BigInt(T0) + BigInt(h) * 1000n) * 1_000_000n;
-	const head = Math.floor((Date.now() - T0) / 1000) - 10;
+	const head = Math.floor((now - T0) / 1000) - 10;
 	return /** @type {any} */ (
 		async (/** @type {string} */ url, /** @type {any} */ init = {}) => {
 			const u = new URL(url);
@@ -40,7 +40,7 @@ export function recordedNear(raw, { opening = '25' } = {}) {
 				const amount = at < firstMs ? opening : closing;
 				return ok({ amount: toUnits(amount, 24).toString(), locked: '0' });
 			}
-			if (method === 'query' && params.request_type === 'call_function') return ok({ result: [...Buffer.from('"0"')] });
+			if (method === 'query' && params.request_type === 'call_function') return ok({ result: [...utf8('"0"')] });
 			return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, error: { cause: { name: 'UNKNOWN' } } }));
 		}
 	);

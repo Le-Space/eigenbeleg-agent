@@ -5,9 +5,9 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta name="csp-nonce" content="__CSP_NONCE__" />
+		<meta http-equiv="Content-Security-Policy" content="__CSP__" />
 		<title>Eigenbeleg · Le Space Belege</title>
-		<meta name="description" content="Eigenbelege für Blockchain-Zahlungen: Netzwerkgebühren und Storage-Deposits als PDF/A und CSV, mit Euro-Kurs des Tages. Kostenlose Vorschau, bezahlt per x402." />
+		<meta name="description" content="Eigenbelege für Blockchain-Zahlungen: Netzwerkgebühren und Storage-Deposits als PDF/A und CSV, mit Euro-Kurs des Tages. Alles im Browser, kostenlos: Name, Anschrift und Adressen gehen an keinen Server von uns." />
 		<!-- Share cards (Open Graph: Telegram, LinkedIn, WhatsApp, Mastodon; X reads twitter:*). The API puts in
 		     its public origin for __PUBLIC_URL__; crawlers need absolute URLs. Cards: scripts/video/social.mjs. -->
 		<meta property="og:type" content="website" />
@@ -15,7 +15,7 @@
 		<meta property="og:locale" content="de_DE" />
 		<meta property="og:locale:alternate" content="en_US" />
 		<meta property="og:title" content="Eigenbeleg für Blockchain-Zahlungen" />
-		<meta property="og:description" content="Netzwerkgebühren und Storage-Deposits als PDF/A und CSV, mit Euro-Kurs des Tages. Kostenlose Vorschau, bezahlt per x402." />
+		<meta property="og:description" content="Netzwerkgebühren und Storage-Deposits als PDF/A und CSV, mit Euro-Kurs des Tages. Alles im Browser, kostenlos: Name, Anschrift und Adressen gehen an keinen Server von uns." />
 		<meta property="og:url" content="__PUBLIC_URL__/ui/" />
 		<meta property="og:image" content="__PUBLIC_URL__/ui/social/eigenbeleg-de.png" />
 		<meta property="og:image:width" content="1200" />
@@ -23,11 +23,13 @@
 		<meta property="og:image:alt" content="Le Space eigenbeleg: Eigenbelege für Blockchain-Zahlungen, als PDF/A und CSV." />
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:title" content="Eigenbeleg für Blockchain-Zahlungen" />
-		<meta name="twitter:description" content="Netzwerkgebühren und Storage-Deposits als PDF/A und CSV, mit Euro-Kurs des Tages. Kostenlose Vorschau, bezahlt per x402." />
+		<meta name="twitter:description" content="Netzwerkgebühren und Storage-Deposits als PDF/A und CSV, mit Euro-Kurs des Tages. Alles im Browser, kostenlos: Name, Anschrift und Adressen gehen an keinen Server von uns." />
 		<meta name="twitter:image" content="__PUBLIC_URL__/ui/social/eigenbeleg-de.png" />
 		<meta name="theme-color" content="#FAF6EE" media="(prefers-color-scheme: light)" />
 		<meta name="theme-color" content="#0B0E15" media="(prefers-color-scheme: dark)" />
-		<link rel="icon" href="/src/favicon.svg" type="image/svg+xml" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="/icons/icon-192.png" />
+		<link rel="manifest" href="/manifest.webmanifest" />
 		<link rel="stylesheet" href="/src/style.css" />
 	</head>
 	<body>
@@ -52,11 +54,16 @@
 				<p class="lead">
 					<span data-i18n="lead1">Ein Eigenbeleg ist ein Beleg, den Sie selbst für Ihre eigenen Zahlungen ausstellen, wenn niemand eine Rechnung schickt: Netzwerkgebühren, Storage-Deposits, Zahlungen an Peer-to-Peer-Netzwerke. Er ist </span><strong data-i18n="lead2">keine Rechnung</strong><span data-i18n="lead3">. Ob Ihr Steuerberater ihn annimmt, entscheidet er.</span>
 				</p>
-				<p class="note" data-i18n="privacy">Testnet. Nichts wird gespeichert: Name und Anschrift gehen nur an den bezahlten Abruf und werden nach der Antwort verworfen.</p>
+				<p class="note" data-i18n="privacy">Alles geschieht in diesem Browser: Er liest die Chain, holt die Kurse und erstellt die PDFs. Name und Anschrift verlassen das Gerät nie, und kein Server von uns sieht Ihre Adressen. Kostenlos.</p>
+				<details id="sources">
+					<summary data-i18n="sourcesSummary">Welche Dienste Ihr Browser dabei fragt</summary>
+					<p class="note" data-i18n="sourcesIntro">Ihr Browser fragt nur diese Dienste, direkt.</p>
+					<ul id="sources-list" class="note"></ul>
+				</details>
 			</header>
 
 			<section id="step-form" aria-labelledby="h-form">
-				<h2 id="h-form" data-i18n="hForm">1. Anfrage</h2>
+				<h2 id="h-form" data-i18n="hForm">1. Angaben</h2>
 				<form id="form" novalidate>
 					<div class="row">
 						<label><span data-i18n="chain">Blockchain</span> <select name="chain" id="chain" required></select></label>
@@ -84,7 +91,7 @@
 						<label class="inline"><input type="checkbox" name="includeKinds" value="call" /> <span data-i18n="kindCall">Vertragsaufrufe mit Deposit</span></label>
 					</fieldset>
 					<fieldset>
-						<legend data-i18n="documents">Welche Dokumente (ein Preis, die CSV kommt immer mit)</legend>
+						<legend data-i18n="documents">Welche Dokumente (die CSV kommt immer mit)</legend>
 						<label class="inline"><input type="radio" name="document" value="eigenbelege" checked /> <span data-i18n="docEigenbelege">Eigenbelege (je Transaktion einer)</span></label>
 						<label class="inline"><input type="radio" name="document" value="kontoauszug" /> <span data-i18n="docKontoauszug">Kontoauszug (je Adresse: Anfangssaldo, Buchungen, Endsaldo)</span></label>
 						<label class="inline"><input type="radio" name="document" value="beide" /> <span data-i18n="docBeide">Beide</span></label>
@@ -94,63 +101,31 @@
 						<label id="l-statement" hidden><span data-i18n="statementNumber">Nummer des Kontoauszugs (optional)</span> <input name="statementNumber" id="statementNumber" maxlength="40" placeholder="KA-2026-10-01" autocomplete="off" /></label>
 					</div>
 					<fieldset>
-						<legend data-i18n="payer">Zahler (steht auf dem Eigenbeleg, geht nicht in die Vorschau)</legend>
+						<legend data-i18n="payer">Aussteller (steht auf dem Eigenbeleg, bleibt in diesem Browser)</legend>
 						<label><span data-i18n="name">Name</span> <input name="name" id="name" maxlength="200" autocomplete="organization" placeholder="Wolkenfabrik Hosting GmbH" /></label>
 						<label
 							><span data-i18n="postal">Anschrift</span>
 							<textarea name="postal" id="postal" rows="2" maxlength="500" autocomplete="street-address" placeholder="Musterstraße 1&#10;12345 Beispielstadt"></textarea>
 						</label>
+						<label class="inline"><input type="checkbox" id="remember" /> <span data-i18n="remember">Name und Anschrift auf diesem Gerät merken</span></label>
 					</fieldset>
 					<p class="error" id="form-error" role="alert"></p>
-					<button type="submit" id="btn-preview" data-i18n="btnPreview">Vorschau (kostenlos)</button>
+					<button type="submit" id="btn-create" data-i18n="btnCreate">Lesen und erstellen</button>
 				</form>
 			</section>
 
-			<section id="step-preview" aria-labelledby="h-preview" hidden>
-				<h2 id="h-preview" data-i18n="hPreview">2. Vorschau</h2>
+			<section id="step-result" aria-labelledby="h-result" hidden>
+				<h2 id="h-result" data-i18n="hResult">2. Ergebnis</h2>
 				<dl class="summary" id="summary"></dl>
-				<p class="note" id="preview-note"></p>
-			</section>
-
-			<section id="step-pay" aria-labelledby="h-pay" hidden>
-				<h2 id="h-pay" data-i18n="hPay">3. Bezahlen und herunterladen</h2>
-				<div id="pay-offer">
-					<p id="price"></p>
-					<div class="actions">
-						<button type="button" id="btn-wallet" data-i18n="btnWallet">Wallet verbinden</button>
-						<button type="button" id="btn-pay" data-i18n="btnPay" disabled>Kaufen</button>
-					</div>
-					<p class="note" id="wallet-state" data-i18n="walletHint">
-						Zahlung per x402 auf NEAR: Sie signieren genau eine USDC-Überweisung, die API reicht sie ein und zahlt das Gas. Unterstützt: Meteor, Intear.
-					</p>
-					<p class="note" id="wallet-privacy" data-i18n="walletPrivacy">
-						Datenschutz: Erst wenn Sie auf „Wallet verbinden“ klicken, lädt Ihr Browser den Code der Wallet, die Sie dann wählen, von deren Anbieter –
-						Meteor von raw.githubusercontent.com (GitHub), Intear von wallet.intear.tech – und führt ihn abgeschottet in einem eingebetteten Rahmen aus.
-						Dabei sehen GitHub bzw. der Wallet-Anbieter Ihre IP-Adresse; zum Signieren kann die Wallet ihre eigene Seite öffnen (wallet.meteorwallet.app bzw. wallet.intear.tech)
-						und erfährt Ihr NEAR-Konto und die Zahlung, die Sie signieren.
-						Vorher lädt diese Seite keinen fremden Code. Name und Anschrift gehen nur an diese API und nie an die Wallet.
-					</p>
-				</div>
-				<ol class="status" id="status" aria-live="polite"></ol>
-				<p class="error" id="pay-error" role="alert"></p>
-				<div id="result" hidden>
-					<div class="actions" id="downloads"></div>
-					<p><span data-i18n="payment">Zahlung:</span> <a id="tx-link" target="_blank" rel="noopener noreferrer"></a></p>
-					<p class="note" data-i18n="signHint">Drucken, prüfen und unterschreiben: Ein Eigenbeleg gilt erst mit Ihrer Unterschrift.</p>
-				</div>
-				<details id="cli">
-					<summary data-i18n="cliSummary">Keine passende Wallet? Mit dem Agenten auf der Kommandozeile kaufen</summary>
-					<p class="note">
-						<span data-i18n="cliHint1">Im Repository, mit </span><code>AGENT_ACCOUNT_ID</code><span data-i18n="cliHint2"> in </span><code>.env</code><span data-i18n="cliHint3"> (siehe README). Name und Anschrift selbst einsetzen.</span>
-					</p>
-					<pre><code id="cli-command"></code></pre>
-				</details>
+				<p class="note" id="result-note"></p>
+				<div class="actions" id="downloads"></div>
+				<p class="note" data-i18n="signHint">Drucken, prüfen und unterschreiben: Ein Eigenbeleg gilt erst mit Ihrer Unterschrift.</p>
 			</section>
 
 			<footer>
 				<p>
 					<a href="https://github.com/Le-Space/eigenbeleg-agent" rel="noopener noreferrer" data-i18n="source">Quellcode</a> (AGPL-3.0-or-later) ·
-					<span data-i18n="data">Daten: NearBlocks.io, Kurse: Kraken</span> · <a href="https://github.com/Le-Space/eigenbeleg-agent#api" rel="noopener noreferrer">API</a>
+					<a href="https://github.com/Le-Space/eigenbeleg-agent#api" rel="noopener noreferrer" data-i18n="agents">Für Agenten: API mit x402</a>
 				</p>
 			</footer>
 		</main>

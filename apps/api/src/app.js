@@ -12,14 +12,11 @@
 // in memory until the response is sent. Logs carry method, path, status and
 // duration only.
 
-import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 
-import { checkBlock, describeBlocks } from './blocks.js';
-import { generate } from './generate.js';
-import { RequestError, parseRequest } from './request.js';
+import { RequestError, checkBlock, describeBlocks, generate, parseRequest } from '@eigenbeleg/pipeline';
 
 /**
  * @param {object} o
@@ -69,6 +66,8 @@ export function createApp({
 			endpoint: 'POST /eigenbeleg',
 			preview: 'POST /eigenbeleg/preview (free; the same body without payer)',
 			ui: hasUi ? '/ui/' : null,
+			people: 'the web UI does everything in the browser, free; nothing is sent to this API',
+			agents: '/llms.txt',
 			payment: paywall.info,
 			request: {
 				chain: 'near',
@@ -90,6 +89,46 @@ export function createApp({
 	});
 	const hasUi = Boolean(web && existsSync(`${web}/index.html`));
 	if (hasUi) mountUi(app, /** @type {string} */ (web), publicUrl);
+	// For agents (llms.txt convention): what is sold, the price, the x402 flow, and where people go instead.
+	app.get('/llms.txt', (req, res) => {
+		const p = /** @type {Record<string, unknown>} */ (paywall.info);
+		const price = p.mode === 'near' ? `${p.price} in USDC (NEP-141) on ${p.network}, to ${p.payTo}; the API's relayer pays the gas` : p.mode === 'none' ? 'free (development mode)' : `paid via ${p.mode}`;
+		const base = origin(req, publicUrl);
+		res.type('text/plain; charset=utf-8').send(`# Eigenbeleg API
+
+> Eigenbelege (self-issued proofs of payment for German bookkeeping; never invoices) for the payments of a person's own blockchain addresses: network fees, storage deposits, transfers. PDF/A-2b and CSV, with the EUR rate of each payment's day and its source. Paid per request with x402.
+
+People use the web UI at ${base}/ui/ instead: it does everything in their browser, for free, and sends nothing here. This API is for agents acting for someone.
+
+## Buy
+
+- POST ${base}/eigenbeleg/preview: free, the same body without \`payer\`; counts and totals, no files. Check here first.
+- POST ${base}/eigenbeleg: ${price}.
+  1. Send the body; the answer is 402 with a \`PAYMENT-REQUIRED\` header (base64 JSON, x402 v2, scheme \`exact\`).
+  2. Sign what it asks for (on NEAR: one NEP-366 delegate action with one \`ft_transfer\` of USDC; the payer needs USDC and a USDC storage registration, no NEAR) and send the same request again with \`PAYMENT-SIGNATURE\`.
+  3. The answer carries the files and \`PAYMENT-RESPONSE\` (the transaction). If reading the chain fails, nothing is charged.
+  Clients: @x402/fetch with @x402/near (JavaScript), or this repository's agent: npm run agent -- --help.
+
+## Body
+
+{
+  "chain": "near" | "akash" | "filecoin"   (GET ${base}/blocks lists them and their networks),
+  "network": "mainnet" | "testnet",           where the payments were made,
+  "addresses": ["own-account.near"],          one to ten own addresses,
+  "period": { "month": "YYYY-MM" } or { "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }   finished days, at most 92,
+  "format": "pdf" | "csv" | "json",          json: every file, PDFs base64,
+  "document": "eigenbelege" | "kontoauszug" | "beide",
+  "payer": { "name": "…", "address": "street, postcode town" }   printed on the documents; used for this response only, never stored or logged,
+  "number": "EB-2026-001",                    optional, first number of the payer's own range,
+  "includeKinds": ["fee", "storage"]          optional: fee, storage, transfer, call
+}
+
+## Notes
+
+- The documents are in German. An Eigenbeleg counts only once the payer signs it; whether a tax adviser accepts it is theirs to decide.
+- Nothing is stored beyond the request. Source (AGPL-3.0-or-later): ${source}
+`);
+	});
 	app.get('/blocks', (_req, res) => res.json({ blocks: describeBlocks() }));
 	app.get('/blocks/:chain/check', async (req, res) => res.json(await checkBlock(req.params.chain, deps)));
 	app.get('/health', (_req, res) => res.json({ ok: true, paywall: paywall.info.mode }));
@@ -225,10 +264,11 @@ export function origin(req, publicUrl) {
 export const WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
 
 /**
- * Serves the built UI at /ui/. index.html gets a fresh CSP nonce per response:
- * the page loads only its own scripts; the nonce lets the wallet's sandboxed
- * iframe (NEAR Connect, loaded on click) run its executor script. Wallet
- * executors talk to their own backends, hence connect-src https: wss:.
+ * Serves the built UI (a static PWA) at /ui/. The page talks to no route of
+ * this API: it reads the chains from the data sources itself. Its
+ * Content-Security-Policy comes from the build (dist/csp.txt, made from the
+ * pipeline's data sources), plus frame-ancestors, which the page's <meta>
+ * cannot carry.
  *
  * The share-card meta tags need absolute URLs: __PUBLIC_URL__ becomes `publicUrl`,
  * or else the request's origin, taken only if the Host is a plain host name.
@@ -239,26 +279,16 @@ export const WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url)
  */
 function mountUi(app, dir, publicUrl) {
 	const html = readFileSync(`${dir}/index.html`, 'utf8');
+	const csp = existsSync(`${dir}/csp.txt`) ? readFileSync(`${dir}/csp.txt`, 'utf8').trim() : "default-src 'self'";
 	app.get('/ui', (_req, res) => res.redirect(301, '/ui/'));
 	app.get('/ui/', (req, res) => {
-		const nonce = randomBytes(16).toString('base64');
-		res.setHeader(
-			'Content-Security-Policy',
-			[
-				"default-src 'self'",
-				`script-src 'self' 'nonce-${nonce}'`,
-				"style-src 'self' 'unsafe-inline'",
-				"img-src 'self' data: https:",
-				"connect-src 'self' https: wss:",
-				"frame-src 'self' https:",
-				"base-uri 'none'",
-				"form-action 'self'",
-				"frame-ancestors 'none'"
-			].join('; ')
-		);
+		res.setHeader('Content-Security-Policy', `${csp}; frame-ancestors 'none'`);
 		res.setHeader('Referrer-Policy', 'no-referrer');
-		res.type('html').send(html.replaceAll('__CSP_NONCE__', nonce).replaceAll('__PUBLIC_URL__', origin(req, publicUrl)));
+		res.setHeader('Cache-Control', 'no-cache');
+		res.type('html').send(html.replaceAll('__PUBLIC_URL__', origin(req, publicUrl)));
 	});
-	app.use('/ui/social', express.static(`${dir}/social`, { index: false, fallthrough: false, maxAge: '1d' }));
 	app.use('/ui/assets', express.static(`${dir}/assets`, { index: false, fallthrough: false, immutable: true, maxAge: '1y' }));
+	// The service worker, the manifest, icons and share cards: revalidated, so a new version is seen.
+	app.get('/ui/index.html', (_req, res) => res.redirect(301, '/ui/'));
+	app.use('/ui', express.static(dir, { index: false, fallthrough: false, maxAge: 0 }));
 }

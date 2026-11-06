@@ -13,6 +13,8 @@
 
 export const SCHEMA = 'eigenbeleg.ledger/1';
 
+export { fromBase64, toBase64, fromHex, toHex, utf8, fromUtf8 } from './bytes.js';
+
 /** @typedef {'sent' | 'received' | 'fee'} EntryType */
 /** @typedef {'transfer' | 'fee' | 'call' | 'stake' | 'unstake' | 'reward' | 'swap' | 'storage' | 'escrow'} EntryKind */
 

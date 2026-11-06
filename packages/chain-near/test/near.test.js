@@ -148,3 +148,19 @@ test('a listed token keeps its decimals without the indexer; an unknown one with
 	const e = mapRaw({ account, network: 'testnet', txns: [], ftTxns: [ft('3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af'), ft('mystery.testnet')] });
 	assert.deepEqual(e.map((x) => [x.asset, x.amount]), [['USDC', '-1.5']]);
 });
+
+test('the archival RPC is asked again after a rate limit or a failed fetch', async () => {
+	const { blockBefore } = await import('../src/index.js');
+	let calls = 0;
+	const fetch = /** @type {typeof globalThis.fetch} */ (async (/** @type {any} */ _u, /** @type {any} */ init) => {
+		calls++;
+		if (calls === 1) return new Response('', { status: 429 });
+		if (calls === 2) throw new TypeError('Failed to fetch'); // a 429 without CORS headers, as a browser sees it
+		const { params } = JSON.parse(init.body);
+		const h = params.finality ? 100 : Number(params.block_id);
+		return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { header: { height: h, timestamp: String(BigInt(Date.parse('2026-11-01T00:00:00Z') + h * 1000) * 1_000_000n) } } }));
+	});
+	const b = await blockBefore({ network: 'testnet', before: '2026-11-01T00:01:00Z', fetch });
+	assert.equal(b.height, 59);
+	assert.ok(calls > 2);
+});

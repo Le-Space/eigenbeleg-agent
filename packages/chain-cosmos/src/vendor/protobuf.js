@@ -1,6 +1,8 @@
 // Ported from Le-Space/belege bridge/src/chains/protobuf.js at 3029ce0 (AGPL-3.0 there).
 // SPDX-License-Identifier: AGPL-3.0-or-later (as in Belege; rights holder: Le Space UG).
 // Pre-hackathon code (baseline); see the README.
+// Changed here: base64 without Node's Buffer, so it runs in a browser too.
+import { fromBase64, toBase64 } from '@eigenbeleg/ledger-core/bytes';
 
 // Just enough protobuf to read a Cosmos transaction's memo and fee from the
 // bytes CometBFT's tx_search hands out (base64 of a `TxRaw`). The events
@@ -64,7 +66,7 @@ const text = (/** @type {Uint8Array | undefined} */ b) =>
  */
 export function decodeTx(base64) {
 	if (typeof base64 !== 'string' || !base64) return null;
-	const raw = fields(Buffer.from(base64, 'base64'));
+	const raw = fields(fromBase64(base64));
 	const bodyBytes = raw?.get(1)?.[0];
 	const authBytes = raw?.get(2)?.[0];
 	if (!raw || !bodyBytes) return null;
@@ -128,7 +130,5 @@ export function encodeTx({ memo = '', messageTypes = [], fee = [] }) {
 		)
 	);
 	const auth = lengthDelimited(2, feeBytes);
-	return Buffer.from(concat([lengthDelimited(1, body), lengthDelimited(2, auth)])).toString(
-		'base64'
-	);
+	return toBase64(concat([lengthDelimited(1, body), lengthDelimited(2, auth)]));
 }

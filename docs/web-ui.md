@@ -1,229 +1,106 @@
-# Web UI for the Eigenbeleg API: concept
+# Web UI: everything in the browser
 
-Status: approved with option A (2026-11-06), built in `apps/web`. Testnet only.
+Status: built in `apps/web` (issue #5, 6 Nov 2026). Replaces the first version,
+which sent the request to the API and paid 0.10 USDC with a NEAR browser wallet
+(x402); that version is in the git history up to `a103ca0`, and its payment flow
+lives on in the API for agents ([delegate-actions.md](delegate-actions.md)).
 
 ## Goal
 
-A person (not an agent) gets an Eigenbeleg for their own blockchain payments in a
-browser: fill in a form, see what the Eigenbeleg will hold, pay 0.10 USDC with a
-NEAR browser wallet, download the PDF/A and the CSV. Same API, same price, same
-rules as for agents. No account, no storage, no tracking.
+People get their Eigenbelege, Kontoauszüge and the CSV **without giving a
+server of ours anything**: not their name, not their postal address, not their
+blockchain addresses. The page reads the chain, values in EUR and draws the
+documents on their device. It is free, installs as an app (PWA), and runs from
+any static host.
+
+Agents keep the paid API (x402). Both run **the same code**:
+`@eigenbeleg/pipeline` checks the request, reads, values and draws, in Node for
+the API and in the browser for the page. Nothing is written twice; the plan to
+share these building blocks with Le Space Belege as well is #6.
 
 ## User flow
 
-```
-1 Form ──▶ 2 Preview (free) ──▶ 3 Connect wallet ──▶ 4 Pay (sign) ──▶ 5 Download
-           POST /eigenbeleg/preview   NEAR Connect          POST /eigenbeleg (402 → signature → 200)
-```
+1. **Angaben:** chain and network of the payments, own addresses (up to ten),
+   a month or a range (finished days, at most 92), which kinds go on the
+   Eigenbeleg, which documents (Eigenbelege, Kontoauszug, both), the first
+   numbers (optional), name and postal address of the issuer. *Name und
+   Anschrift auf diesem Gerät merken* keeps those two in `localStorage`, only
+   when ticked; unticking deletes them.
+2. **Lesen und erstellen:** the page runs `parseRequest` (the API's check: a
+   wrong address or period is said here, before anything is read) and then
+   `generate`, loaded on this first click with its PDF code and fonts.
+3. **Ergebnis:** the summary (Eigenbeleg numbers, positions, total, quantities,
+   per address opening → closing balance, ✓ when reconciled with the chain) and
+   the downloads: Eigenbelege (PDF/A), Kontoauszug per address (PDF/A), CSV.
 
-1. **Form.** Chain (from `GET /blocks`), network (from the chosen block's
-   `networks`), own addresses (one per line, up to ten), period (a month, or
-   from/to up to 92 days), payer name and postal address, Eigenbeleg number
-   (optional, defaults to `EB-YYYY-001`), and which kinds go on it
-   (`fee`, `storage`, `transfer`, `call`; default as the API), and which
-   documents to buy (`document`: Eigenbelege by default, Kontoauszug, or both;
-   one price). The preview follows that choice.
-   Validation in the browser mirrors `apps/api/src/request.js`, but the server
-   is the authority: its 400 message is shown next to the form.
-2. **Preview.** "Vorschau" sends the form **without payer name and address** to
-   a new free route `POST /eigenbeleg/preview`. It shows: the Eigenbeleg
-   numbers (one per transaction, counting up from the given one), number of positions,
-   positions not on it (other kinds), the EUR total, the quantities per asset,
-   the period actually used (a period reaching today ends yesterday), and per
-   address the Kontoauszug's opening and closing balance and whether it is
-   reconciled with the chain. If
-   there are zero positions, the UI says so and does not offer to pay.
-3. **Connect wallet.** Only after the preview, on an explicit click. Lists the
-   wallets that can sign a delegate action on the chosen network (see below).
-   The connected account is the **payer of the 0.10 USDC**; it does not have to
-   be one of the addresses on the Eigenbeleg.
-4. **Pay.** "Eigenbeleg kaufen (0,10 USDC)". The browser sends
-   `POST /eigenbeleg` (`format: "json"`, so one payment yields both files),
-   gets `402` with `PAYMENT-REQUIRED`, shows amount, asset, recipient and
-   network, and asks the wallet to sign one `ft_transfer`. It retries with
-   `PAYMENT-SIGNATURE`. The API verifies, generates, settles, answers `200`.
-5. **Download.** One button per document asked for: the Eigenbelege (one
-   PDF/A, a page per transaction) and/or a Kontoauszug PDF/A per own address,
-   and always the CSV of all movements (Blob URLs made in
-   the browser from the JSON response; nothing is uploaded anywhere). The NEAR
-   transaction hash from `PAYMENT-RESPONSE` is shown as a link to the testnet
-   explorer. The page reminds the payer to sign the PDF.
+German by default, English for a browser set to another language, a switch in
+the header (kept in `localStorage` only when clicked). The documents stay German.
 
-If no wallet can sign (none installed, or the user prefers not to), step 3
-shows the **agent CLI command** for exactly this request (built from the form,
-without the payer data, which the user adds), so the same Eigenbeleg can be
-bought with `npm run agent`.
+## What the browser asks
 
-## Screens
+`dataSources()` in the pipeline lists every host and what it learns; the page
+shows the list under *Welche Dienste Ihr Browser dabei fragt*, and the build
+makes the Content-Security-Policy's `connect-src` from it, so the page can reach
+no other host. A test holds the list against every URL in the packages.
 
-One page, three sections that unfold in order (no router):
+| Host | For | Learns besides the IP |
+|---|---|---|
+| api.nearblocks.io, api-testnet.nearblocks.io | NEAR transactions | the addresses |
+| archival-rpc.mainnet/testnet.fastnear.com | NEAR balances (Kontoauszug) | the addresses |
+| akash-rpc / akash-rest.publicnode.com | Akash transactions and balances | the addresses |
+| the Akash proxy (`VITE_AKASH_INDEXER`) | older Akash history (Akash Console indexer) | the addresses |
+| filfox.info | Filecoin | the addresses |
+| api.kraken.com, api.coingecko.com | EUR rates | the currency only |
 
-- **Anfrage** (form) with a short note: what an Eigenbeleg is, that it is not an
-  invoice, that the data is not stored.
-- **Vorschau** (preview card): positions, total EUR, quantities, period; a
-  "Daten ändern" link back to the form. Any change to the form clears the
-  preview, so what is paid for is what was previewed.
-- **Bezahlen und herunterladen**: wallet button, payment details from the 402,
-  status lines (signing, verifying, settling), then the downloads and the
-  transaction link. Errors in plain German ("Zahlung abgelehnt: zu wenig USDC").
+All of these send `Access-Control-Allow-Origin` (checked 6 Nov 2026), except the
+Akash Console indexer; for it, [`deploy/akash-proxy`](../deploy/akash-proxy) is a
+Cloudflare Worker that forwards only the two read paths, answers only our
+origins and keeps nothing. Without it, Akash is read as far back as the public
+node keeps it.
 
-German and English UI text (`apps/web/src/i18n.js`): German by default, English
-for a browser set to another language, and a switch in the header. The
-Eigenbelege and the Kontoauszug themselves stay German. Code and comments in English. No external fonts, images or
-scripts from a CDN in the page itself; plain CSS. The look is Le Space Belege's (signet, paper/amber by day,
-night/lime at night, Sora and IBM Plex Mono), with the fonts bundled from `@fontsource` and served from `/ui/assets`.
-
-## The free preview route
-
-`POST /eigenbeleg/preview` (exact path, strict routing as today):
-
-- Same body as `POST /eigenbeleg`, but `payer` is **not accepted** (a body with
-  `payer` gets 400, so a client cannot leak it here by habit). Validation by
-  `request.js`: a `parseRequest(body, { preview: true })` mode that skips the
-  payer checks and ignores `format`.
-- Runs the same read and valuation as `generate.js`, but builds no PDF/CSV.
-  Returns `{ number, chain, network, period, positions, notOnIt, totalEur, quantities }`.
-- No storage, logs without bodies (the existing logger), nothing in headers.
-- It costs NearBlocks and rate calls, so it gets a small in-memory limit per IP
-  (e.g. 10 per minute; 429 above). No cache of results.
-
-## How the browser pays the x402 challenge
-
-What a delegate action is, who signs and who sends it: [delegate-actions.md](delegate-actions.md).
-
-The browser uses the same x402 client as the agent (`@x402/fetch` with
-`ExactNearScheme` from `@x402/near/exact/client`), but with its own
-`ClientNearSigner` that asks the wallet instead of holding a key:
-
-```js
-createSignedDelegateAction({ paymentRequirements: r }) →
-  wallet.signDelegateActions({
-    network: 'testnet',
-    delegateActions: [{ receiverId: r.asset, actions: [functionCall('ft_transfer',
-      { receiver_id: r.payTo, amount: r.amount }, 30 Tgas, 1 yoctoNEAR)] }]
-  }) → signedDelegateActions[0]   // base64 Borsh SignedDelegate (NEP-366)
-```
-
-The wallet picks the nonce and `max_block_height`. The browser checks the
-signed delegate before sending it (`decodeSignedDelegateB64`: one action,
-`ft_transfer`, right token, recipient, amount, deposit), and the client's spend
-control caps a payment at the shown price.
-
-**One server change is needed.** The facilitator rejects a delegate whose
-`max_block_height` lies more than `maxTimeoutSeconds` blocks ahead (1 block ≈ 1
-s). The route now allows 120 s. Meteor signs with a TTL of 200 blocks, so its
-delegates would fail with `…timeout_window_exceeds_max_timeout`. The route gets
-`maxTimeoutSeconds: 300` (configurable, `PAY_TIMEOUT_SECONDS`). The agent is
-unaffected (it signs within the window it is given).
-
-The facilitator also requires a **full-access key** (function-call keys are
-refused). Browser wallets sign with the account's full-access key, so this fits.
-
-## Which wallets can sign a delegate action
-
-Checked on 2026-11-06 against NEAR Connect (`@hot-labs/near-connect` 0.12.0,
-the connector NEAR now recommends over Wallet Selector) and its wallet manifest
-(`features.signDelegateActions`) and each wallet's executor script:
-
-| Wallet | Delegate action | Testnet | Note |
-|---|---|---|---|
-| Meteor Wallet (extension, web) | yes | yes | TTL 200 blocks → needs the 300 s window above. **Verified** on testnet with the web wallet: [`DJePEa…YtgM`](https://testnet.nearblocks.io/txns/DJePEaGxPS4ePyjJfa6NJ36wobLKSCpJNaS75wDBtYgM) |
-| Intear Wallet | yes | yes | |
-| Ledger (via NEAR Connect) | yes | yes | hardware; untested here |
-| near-cli connect | yes | yes | developer tool |
-| HOT Wallet | yes | **no** | its executor throws "not supported on testnet" |
-| NEAR Mobile | yes | no | mainnet only |
-| MyNearWallet, OKX, Nightly, WalletConnect, others | not declared | | not offered |
-
-The UI asks NEAR Connect only for wallets with `signDelegateActions` and the
-chosen network. **Testnet target: Meteor and Intear.** Meteor works (verified
-above); Intear is not tried yet. If neither had worked on
-testnet in practice, the concept's fallback applies: the UI shows the agent
-CLI command, and this document says why.
-
-### Decided: NEAR Connect, loaded on click (option A)
-
-NEAR Connect fetches a manifest and each wallet's executor script (GitHub raw,
-`wallet.intear.tech`, …) and runs it in a **sandboxed iframe**. That is remote
-code, against the rule "no remote scripts". The options:
-
-- **A (chosen):** use NEAR Connect, but load it only on the "Wallet
-  verbinden" click (never on page load), with a manifest copy shipped in this
-  repo (`apps/web/src/wallet-manifest.json`: Meteor and Intear only), so no
-  remote manifest is fetched. The page itself loads no remote script.
-
-  As built, the CSP of `/ui/` is `script-src 'self' 'nonce-…'` with a fresh
-  nonce per response, passed to NEAR Connect (`cspNonce`). The wallet executor
-  runs in a `srcdoc` iframe with `sandbox="allow-scripts"` (opaque origin), and
-  a `srcdoc` iframe inherits the page's CSP. Executors talk to their own
-  backends, so `connect-src` is `'self' https: wss:` rather than a list of
-  origins: a tighter list would break a wallet whenever it changes a backend.
-  The executor URL itself is the wallet's (for Meteor a `latest` file), so the
-  wallet vendor can change that code; this is the trust a user already gives
-  their wallet.
-- **B:** Wallet Selector (`@near-wallet-selector/*`), whose wallet modules are
-  bundled at build time. Fewer moving parts at runtime, but it is in
-  maintenance, and delegate support per module would have to be checked again.
-- **C:** no wallet in the browser; preview in the UI, payment via the agent CLI
-  only.
+Rate limits are per user now (each browser its own IP). The NEAR readers retry
+a 429, a 5xx and a failed fetch with backoff; in a browser a rate-limited
+answer without CORS headers arrives as a failed fetch. Very busy NEAR accounts
+(thousands of transactions a day) can still hit NearBlocks' free limit; the page
+says so.
 
 ## Build and serving
 
-- `apps/web`: a minimal **Vite** app (plain JS, no framework). Vite is needed
-  because `@x402/fetch`, `@x402/near` and NEAR Connect are npm modules to bundle.
-  `npm run web:build` writes `apps/web/dist/`; it is not committed.
-- The API serves `apps/web/dist` at **`/ui/`** (exact, strict routing) when the
-  folder exists, and `GET /` (JSON) gets a `ui` field pointing there. `GET /`
-  uses content negotiation: a browser (`Accept: text/html`) is redirected to
-  `/ui/`, everything else gets the JSON (`Vary: Accept`). Same
-  origin, so no CORS and the `PAYMENT-*` headers are readable.
-- `npm run web:dev` runs Vite with a proxy to the API on `:4402` for development.
-- The container (`Dockerfile`) builds the UI in a first stage and copies only
-  `apps/web/dist` into the API image; the API reads it once at start, so the
-  read-only root filesystem is fine. Hosted: https://eigenbeleg.le-space.de/ui/.
-- The UI is static: no server-side rendering, no session, no cookies.
-- Share cards: `index.html` carries Open Graph and `twitter:*` tags (Telegram,
-  LinkedIn, WhatsApp, Mastodon, X) with a 1200×630 card in the Belege look,
-  German and English, made by `node scripts/video/social.mjs` into
-  `apps/web/public/social/` and served at `/ui/social/`. Crawlers need absolute
-  URLs, so the API fills `__PUBLIC_URL__` with `PUBLIC_URL`, or else the
-  request's Host and `X-Forwarded-Proto` (only a plain host name; otherwise the
-  URL stays relative). Share the `/ui/` link: crawlers that do not ask for HTML
-  get JSON on `/`.
-
-## Privacy
-
-- Payer name and address go only to `POST /eigenbeleg`, the paid call, and are
-  dropped after the response (as today). The preview refuses a body with `payer`.
-- The page itself stores only the language, and only when the user picks it
-  with the switch (`localStorage`, key `lang`). After the wallet click, NEAR Connect keeps
-  the chosen wallet in `localStorage` and the executor code in IndexedDB (its
-  own cache). No analytics, no remote fonts, no third-party requests from the
-  page before that click.
-- To show the price, the page asks `POST /eigenbeleg` once with placeholders
-  (`Angebot`) instead of the payer's data; that request stops at the 402. The
-  real name and address go only with the signed payment.
-- Files are made from the response in the browser and never leave it.
-- Logs stay method, path, status, duration.
+- `apps/web`: Vite, plain JS, `base: './'`, so the same `dist/` runs at `/ui/` on
+  the API host, on a static host and on an IPFS path gateway.
+- The page loads 82 kB of script; the readers, pdf-lib and fontkit (about 1.2 MB)
+  and the DejaVu fonts (1.6 MB) load on the first *Lesen und erstellen*.
+- `@eigenbeleg/eigenbeleg` takes its fonts and sRGB profile through `#assets`:
+  files in Node, `fetch` in the browser (package.json `imports`, condition
+  `browser`).
+- CSP: `default-src 'self'; script-src 'self'; connect-src 'self' <data sources>;
+  worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none';
+  form-action 'none'` – as `<meta>` in `index.html` and as `dist/csp.txt`, which
+  the API sends as a header with `frame-ancestors 'none'`.
+- PWA as in Le Space Belege: `manifest.webmanifest`, the signet as icons (192,
+  512, maskable 512), `sw.js` caching only the page's own files (the shell,
+  hashed assets, fonts), never a data source's answer; a new version takes
+  over once the page's tabs are reloaded.
+- The API serves `dist/` at `/ui/` (`GET /` sends browsers there) and the share
+  cards; `__PUBLIC_URL__` in the share tags is the API's origin, or
+  `VITE_PUBLIC_URL` at build time for a static host.
 
 ## Tests
 
-- `apps/api/test`: preview route (valid body → summary without payer; `payer`
-  present → 400; invalid body → 400 before any read; rate limit → 429; strict
-  path `/eigenbeleg/preview/` → 404), `/ui/` served with the CSP.
-- `apps/web/test`: the request built from the form, the delegate check, the CLI
-  command builder (node tests, no browser).
-- No Playwright: it would add a browser download to CI for one form. Instead
-  the form, the preview, the 402 offer and the wallet dialog (Meteor and Intear
-  listed; the executor loads under the CSP with its nonce) were checked by hand
-  in a browser against the real testnet paywall with recorded chain data.
-- CI builds the UI (`npm run web:build`).
+- `packages/pipeline/test/browser.test.js`: a recorded NEAR day runs in Node and
+  in Chromium (Vite, Playwright); summary, both PDFs and the CSV are byte for
+  byte the same.
+- `packages/pipeline/test/sources.test.js`: the listed data sources are exactly
+  the hosts the packages fetch from.
+- `apps/web/test/web.test.js`: the form becomes the request the API would check;
+  no wallet, no x402, no call to an API route in the page's code; German and
+  English have the same texts.
+- `deploy/akash-proxy/test/worker.test.js`: the proxy's paths, origins and
+  rate limit.
 
 ## Out of scope
 
-- Mainnet in the UI (later, after testnet works; same code, other network).
-- PingPay / NEAR Intents payment in the browser.
-- Accounts, history, storing Eigenbelege, e-mail delivery.
-- Invoices of any kind, XRechnung, ZUGFeRD (an Eigenbeleg is never an invoice).
-- Signing the Eigenbeleg digitally; the payer signs the printed PDF.
-- Chains without a building block; the UI only lists `GET /blocks`.
+- Reading Belege's books or wallets; sharing the building blocks with Belege is
+  #6.
+- Mainnet-scale NEAR accounts beyond NearBlocks' free limit (an own NearBlocks
+  key in the page, or a proxy with ours, is an open question in #5).

@@ -30,3 +30,16 @@ test('addresses are checked by their bech32 checksum', async () => {
 	assert.ok(!block.isAddress(moduleAddress('n', 'x')));
 	await assert.rejects(block.read({ account: 'akash1notreal', from: '2026-10-01', to: '2026-10-31' }), /not a valid Akash address/);
 });
+
+test('endpoints can be handed in: a browser reads through its own proxy', async () => {
+	/** @type {string[]} */
+	const asked = [];
+	const fetch = /** @type {typeof globalThis.fetch} */ (async (/** @type {any} */ url) => {
+		asked.push(String(url));
+		return new Response('{}', { status: 503 });
+	});
+	await assert.rejects(block.read({ account, from: '2026-10-01', to: '2026-10-31', fetch, endpoints: { rpc: 'https://proxy.example/akash-rpc', rest: 'https://proxy.example/akash-rest' } }));
+	assert.ok(asked.length > 0);
+	for (const u of asked) assert.ok(u.startsWith('https://proxy.example/'), u);
+	assert.equal(CHAINS.akash.endpoints.rpc, 'https://akash-rpc.publicnode.com', 'the defaults stay as they are');
+});

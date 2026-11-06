@@ -5,20 +5,16 @@
 //
 // The text is German: the document is for German bookkeeping.
 
-import { readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
-import { createRequire } from 'node:module';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { PDFDocument, PDFHexString, PDFName, PDFString, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { encode } from 'uqr';
 
-import { round } from '@eigenbeleg/ledger-core';
+import { round, toHex, utf8 } from '@eigenbeleg/ledger-core';
 
 import { deDate, deEuro, deNumber } from './document.js';
+import { asset, FONTS } from './assets.js';
 
-const require = createRequire(import.meta.url);
-export const fontPath = (/** @type {string} */ f) => require.resolve(`dejavu-fonts-ttf/ttf/${f}`);
-const ICC = new URL('../assets/sRGB-v2-micro.icc', import.meta.url);
 
 const A4 = /** @type {[number, number]} */ ([595.28, 841.89]);
 const M = 48;
@@ -48,9 +44,11 @@ export async function eigenbelegPdf(doc) {
 	pdf.setModificationDate(created);
 	pdf.setLanguage('de-DE');
 
-	const [regular, bold, mono] = await Promise.all(
-		['DejaVuSansCondensed.ttf', 'DejaVuSansCondensed-Bold.ttf', 'DejaVuSansMono.ttf'].map(async (f) => pdf.embedFont(await readFile(fontPath(f)), { subset: true }))
-	);
+	// Loaded together, embedded in a fixed order: the same document is the same file.
+	const fontBytes = await Promise.all(FONTS.map((f) => asset(f)));
+	const regular = await pdf.embedFont(fontBytes[0], { subset: true });
+	const bold = await pdf.embedFont(fontBytes[1], { subset: true });
+	const mono = await pdf.embedFont(fontBytes[2], { subset: true });
 
 	let page = pdf.addPage(A4);
 	let y = A4[1] - M;
@@ -397,7 +395,7 @@ export async function makePdfA(pdf, { title, author, subject, producer, created,
 	const metaStream = ctx.stream(new TextEncoder().encode(meta), { Type: 'Metadata', Subtype: 'XML' });
 	pdf.catalog.set(PDFName.of('Metadata'), ctx.register(metaStream));
 
-	const icc = await readFile(ICC);
+	const icc = await asset('sRGB-v2-micro.icc');
 	const iccStream = ctx.stream(icc, { N: 3 });
 	const intent = ctx.obj({
 		Type: 'OutputIntent',
@@ -408,6 +406,6 @@ export async function makePdfA(pdf, { title, author, subject, producer, created,
 	});
 	pdf.catalog.set(PDFName.of('OutputIntents'), ctx.obj([intent]));
 
-	const id = createHash('sha256').update(seed).digest('hex').slice(0, 32);
+	const id = toHex(sha256(utf8(seed))).slice(0, 32);
 	ctx.trailerInfo.ID = ctx.obj([PDFHexString.of(id), PDFHexString.of(id)]);
 }

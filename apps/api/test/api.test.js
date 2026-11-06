@@ -256,12 +256,25 @@ test('GET /ui/ serves the built UI with a CSP and a fresh nonce; no UI, no route
 		assert.equal((await globalThis.fetch(base + '/ui/assets/app.js')).status, 200);
 		assert.equal((await globalThis.fetch(base + '/ui/assets/nope.js')).status, 404);
 		assert.equal((await (await globalThis.fetch(base + '/')).json()).ui, '/ui/');
+		// Content negotiation on /: a browser goes to the UI, agents and curl get JSON.
+		const browser = await globalThis.fetch(base + '/', { redirect: 'manual', headers: { accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' } });
+		assert.equal(browser.status, 302);
+		assert.equal(browser.headers.get('location'), '/ui/');
+		assert.match(browser.headers.get('vary') ?? '', /Accept/);
+		for (const accept of ['application/json', '*/*', '']) {
+			const r = await globalThis.fetch(base + '/', { redirect: 'manual', headers: accept ? { accept } : {} });
+			assert.equal(r.status, 200, accept || '(none)');
+			assert.equal((await r.json()).service, 'eigenbeleg');
+			assert.match(r.headers.get('vary') ?? '', /Accept/);
+		}
 	} finally {
 		close();
 	}
 	const none = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {}, web: null }));
 	try {
 		assert.equal((await globalThis.fetch(none.base + '/ui/')).status, 404);
+		const html = await globalThis.fetch(none.base + '/', { redirect: 'manual', headers: { accept: 'text/html' } });
+		assert.equal(html.status, 200, 'without a built UI a browser gets the JSON too');
 	} finally {
 		none.close();
 	}

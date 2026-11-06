@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The HTTP API.
 //
-//   GET  /             what this is, the price and how to pay (JSON)
+//   GET  /             what this is, the price and how to pay (JSON); a browser is sent to /ui/
 //   GET  /blocks       the building blocks by chain, for agents
 //   GET  /health
 //   POST /eigenbeleg   the Eigenbeleg, behind the x402 paywall
@@ -52,7 +52,14 @@ export function createApp({
 		next();
 	});
 
-	app.get('/', (_req, res) => {
+	// Content negotiation: a browser (Accept: text/html) is sent to the UI;
+	// agents, curl and fetch (application/json, */* or nothing) get the JSON.
+	app.get('/', (req, res) => {
+		res.vary('Accept');
+		if (hasUi && req.accepts(['json', 'html']) === 'html') {
+			res.redirect(302, '/ui/');
+			return;
+		}
 		res.json({
 			service: 'eigenbeleg',
 			what: 'Eigenbelege (self-issued proofs of payment, never invoices) for the payments of own blockchain addresses, as PDF/A-2b and CSV',

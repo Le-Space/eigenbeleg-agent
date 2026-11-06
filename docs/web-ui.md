@@ -172,7 +172,9 @@ code, against the rule "no remote scripts". The options:
   because `@x402/fetch`, `@x402/near` and NEAR Connect are npm modules to bundle.
   `npm run web:build` writes `apps/web/dist/`; it is not committed.
 - The API serves `apps/web/dist` at **`/ui/`** (exact, strict routing) when the
-  folder exists, and `GET /` (JSON) gets a `ui` field pointing there. Same
+  folder exists, and `GET /` (JSON) gets a `ui` field pointing there. `GET /`
+  uses content negotiation: a browser (`Accept: text/html`) is redirected to
+  `/ui/`, everything else gets the JSON (`Vary: Accept`). Same
   origin, so no CORS and the `PAYMENT-*` headers are readable.
 - `npm run web:dev` runs Vite with a proxy to the API on `:4402` for development.
 - The container (`Dockerfile`) builds the UI in a first stage and copies only

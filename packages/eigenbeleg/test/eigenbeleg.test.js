@@ -66,7 +66,7 @@ test('the CSV: BOM, semicolons, every entry, formulas defused', async () => {
 	const lines = eigenbelegCsv(doc).trim().split('\r\n');
 	assert.equal(lines.length, 1 + entries.length + 2);
 	assert.match(lines[1], /^EB-2026-007;1;2026-10-05;10:00:00;near;testnet;wolkenfabrik\.testnet;Netzwerkgebühr \(Gas\);Gebühr;NEAR-Netzwerk \(near\);NEAR;native;-0,000446365125;3,8;-0,00169619;/);
-	assert.match(lines.at(-1) ?? '', /^EB-2026-007;Summe;.*;-0,01;gerundet auf Cent;/);
+	assert.match(lines.at(-1) ?? '', /^EB-2026-007;Summe;.*;-0,01;gerundet auf Cent, ungerundet -0,00644619;/);
 });
 
 test('the PDF is PDF/A-2b shaped: XMP, sRGB intent, id, embedded fonts, the note', async () => {
@@ -88,4 +88,10 @@ test('a real relayer day (public data) gives one position per fee', async () => 
 	assert.equal(d.positions.length, raw.txns.length);
 	assert.equal(d.excluded.length, 0);
 	assert.ok((await eigenbelegPdf(d)).length > 10_000);
+});
+
+test('letters the fonts lack and bidi or control characters do not break the PDF (veraPDF rule 6.2.11.8)', async () => {
+	const odd = buildDocument({ payer: { name: '测试 GmbH 🚀\tTab', address: 'Straße 1\r\n12345 Ort ‮', addresses: ['x.testnet'] }, chain: 'near', network: 'testnet', period: { from: '2026-10-01', to: '2026-10-31' }, entries: [] });
+	const bytes = await eigenbelegPdf(odd);
+	assert.ok(bytes.length > 5000);
 });

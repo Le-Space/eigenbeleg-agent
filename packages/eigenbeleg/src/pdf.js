@@ -10,6 +10,8 @@ import { createRequire } from 'node:module';
 import { PDFDocument, PDFHexString, PDFName, PDFString, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 
+import { round } from '@eigenbeleg/ledger-core';
+
 import { deDate, deEuro, deNumber } from './document.js';
 
 const require = createRequire(import.meta.url);
@@ -63,10 +65,28 @@ export async function eigenbelegPdf(doc) {
 	const width = A4[0] - 2 * M;
 	let pageNo = 1;
 
+	/** The letters each font has: anything else would be drawn as .notdef, which PDF/A forbids. */
+	const charsets = new Map([regular, bold, mono].map((f) => [f, new Set(f.getCharacterSet())]));
+	/**
+	 * Text a font can draw: control and format characters (bidi overrides
+	 * among them, which could turn text around) go, a letter the font lacks
+	 * becomes "?". Line breaks stay.
+	 *
+	 * @param {string} text @param {import('pdf-lib').PDFFont} font
+	 */
+	function clean(text, font) {
+		const has = /** @type {Set<number>} */ (charsets.get(font));
+		return String(text)
+			.replace(/\r\n?/g, '\n')
+			.replace(/\t/g, ' ')
+			.replace(/[\p{Cc}\p{Cf}]/gu, (c) => (c === '\n' ? c : ''))
+			.replace(/[^\n]/gu, (c) => (has.has(/** @type {number} */ (c.codePointAt(0))) ? c : '?'));
+	}
+
 	/** @param {string} text @param {import('pdf-lib').PDFFont} font @param {number} size @param {number} max */
 	function wrap(text, font, size, max) {
 		const lines = [];
-		for (const para of String(text).split('\n')) {
+		for (const para of clean(text, font).split('\n')) {
 			let line = '';
 			for (const word of para.split(/\s+/).filter(Boolean)) {
 				const next = line ? `${line} ${word}` : word;
@@ -200,7 +220,7 @@ export async function eigenbelegPdf(doc) {
 				eur: deEuro(eur.value.replace(/^-/, ''), 4)
 			};
 			const wrapped = COLS.map((c) => wrap(cells[/** @type {keyof typeof cells} */ (c.key)], regular, 8, c.w - 4));
-			const hashLine = `Tx ${e.hash}`;
+			const hashLine = clean(`Tx ${e.hash}`, mono);
 			const h = Math.max(...wrapped.map((l) => l.length)) * 10.5 + 10 + 4;
 			if (ensure(h)) tableHead();
 			let x = M;
@@ -227,7 +247,9 @@ export async function eigenbelegPdf(doc) {
 		const total = deEuro(doc.totals.eur, 2);
 		page.drawText(total, { x: A4[0] - M - bold.widthOfTextAtSize(total, 11), y: y - 10, size: 11, font: bold });
 		y -= 16;
-		text(`Ungerundet ${deEuro(doc.totals.eurExact, 4)}; jede Position zum Tageskurs ihres Zahlungstages.`, { size: 8, color: GREY });
+		const exact = /^0(\.0*)?$/.test(round(doc.totals.eurExact, 4)) ? deEuro(doc.totals.eurExact, 8) : deEuro(doc.totals.eurExact, 4);
+		const subCent = doc.totals.eur === '0' && doc.totals.eurExact !== '0';
+		text(`Ungerundet ${exact}${subCent ? ' (unter einem Cent)' : ''}; jede Position zum Tageskurs ihres Zahlungstages.`, { size: 8, color: GREY });
 	}
 	gap(10);
 

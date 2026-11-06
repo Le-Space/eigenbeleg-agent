@@ -4,5 +4,5 @@
   "type": "module",
   "license": "AGPL-3.0-or-later",
   "main": "./src/index.js",
-  "exports": { ".": "./src/index.js" }
+  "exports": { ".": "./src/index.js", "./bytes": "./src/bytes.js" }
 }

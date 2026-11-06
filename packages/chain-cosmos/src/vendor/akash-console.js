@@ -1,6 +1,8 @@
 // Ported from Le-Space/belege bridge/src/chains/akash-console.js at 3029ce0 (AGPL-3.0 there).
 // SPDX-License-Identifier: AGPL-3.0-or-later (as in Belege; rights holder: Le Space UG).
 // Pre-hackathon code (baseline); see the README.
+// Changed here: base64 without Node's Buffer, so it runs in a browser too.
+import { fromBase64, fromUtf8 } from '@eigenbeleg/ledger-core/bytes';
 
 // Akash's older history from the Akash Console indexer (issue #105, part 4).
 //
@@ -84,7 +86,7 @@ const coins = (list) => (Array.isArray(list) ? list : [list]).map(coin).filter((
  */
 function packetTransfer(packet) {
 	try {
-		const data = JSON.parse(Buffer.from(str(packet?.data), 'base64').toString('utf8'));
+		const data = JSON.parse(fromUtf8(fromBase64(str(packet?.data))));
 		const prefix = `${str(packet?.sourcePort ?? packet?.source_port)}/${str(packet?.sourceChannel ?? packet?.source_channel)}/`;
 		const denom = str(data?.denom);
 		const amount = str(data?.amount);

@@ -1,6 +1,8 @@
 // Ported from Le-Space/belege bridge/src/chains/filecoin.js at ed7f5f5 (AGPL-3.0 there).
 // SPDX-License-Identifier: AGPL-3.0-or-later (as in Belege; rights holder: Le Space UG).
 // Pre-hackathon code (baseline); see the README.
+// Changed here: hex without Node's Buffer, so it runs in a browser too.
+import { fromHex } from '@eigenbeleg/ledger-core/bytes';
 
 // A Filecoin wallet, read only, by its address (issue: Filecoin as an own
 // wallet, after #215). The history comes from Filfox's public API, no key:
@@ -69,7 +71,7 @@ const MAX_PAGES = 200;
 export function toFilecoinAddress(address) {
 	const a = String(address ?? '').trim();
 	if (!/^0x[0-9a-fA-F]{40}$/.test(a)) return a;
-	const payload = Uint8Array.from(Buffer.from(a.slice(2), 'hex'));
+	const payload = fromHex(a.slice(2));
 	const sum = blake2b(new Uint8Array([4, 10, ...payload]), { dkLen: 4 });
 	return `f410f${base32nopad.encode(new Uint8Array([...payload, ...sum])).toLowerCase()}`;
 }

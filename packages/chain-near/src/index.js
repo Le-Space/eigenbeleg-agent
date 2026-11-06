@@ -15,7 +15,7 @@
 //
 // Powered by NearBlocks.io APIs.
 
-import { entry, fromUnits, sortEntries, toUnits } from '@eigenbeleg/ledger-core';
+import { entry, fromUnits, fromUtf8, sortEntries, toBase64, toUnits, utf8 } from '@eigenbeleg/ledger-core';
 
 export const NETWORKS = {
 	mainnet: {
@@ -419,8 +419,8 @@ export async function balancesBefore({ account, network = 'mainnet', before, con
 		if (!t) continue;
 		let units = 0n;
 		try {
-			const r = await rpc(fetch, url, 'query', { request_type: 'call_function', block_id: block.height, account_id: c, method_name: 'ft_balance_of', args_base64: Buffer.from(JSON.stringify({ account_id: account })).toString('base64') });
-			units = BigInt(JSON.parse(Buffer.from(r.result).toString()));
+			const r = await rpc(fetch, url, 'query', { request_type: 'call_function', block_id: block.height, account_id: c, method_name: 'ft_balance_of', args_base64: toBase64(utf8(JSON.stringify({ account_id: account }))) });
+			units = BigInt(JSON.parse(fromUtf8(Uint8Array.from(r.result))));
 		} catch {
 			units = 0n; // not registered with the token yet
 		}

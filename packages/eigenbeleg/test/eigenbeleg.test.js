@@ -78,6 +78,12 @@ test('the PDF is PDF/A-2b shaped: XMP, sRGB intent, id, embedded fonts, the note
 	assert.match(s, /\/ID \[/);
 	assert.match(s, /\/FontFile2/);
 	assert.doesNotMatch(s, /\/BaseFont \/(Helvetica|Courier|Times)/);
+	// The id is SHA-256 of number|issuedAt|payer (now from @noble/hashes, the same in a browser): as node:crypto had it.
+	const { createHash } = await import('node:crypto');
+	const id = createHash('sha256').update(`${doc.number}|${doc.issuedAt}|${doc.payer.name}`).digest('hex').slice(0, 32);
+	assert.match(s, new RegExp(`/ID \\[ <${id}> <${id}> \\]`));
+	// The same document twice is the same file: nothing depends on the clock or on chance.
+	assert.deepEqual(await eigenbelegPdf(doc), bytes);
 	assert.ok(NOTE.startsWith('Eigenbeleg. Für diese Zahlung gibt es keinen Fremdbeleg: Empfänger ist ein Peer-to-Peer-Netzwerk ohne rechnungsstellende Organisation. Ausgestellt vom Zahlenden auf Grundlage der öffentlichen Transaktion'));
 });
 

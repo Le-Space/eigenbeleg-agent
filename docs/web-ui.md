@@ -20,7 +20,9 @@ rules as for agents. No account, no storage, no tracking.
    `networks`), own addresses (one per line, up to ten), period (a month, or
    from/to up to 92 days), payer name and postal address, Eigenbeleg number
    (optional, defaults to `EB-YYYY-001`), and which kinds go on it
-   (`fee`, `storage`, `transfer`, `call`; default as the API).
+   (`fee`, `storage`, `transfer`, `call`; default as the API), and which
+   documents to buy (`document`: Eigenbelege by default, Kontoauszug, or both;
+   one price). The preview follows that choice.
    Validation in the browser mirrors `apps/api/src/request.js`, but the server
    is the authority: its 400 message is shown next to the form.
 2. **Preview.** "Vorschau" sends the form **without payer name and address** to
@@ -40,9 +42,9 @@ rules as for agents. No account, no storage, no tracking.
    gets `402` with `PAYMENT-REQUIRED`, shows amount, asset, recipient and
    network, and asks the wallet to sign one `ft_transfer`. It retries with
    `PAYMENT-SIGNATURE`. The API verifies, generates, settles, answers `200`.
-5. **Download.** One button per document: the Eigenbelege (one PDF/A, a
-   page per transaction), a Kontoauszug PDF/A per own address, and the CSV
-   of all movements (Blob URLs made in
+5. **Download.** One button per document asked for: the Eigenbelege (one
+   PDF/A, a page per transaction) and/or a Kontoauszug PDF/A per own address,
+   and always the CSV of all movements (Blob URLs made in
    the browser from the JSON response; nothing is uploaded anywhere). The NEAR
    transaction hash from `PAYMENT-RESPONSE` is shown as a link to the testnet
    explorer. The page reminds the payer to sign the PDF.

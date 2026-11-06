@@ -23,7 +23,8 @@ const form = {
 	postal: 'Musterstraße 1\n12345 Beispielstadt',
 	number: 'EB-2026-007',
 	statementNumber: 'KA-2026-10',
-	includeKinds: ['fee', 'storage']
+	includeKinds: ['fee', 'storage'],
+	document: 'beide'
 };
 
 test('the preview body never carries the payer; the paid body does, with both files', () => {
@@ -47,6 +48,9 @@ test('the CLI command is the same request, quoted, with placeholders for the pay
 	assert.match(c, /--number 'EB'\\''1'/);
 	assert.match(c, /--include fee,storage/);
 	assert.match(c, /--statement KA-2026-10/);
+	assert.match(c, /--document beide/);
+	assert.equal(previewBody(form).document, 'beide');
+	assert.notEqual(previewKey({ ...form, document: 'eigenbelege' }), previewKey(form), 'another document needs a new preview');
 	assert.equal(previewBody(form).statementNumber, 'KA-2026-10');
 	assert.equal('statementNumber' in previewBody({ ...form, statementNumber: ' ' }), false);
 	assert.doesNotMatch(c, /Wolkenfabrik Hosting|Musterstraße/);

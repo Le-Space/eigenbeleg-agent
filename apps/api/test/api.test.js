@@ -181,7 +181,7 @@ test('the free preview: the summary without the payer, the same checks, a limit 
 	const lines = [];
 	let reads = 0;
 	const counting = { ...deps, fetch: async (/** @type {string} */ u, /** @type {any} */ init) => (reads++, deps.fetch(u, init)) };
-	const app = createApp({ paywall: { middleware: null, info: { mode: 'near' } }, deps: counting, log: (l) => lines.push(l), web: null, previewLimit: { max: 3, windowMs: 60_000 } });
+	const app = createApp({ paywall: { middleware: null, info: { mode: 'near' } }, deps: counting, log: (l) => lines.push(l), web: null, previewLimit: { max: 4, windowMs: 60_000 } });
 	const { base, close } = await serve(app);
 	const { payer: _payer, ...body } = job;
 	try {
@@ -192,8 +192,10 @@ test('the free preview: the summary without the payer, the same checks, a limit 
 		assert.equal(s.eigenbelege.length, 25);
 		assert.equal(s.positions, raw.txns.length);
 		assert.equal(typeof s.totalEur, 'string');
-		assert.equal(s.kontoauszuege.length, 1, 'the preview shows the Kontoauszug balances too');
-		assert.equal(s.kontoauszuege[0].account, 'relay.aurora');
+		assert.equal(s.kontoauszuege.length, 0, 'Eigenbelege only, by default');
+		const both = await (await preview(base, { ...body, document: 'beide' })).json();
+		assert.equal(both.kontoauszuege.length, 1, 'the preview shows the Kontoauszug balances when it is asked for');
+		assert.equal(both.kontoauszuege[0].account, 'relay.aurora');
 		assert.equal(s.pdf, undefined);
 		assert.doesNotMatch(JSON.stringify(s), /preview|Wolkenfabrik/);
 		for (const [k, v] of r.headers) assert.doesNotMatch(`${k}: ${v}`, /totalEur|positions|EB-2026/i, k);
@@ -203,7 +205,7 @@ test('the free preview: the summary without the payer, the same checks, a limit 
 		assert.equal((await preview(base, job)).status, 400);
 		assert.equal((await preview(base, { ...body, chain: 'dogecoin' })).status, 400);
 		assert.equal(reads, before, 'nothing is read for a refused body');
-		assert.equal((await preview(base, body)).status, 429, 'the fourth preview in a minute');
+		assert.equal((await preview(base, body)).status, 429, 'the fifth preview in a minute');
 
 		for (const path of ['/eigenbeleg/preview/', '/eigenbeleg/Preview']) assert.equal((await preview(base, body, path)).status, 404, path);
 		assert.ok(lines.every((l) => !/Wolkenfabrik|Musterstraße|relay\.aurora/.test(l)));

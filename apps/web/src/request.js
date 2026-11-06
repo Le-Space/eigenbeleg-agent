@@ -18,6 +18,7 @@
  * @property {string} number first Eigenbeleg number; the others count up from it
  * @property {string} statementNumber Kontoauszug number (default KA-<from>)
  * @property {string[]} includeKinds
+ * @property {'eigenbelege' | 'kontoauszug' | 'beide'} document which documents are bought
  */
 
 /** @param {string} text */
@@ -38,7 +39,8 @@ export function previewBody(f) {
 		period: f.periodMode === 'month' ? { month: f.month } : { from: f.from, to: f.to },
 		...(f.number.trim() ? { number: f.number.trim() } : {}),
 		...(f.statementNumber.trim() ? { statementNumber: f.statementNumber.trim() } : {}),
-		includeKinds: [...f.includeKinds]
+		includeKinds: [...f.includeKinds],
+		document: f.document
 	};
 }
 
@@ -74,7 +76,7 @@ export function cliCommand(f, api) {
 	else parts.push('--from', sh(b.period.from), '--to', sh(b.period.to));
 	if (b.number) parts.push('--number', sh(b.number));
 	if (b.statementNumber) parts.push('--statement', sh(b.statementNumber));
-	parts.push('--include', sh(b.includeKinds.join(',')));
+	parts.push('--include', sh(b.includeKinds.join(',')), '--document', sh(b.document));
 	parts.push('--name', sh('<Name des Zahlers>'), '--postal', sh('<Straße Nr., PLZ Ort>'));
 	return parts.join(' ');
 }

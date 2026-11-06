@@ -127,10 +127,10 @@ A small page for people: fill in the form, see a free preview, pay 0.10 USDC wit
    npm run api
    ```
 2. Open http://127.0.0.1:4402/ui/. You see the form with the chains from `GET /blocks`.
-3. Choose the chain and the network of **your** payments, enter your addresses and a month or a range, and click **Vorschau (kostenlos)**. You see how many Eigenbelege it will be and their numbers (`EB-2026-001 – EB-2026-025`), the positions, the EUR total, the quantities, and per address the Kontoauszug's opening and closing balance (✓ when reconciled with the chain). The preview never gets your name or address.
+3. Choose the chain and the network of **your** payments, enter your addresses and a month or a range, pick the documents (**Eigenbelege**, the default; **Kontoauszug**; or **Beide**, one price), and click **Vorschau (kostenlos)**. You see how many Eigenbelege it will be and their numbers (`EB-2026-001 – EB-2026-025`), the positions, the EUR total, the quantities, and per address the Kontoauszug's opening and closing balance (✓ when reconciled with the chain). The preview never gets your name or address.
 4. Below it you see the price from the API's 402: `0,10 USDC an eigenbeleg-api.testnet (near:testnet)`. Click **Wallet verbinden** and choose Meteor or Intear (the wallets that can sign a delegate action on testnet). Only now does the page load the wallet code, in a sandboxed iframe.
-5. Fill in name and postal address, click **Eigenbelege und Kontoauszug kaufen**, and approve the one USDC transfer in the wallet. The account in the wallet pays; it needs testnet USDC ([faucet.circle.com](https://faucet.circle.com)) but no NEAR for gas.
-6. You see the downloads **Eigenbelege (PDF/A, n)**, **Kontoauszug <address> (PDF/A)** for each address and **Alle Bewegungen (CSV)**, and the NEAR transaction of your payment as a link to testnet NearBlocks.
+5. Fill in name and postal address, click **Kaufen**, and approve the one USDC transfer in the wallet. The account in the wallet pays; it needs testnet USDC ([faucet.circle.com](https://faucet.circle.com)) but no NEAR for gas.
+6. You see the downloads for what you picked: **Eigenbelege (PDF/A, n)** and/or **Kontoauszug <address> (PDF/A)** for each address, and always **Alle Bewegungen (CSV)**, and the NEAR transaction of your payment as a link to testnet NearBlocks.
 
 No browser wallet? The section *Keine passende Wallet?* shows the `npm run agent` command for the same request.
 

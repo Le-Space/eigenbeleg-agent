@@ -36,7 +36,8 @@ function values() {
 		postal: s('postal'),
 		number: s('number'),
 		statementNumber: s('statementNumber'),
-		includeKinds: fd.getAll('includeKinds').map(String)
+		includeKinds: fd.getAll('includeKinds').map(String),
+		document: /** @type {'eigenbelege' | 'kontoauszug' | 'beide'} */ (s('document') || 'eigenbelege')
 	};
 }
 
@@ -108,7 +109,7 @@ async function onPreview(e) {
 						? `Die Chain oder die Kurse sind gerade nicht lesbar, bitte später noch einmal (${body.error ?? r.status}).`
 						: `Abgelehnt: ${body.error ?? r.status}`
 			);
-		showSummary(body);
+		showSummary(body, f.document);
 		previewed = previewKey(f);
 		$('step-preview').hidden = false;
 		if (body.positions > 0) {
@@ -130,10 +131,12 @@ const eur = (v) => {
 	return Number.isFinite(n) ? n.toLocaleString('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 4 }) : String(v);
 };
 
-/** @param {any} s */
-function showSummary(s) {
+const DOCS = { eigenbelege: 'die Eigenbelege', kontoauszug: 'den Kontoauszug', beide: 'Eigenbelege und Kontoauszug' };
+
+/** @param {any} s @param {string} which the documents asked for */
+function showSummary(s, which) {
 	const rows = [
-		['Eigenbelege', `${s.eigenbelege?.length ?? s.transactions ?? '?'} (${s.number})`],
+		...(which === 'kontoauszug' ? [] : [['Eigenbelege', `${s.eigenbelege?.length ?? s.transactions ?? '?'} (${s.number})`]]),
 		['Blockchain', `${s.chain} (${s.network})`],
 		['Zeitraum', `${s.period.from} bis ${s.period.to}`],
 		['Positionen', String(s.positions)],
@@ -181,7 +184,7 @@ async function loadOffer(f) {
 	const a = req?.accepts?.find((/** @type {any} */ x) => x.scheme === 'exact' && String(x.network).startsWith('near:'));
 	if (!a) return say('pay-error', 'Die API bietet keine Zahlung auf NEAR an.');
 	offer = { asset: a.asset, payTo: a.payTo, amount: a.amount, network: a.network };
-	say('price', `Preis: ${usdc(a.amount)} an ${a.payTo} (${a.network}). Gas zahlt die API.`);
+	say('price', `Preis für ${DOCS[f.document] ?? 'die Dokumente'}: ${usdc(a.amount)} an ${a.payTo} (${a.network}). Gas zahlt die API.`);
 	/** @type {HTMLButtonElement} */ ($('btn-pay')).disabled = !connected;
 }
 
@@ -287,8 +290,9 @@ const fileName = (n) => String(n).replace(/[^A-Za-z0-9._-]/g, '_');
 function showResult(out, settlement) {
 	for (const u of blobUrls) URL.revokeObjectURL(u);
 	blobUrls = [];
-	const first = fileName(out.eigenbelege?.[0] ?? out.number);
-	const links = [download(`Eigenbelege (PDF/A, ${out.eigenbelege?.length ?? 1})`, bytes(out.pdf), 'application/pdf', `${first}.pdf`)];
+	const first = fileName(out.pdf ? out.eigenbelege?.[0] ?? out.number : out.kontoauszuegePdf?.[0]?.number ?? out.number);
+	const links = [];
+	if (out.pdf) links.push(download(`Eigenbelege (PDF/A, ${out.eigenbelege?.length ?? 1})`, bytes(out.pdf), 'application/pdf', `${first}.pdf`));
 	for (const k of out.kontoauszuegePdf ?? [])
 		links.push(download(`Kontoauszug ${k.account} (PDF/A)`, bytes(k.pdf), 'application/pdf', `${fileName(k.number)}.pdf`));
 	links.push(download('Alle Bewegungen (CSV)', out.csv, 'text/csv;charset=utf-8', `${first}.csv`));
@@ -302,12 +306,16 @@ function showResult(out, settlement) {
 		tx.removeAttribute('href');
 		tx.textContent = settlement?.transaction ?? 'ohne Zahlung (Entwicklungsmodus)';
 	}
-	status(`Fertig: ${out.number}, ${out.positions} Positionen, ${(out.kontoauszuegePdf ?? []).length} Kontoauszug/-auszüge.`);
+	const ka = (out.kontoauszuegePdf ?? []).length;
+	status(`Fertig: ${out.pdf ? `Eigenbelege ${out.number}` : 'keine Eigenbelege'}, ${ka ? `${ka} Kontoauszug/-auszüge` : 'kein Kontoauszug'}, CSV.`);
 	$('result').hidden = false;
 }
 
 function syncPeriod() {
-	const range = values().periodMode === 'range';
+	const v = values();
+	$('l-number').hidden = v.document === 'kontoauszug';
+	$('l-statement').hidden = v.document === 'eigenbelege';
+	const range = v.periodMode === 'range';
 	$('l-month').hidden = range;
 	$('l-from').hidden = !range;
 	$('l-to').hidden = !range;

@@ -47,10 +47,15 @@
 						<label class="inline"><input type="checkbox" name="includeKinds" value="transfer" /> Überweisungen</label>
 						<label class="inline"><input type="checkbox" name="includeKinds" value="call" /> Vertragsaufrufe mit Deposit</label>
 					</fieldset>
-					<p class="note">Je Transaktion ein Eigenbeleg, dazu je eigener Adresse ein Kontoauszug (Anfangssaldo, Buchungen, Endsaldo).</p>
+					<fieldset>
+						<legend>Welche Dokumente (ein Preis, die CSV kommt immer mit)</legend>
+						<label class="inline"><input type="radio" name="document" value="eigenbelege" checked /> Eigenbelege (je Transaktion einer)</label>
+						<label class="inline"><input type="radio" name="document" value="kontoauszug" /> Kontoauszug (je Adresse: Anfangssaldo, Buchungen, Endsaldo)</label>
+						<label class="inline"><input type="radio" name="document" value="beide" /> Beide</label>
+					</fieldset>
 					<div class="row">
-						<label>Erste Belegnummer (optional, die weiteren zählen hoch) <input name="number" id="number" maxlength="40" placeholder="EB-2026-001" autocomplete="off" /></label>
-						<label>Nummer des Kontoauszugs (optional) <input name="statementNumber" id="statementNumber" maxlength="40" placeholder="KA-2026-10-01" autocomplete="off" /></label>
+						<label id="l-number">Erste Belegnummer (optional, die weiteren zählen hoch) <input name="number" id="number" maxlength="40" placeholder="EB-2026-001" autocomplete="off" /></label>
+						<label id="l-statement" hidden>Nummer des Kontoauszugs (optional) <input name="statementNumber" id="statementNumber" maxlength="40" placeholder="KA-2026-10-01" autocomplete="off" /></label>
 					</div>
 					<fieldset>
 						<legend>Zahler (steht auf dem Eigenbeleg, geht nicht in die Vorschau)</legend>
@@ -77,7 +82,7 @@
 					<p id="price"></p>
 					<div class="actions">
 						<button type="button" id="btn-wallet">Wallet verbinden</button>
-						<button type="button" id="btn-pay" disabled>Eigenbelege und Kontoauszug kaufen</button>
+						<button type="button" id="btn-pay" disabled>Kaufen</button>
 					</div>
 					<p class="note" id="wallet-state">
 						Zahlung per x402 auf NEAR: Sie signieren genau eine USDC-Überweisung, die API reicht sie ein und zahlt das Gas. Unterstützt: Meteor, Intear.

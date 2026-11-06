@@ -17,11 +17,12 @@ One complete moment: an agent gets a job, pays the API on NEAR, and a bookkeeper
 
 ## Recording it automatically
 
-`scripts/video/record.mjs` makes the whole video from a **real paid run** on NEAR testnet. It starts the API, lets the agent pay 0.10 USDC, captures the output, records every scene in Chromium (Playwright), voices it with macOS `say` and joins it with ffmpeg. The explorer scene shows the payment transaction as the NEAR RPC returns it; the explorer itself sits behind a bot check.
+`scripts/video/record.mjs` makes the whole video from a **real paid run** on NEAR testnet. It starts the API, lets the agent pay 0.10 USDC, captures the output, records every scene in Chromium (Playwright), voices it and joins it with ffmpeg. The narrator is ElevenLabs (model `eleven_v4`), as in the Belege videos: "George" in English, "Marc", a native German voice, in German (`--lang de`, for the German market: German captions and cards, the same run). The key comes from the macOS keychain (service `elevenlabs`) or `ELEVENLABS_API_KEY`; without one, macOS `say` speaks. Each sentence is made once and cached under its hash in `out/video/voice/`. The explorer scene shows the payment transaction as the NEAR RPC returns it; the explorer itself sits behind a bot check.
 
 ```bash
 cd scripts/video && npm install --workspaces=false
-node record.mjs --account eigenbeleg-agent.testnet --day 2026-11-06 --voice Samantha
+node record.mjs --account eigenbeleg-agent.testnet --day 2026-11-06 --lang en
+node record.mjs --day 2026-11-06 --lang de --skip-run
 ```
 
-`--day` must be a finished UTC day on which the account made payments. Output: `out/video/eigenbeleg-demo.mp4` (1920×1080, H.264/AAC, about 80 s). Needs macOS, ffmpeg, `.env` as in the README (PAYWALL=near) and testnet USDC on the agent account. `--skip-run` re-renders from the last captured run without paying again.
+`--day` must be a finished UTC day on which the account made payments. Output: `out/video/eigenbeleg-demo-en.mp4` and `-de.mp4` (1920×1080, H.264/AAC, about 100 and 115 s). The second language uses `--skip-run`, so both show the same payment. Needs macOS, ffmpeg, `.env` as in the README (PAYWALL=near) and testnet USDC on the agent account. `--skip-run` re-renders from the last captured run without paying again.

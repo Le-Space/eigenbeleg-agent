@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<html lang="en">
+<html>
 <head>
 <meta charset="utf-8">
 <title>eigenbeleg demo scene</title>
@@ -96,7 +96,7 @@
 
 	function tx() {
 		const c = el('div', 'card');
-		c.append(el('div', 'tag', 'NEAR testnet · transaction, as the NEAR RPC returns it'));
+		c.append(el('div', 'tag', S.tag));
 		c.append(el('h1', '', S.data.hash));
 		const t = el('table');
 		for (const [k, val] of S.data.rows) {

@@ -182,6 +182,14 @@ code, against the rule "no remote scripts". The options:
   `apps/web/dist` into the API image; the API reads it once at start, so the
   read-only root filesystem is fine. Hosted: https://eigenbeleg.le-space.de/ui/.
 - The UI is static: no server-side rendering, no session, no cookies.
+- Share cards: `index.html` carries Open Graph and `twitter:*` tags (Telegram,
+  LinkedIn, WhatsApp, Mastodon, X) with a 1200×630 card in the Belege look,
+  German and English, made by `node scripts/video/social.mjs` into
+  `apps/web/public/social/` and served at `/ui/social/`. Crawlers need absolute
+  URLs, so the API fills `__PUBLIC_URL__` with `PUBLIC_URL`, or else the
+  request's Host and `X-Forwarded-Proto` (only a plain host name; otherwise the
+  URL stays relative). Share the `/ui/` link: crawlers that do not ask for HTML
+  get JSON on `/`.
 
 ## Privacy
 

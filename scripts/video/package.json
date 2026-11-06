@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
-  "description": "Records the demo video from a real paid run (Playwright, pdf.js, macOS say, ffmpeg). Not part of the workspaces.",
+  "description": "Records the demo video from a real paid run (Playwright, pdf.js, macOS say, ffmpeg) and renders the share cards (social.mjs). Not part of the workspaces.",
   "dependencies": {
     "pdfjs-dist": "4.10.38",
     "playwright": "1.64.0"

@@ -279,3 +279,44 @@ test('GET /ui/ serves the built UI with a CSP and a fresh nonce; no UI, no route
 		none.close();
 	}
 });
+
+test('the share cards get absolute URLs: PUBLIC_URL, else the request origin, never an odd Host', async () => {
+	const { mkdtemp, writeFile, mkdir } = await import('node:fs/promises');
+	const { tmpdir } = await import('node:os');
+	const { request } = await import('node:http');
+	const dir = await mkdtemp(`${tmpdir()}/eb-web-`);
+	await mkdir(`${dir}/social`);
+	await writeFile(`${dir}/index.html`, '<meta property="og:image" content="__PUBLIC_URL__/ui/social/eigenbeleg-de.png">');
+	await writeFile(`${dir}/social/eigenbeleg-de.png`, 'png');
+	/** GET /ui/ with a chosen Host header (fetch cannot set one) */
+	const get = (/** @type {string} */ base, /** @type {Record<string, string>} */ headers) =>
+		new Promise((resolve, reject) => {
+			const u = new URL(base + '/ui/');
+			request({ host: u.hostname, port: u.port, path: u.pathname, headers }, (res) => {
+				let body = '';
+				res.on('data', (c) => (body += c));
+				res.on('end', () => resolve(body));
+			})
+				.on('error', reject)
+				.end();
+		});
+	const opts = { paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {}, web: dir };
+	const fixed = await serve(createApp({ ...opts, publicUrl: 'https://eigenbeleg.example.org/' }));
+	try {
+		assert.match(await get(fixed.base, { host: 'evil.example' }), /content="https:\/\/eigenbeleg\.example\.org\/ui\/social\/eigenbeleg-de\.png"/);
+		const png = await globalThis.fetch(fixed.base + '/ui/social/eigenbeleg-de.png');
+		assert.equal(png.status, 200);
+		assert.match(png.headers.get('content-type') ?? '', /image\/png/);
+		assert.equal((await globalThis.fetch(fixed.base + '/ui/social/nope.png')).status, 404);
+	} finally {
+		fixed.close();
+	}
+	const derived = await serve(createApp(opts));
+	try {
+		assert.match(await get(derived.base, { host: 'eigenbeleg.example.org', 'x-forwarded-proto': 'https' }), /content="https:\/\/eigenbeleg\.example\.org\/ui\//);
+		assert.match(await get(derived.base, { host: 'localhost:4402' }), /content="http:\/\/localhost:4402\/ui\//);
+		assert.match(await get(derived.base, { host: 'a"onload="x' }), /content="\/ui\//, 'an odd Host leaves a relative URL, nothing injected');
+	} finally {
+		derived.close();
+	}
+});

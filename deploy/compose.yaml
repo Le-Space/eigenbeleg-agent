@@ -2,22 +2,27 @@
 # The Eigenbeleg API on a host behind Caddy. No published ports: Caddy
 # reaches it on the external network `edge` as eigenbeleg:3000.
 #
-#   docker network create edge          # once, if Caddy's network is not there yet
-#   docker compose -f deploy/compose.yaml --env-file deploy/.env up -d --build
+# The host needs no git checkout and builds nothing: it runs the image that
+# .github/workflows/image.yml publishes after the tests on main pass, and
+# Watchtower replaces the container when a new one is out (every 5 minutes).
+# On the host, in a folder holding this file and .env:
 #
-# deploy/.env holds the settings (README, "Deploy"); it is never committed.
+#   docker network create edge          # once, if Caddy's network is not there yet
+#   docker compose up -d
+#
+# .env holds the settings (README, "Deploy"); it is never committed.
 services:
   eigenbeleg:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    image: eigenbeleg-api:local
+    image: ghcr.io/le-space/eigenbeleg-agent:main
     container_name: eigenbeleg
     restart: unless-stopped
     env_file: .env
     environment:
       HOST: 0.0.0.0
       PORT: "3000"
+    labels:
+      # only this container is updated by Watchtower, nothing else on the host
+      com.centurylinklabs.watchtower.enable: "true"
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777
@@ -30,6 +35,22 @@ services:
     # read only. Set NEAR_CREDENTIALS_DIR=/run/near-credentials then.
     # volumes:
     #   - /srv/eigenbeleg/near-credentials:/run/near-credentials:ro
+
+  # Pulls ghcr.io/le-space/eigenbeleg-agent:main every 5 minutes and restarts
+  # the API with it if it changed; removes the old image. The maintained fork
+  # of containrrr/watchtower (archived December 2025), same labels and flags.
+  # It needs the Docker socket, so it can control Docker on this host: it only
+  # touches containers with the label above.
+  watchtower:
+    image: ghcr.io/nicholas-fedor/watchtower:1.21.1
+    container_name: eigenbeleg-watchtower
+    restart: unless-stopped
+    command: --label-enable --interval 300 --cleanup --include-restarting
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    mem_limit: 64m
+    security_opt: ["no-new-privileges:true"]
+    network_mode: bridge
 
 networks:
   edge:

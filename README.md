@@ -222,13 +222,21 @@ How it holds its keys: the near-cli keychain or an environment variable, read by
 
 ## Deploy
 
-The API (and the web UI it serves) runs as one container with a read-only root filesystem:
+The API (and the web UI it serves) runs as one container with a read-only root filesystem. The host needs no git checkout and builds nothing: after the tests on `main` pass, [`image.yml`](.github/workflows/image.yml) publishes `ghcr.io/le-space/eigenbeleg-agent:main` (and a tag per commit), and Watchtower on the host picks it up within 5 minutes.
+
+Once, on the host, in a folder of its own:
+
+1. Copy [`deploy/compose.yaml`](deploy/compose.yaml) there as `compose.yaml`, and `.env.example` as `.env`; fill in `.env` (see below; never committed).
+2. Run:
 
 ```bash
 docker network create edge     # once; the reverse proxy (Caddy) is on it
-cp .env.example deploy/.env    # fill in, see below; never committed
-docker compose -f deploy/compose.yaml --env-file deploy/.env up -d --build
+docker compose up -d
 ```
+
+See: `docker compose ps` lists `eigenbeleg` and `eigenbeleg-watchtower`. After the next merge to `main`, `docker logs eigenbeleg-watchtower` says it found a new image and restarted `eigenbeleg`. To update by hand: `docker compose pull && docker compose up -d`. To go back to an earlier version, set the image to its commit tag (`ghcr.io/le-space/eigenbeleg-agent:<12-char sha>`) and stop Watchtower. To build locally instead: `docker build -t eigenbeleg-api:local .`
+
+Watchtower ([nicholas-fedor/watchtower](https://github.com/nicholas-fedor/watchtower), the maintained fork; the original containrrr project is archived) needs the Docker socket and so can control Docker on the host; it is limited to containers labelled `com.centurylinklabs.watchtower.enable`, here only `eigenbeleg`. The package on ghcr.io must be public (GitHub, package settings) so the host pulls without a login.
 
 `deploy/compose.yaml` runs the service `eigenbeleg` this way:
 - read-only root filesystem, `/tmp` as tmpfs, all capabilities dropped, `no-new-privileges`, 256 MB memory;
@@ -264,6 +272,7 @@ eigenbeleg.example.com {
 | `PING_FACILITATOR_URL`, `PING_AMOUNT_OUT` | PingPay facilitator, destination amount in USDC base units (≥ 200000) | no |
 | `NEARBLOCKS_API_KEY` | optional, for NearBlocks' higher rate limits | **yes** |
 | `SOURCE_URL` | where users of this instance get its source (AGPL-3.0-or-later section 13); your fork if you changed it | no |
+| `PUBLIC_URL` | this instance's public origin, e.g. `https://eigenbeleg.le-space.de`, for the share cards (Open Graph, X) on `/ui/`; unset: taken from the request's Host and `X-Forwarded-Proto` | no |
 | `TRUST_PROXY` | behind a proxy: whose `X-Forwarded-*` to trust (Express syntax, e.g. `uniquelocal`), so the x402 resource URL is https | no |
 | `HOST`, `PORT` | listen address; the image uses `0.0.0.0:3000` | no |
 

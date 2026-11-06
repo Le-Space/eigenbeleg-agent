@@ -77,6 +77,8 @@ You need two testnet accounts: one for the API (receives USDC, relays) and one f
    ```
    You should see the 402 with the price, `Signing the transfer (gasless)`, then `Got EB-2026-001 …` and `Paid: https://testnet.nearblocks.io/txns/…`. In `out/` are the PDF, the CSV and a receipt with the NEAR transaction of the payment. The Eigenbeleg lists the agent account's own network fees and storage deposits for the month.
 
+A run like this on 6 Nov 2026: [`Aqxuj1QQ…ynUX`](https://testnet.nearblocks.io/txns/Aqxuj1QQ6zBRyjhxhF24ocb46Dwtag63cjd5TKD8ynUX). The transaction is signed by the API's relayer (`eigenbeleg-api.testnet`) and carries one `Delegate` action. Inside it, the USDC contract logs an `ft_transfer` of 100000 units (0.10 USDC) from `eigenbeleg-agent.testnet` to `eigenbeleg-api.testnet`, and the agent paid no gas. The Eigenbeleg it bought lists the agent account's storage deposit and network fee for November. veraPDF: `PASS 2b`.
+
 `curl -i -X POST localhost:4402/eigenbeleg -H 'content-type: application/json' -d '{…}'` without payment shows the bare `402` and its `PAYMENT-REQUIRED` header (base64 JSON).
 
 **PingPay, for mainnet.** With `PAYWALL=ping` the same route sits behind [PingPay Agent Pay](https://pingpay.gitbook.io/docs/pingpay-api/agent-pay-facilitator) instead (`@pingpay/agentpay-middleware`): agents pay in USDC on Base or another origin chain, and NEAR Intents settles to the NEAR account set in the Ping dashboard. NEAR Intents has no testnet, so this mode is for mainnet only (minimum about 0.20 USDC).

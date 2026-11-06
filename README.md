@@ -33,7 +33,7 @@ npm run demo
 
 What you should see:
 
-1. `npm test`: about 35 tests pass (the booking format, the NEAR, Akash and Filecoin readers, rates, the PDF/CSV, the API with its x402 paywall, the agent).
+1. `npm test`: about 50 tests pass (the booking format, the NEAR, Akash and Filecoin readers, rates, the PDF/CSV, the API with its x402 paywall and the free preview, the agent, the web UI's wallet signer).
 2. `npm run demo`: the agent runs two jobs against the API in the same process (the first asks for both documents, `document: beide`), without a paywall (the API says so on every response). The NEAR data comes from a recorded fixture of a **public** account, Aurora's relayer on 1 Nov 2026, which pays only network fees, so the demo works offline.
    - **Job 1** ends with `Got 25 Eigenbeleg(e) EB-2026-001 – EB-2026-025 … check passed.` and `Kontoauszug: KA-2026-11-01 (NEAR 25 → 24.98…, reconciled)`. Open:
      - `out/demo/EB-2026-001.pdf`: 25 Eigenbelege, one page per transaction (a network fee each), with hash, Von/An, movements, QR code, amount and a signature line;
@@ -80,6 +80,8 @@ agent ── POST /eigenbeleg + PAYMENT-SIGNATURE ──────▶ API
 agent ◀─ 200 + PDF/CSV + PAYMENT-RESPONSE (NEAR transaction hash)
 ```
 
+What is delegated to whom, step by step: [docs/delegate-actions.md](docs/delegate-actions.md).
+
 This follows the x402 v2 `exact` scheme for NEAR ([spec](https://github.com/x402-foundation/x402/blob/main/specs/schemes/exact/scheme_exact_near.md), package `@x402/near`). The payer needs **USDC but no NEAR**. The API's relayer pays the gas, and the USDC goes straight to the API's NEAR account. If the API fails after the payment was verified (the chain cannot be read, say), it answers with an error and **does not settle**, so the payer is not charged.
 
 You need two testnet accounts: one for the API (receives USDC, relays) and one for the agent (pays).
@@ -112,6 +114,28 @@ A run like this on 6 Nov 2026: [`Aqxuj1QQ…ynUX`](https://testnet.nearblocks.io
 `curl -i -X POST localhost:4402/eigenbeleg -H 'content-type: application/json' -d '{…}'` without payment shows the bare `402` and its `PAYMENT-REQUIRED` header (base64 JSON).
 
 **PingPay, for mainnet.** With `PAYWALL=ping` the same route sits behind [PingPay Agent Pay](https://pingpay.gitbook.io/docs/pingpay-api/agent-pay-facilitator) instead (`@pingpay/agentpay-middleware`): agents pay in USDC on Base or another origin chain, and NEAR Intents settles to the NEAR account set in the Ping dashboard. NEAR Intents has no testnet, so this mode is for mainnet only (minimum about 0.20 USDC).
+
+## In the browser: the web UI
+
+A small page for people: fill in the form, see a free preview, pay 0.10 USDC with a NEAR browser wallet, download the Eigenbelege, the Kontoauszug per address and the CSV. Same API, same price, same rules. Concept: [docs/web-ui.md](docs/web-ui.md); how the wallet's signature pays: [docs/delegate-actions.md](docs/delegate-actions.md).
+
+1. Open **https://eigenbeleg.le-space.de/ui/** (testnet payments). You see the form with the chains from `GET /blocks`.
+
+   Locally instead: build the page and start the API (steps 1–4 above for the accounts and `.env`), then open http://127.0.0.1:4402/ui/:
+   ```bash
+   npm run web:build
+   ```
+   ```bash
+   npm run api
+   ```
+2. Choose the chain and the network of **your** payments, enter your addresses and a month or a range, pick the documents (**Eigenbelege**, the default; **Kontoauszug**; or **Beide**, one price), and click **Vorschau (kostenlos)**. You see how many Eigenbelege it will be and their numbers (`EB-2026-001 – EB-2026-025`), the positions, the EUR total, the quantities, and per address the Kontoauszug's opening and closing balance (✓ when reconciled with the chain). The preview never gets your name or address.
+3. Below it you see the price from the API's 402, e.g. `Preis für die Eigenbelege: 0,10 USDC an eigenbeleg-api.testnet (near:testnet)`. Click **Wallet verbinden** and choose Meteor or Intear (the wallets that can sign a delegate action on testnet). Only now does the page load the wallet code, in a sandboxed iframe.
+4. Fill in name and postal address, click **Kaufen**, and approve the one USDC transfer in the wallet. The account in the wallet pays; it needs testnet USDC ([faucet.circle.com](https://faucet.circle.com)) but no NEAR for gas.
+5. You see the downloads for what you picked: **Eigenbelege (PDF/A, n)** and/or **Kontoauszug <address> (PDF/A)** for each address, and always **Alle Bewegungen (CSV)**, and the NEAR transaction of your payment as a link to testnet NearBlocks.
+
+No browser wallet? The section *Keine passende Wallet?* shows the `npm run agent` command for the same request.
+
+For development, `npm run web:dev` serves the page with hot reload on Vite's port and passes API calls to `API_URL` (default `http://127.0.0.1:4402`). Without a NearBlocks API key (`NEARBLOCKS_API_KEY`), busy mainnet accounts can hit NearBlocks' rate limit; the preview then says so.
 
 ## What an Eigenbeleg contains, and why
 
@@ -157,6 +181,8 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 | `GET /blocks` | The building blocks by chain, with version and data source |
 | `GET /blocks/<chain>/check` | A live check of that block against public data (cached 10 min) |
 | `POST /eigenbeleg` | The Eigenbelege and the Kontoauszug, behind the paywall |
+| `POST /eigenbeleg/preview` | Free: the summary (Eigenbeleg numbers, positions, total, Kontoauszug balances) for the same body **without** `payer` (a body with `payer` is refused); 10 per minute per IP |
+| `GET /ui/` | The web UI, when `npm run web:build` has run |
 
 ```json
 {
@@ -207,7 +233,7 @@ docker compose -f deploy/compose.yaml --env-file deploy/.env up -d --build
 - as the non-root user `node`, with no published ports;
 - only on the external network `edge`, where the proxy reaches it as `eigenbeleg:3000`.
 
-The image holds only the API's production dependencies (no agent, no Playwright) and has a `HEALTHCHECK` on `GET /health`.
+The image holds only the API's production dependencies (no agent, no Playwright) and the web UI, built in a first stage with Vite and served at `/ui/`, and has a `HEALTHCHECK` on `GET /health`.
 
 A Caddy site for it:
 
@@ -226,6 +252,7 @@ eigenbeleg.example.com {
 | `PAYWALL` | `near` (x402 on NEAR), `ping` (PingPay, mainnet only), `none` (development: free, and says so) | no |
 | `PAY_NETWORK` | `near:testnet` or `near:mainnet`: where the payment is made (not which chain is read) | no |
 | `PRICE` | price per request in USDC, e.g. `$0.10` | no |
+| `PAY_TIMEOUT_SECONDS` | how far ahead a signed payment may expire (default 300; browser wallets such as Meteor sign 200 blocks ahead) | no |
 | `PAY_TO` | the NEAR account that receives the USDC; it must be registered with the USDC contract (`storage_deposit`) | no |
 | `RELAYER_ACCOUNT_ID` | the NEAR account that submits the payer's signed delegate action and pays its gas; needs a little NEAR | no |
 | `RELAYER_SECRET_KEY` | the relayer's full-access key (`ed25519:…`) | **yes** |
@@ -277,6 +304,7 @@ The payer's name and address live only for the request. Nothing is stored, and l
 | `packages/eigenbeleg` | The document, the PDF/A-2b and the CSV |
 | `apps/api` | The HTTP API and the paywall (`near` / `ping` / `none`) |
 | `apps/agent` | The agent, its x402 payer, the PR drafts |
+| `apps/web` | The web UI (Vite): form, preview, NEAR Connect wallet, x402 payment in the browser |
 
 A new chain is a package (AGPL-3.0-or-later, like the others) that exports `block = { chain, networks, version, source, read, probe, isAddress }`; `read` returns ledger entries. `npm run agent` for that chain drafts exactly this.
 

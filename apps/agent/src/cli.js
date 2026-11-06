@@ -38,6 +38,7 @@ const { values: v } = parseArgs({
 		name: { type: 'string' },
 		postal: { type: 'string' },
 		number: { type: 'string' },
+		statement: { type: 'string' },
 		include: { type: 'string' },
 		document: { type: 'string' },
 		api: { type: 'string' },
@@ -54,6 +55,7 @@ const job = v.market ? null : v.job
 			period: v.month ? { month: v.month } : { from: v.from, to: v.to },
 			payer: { name: v.name ?? '', address: (v.postal ?? '').replace(/,\s*/g, '\n') },
 			...(v.number ? { number: v.number } : {}),
+			...(v.statement ? { statementNumber: v.statement } : {}),
 			...(v.include ? { includeKinds: v.include.split(',') } : {}),
 			...(v.document ? { document: v.document } : {})
 		};

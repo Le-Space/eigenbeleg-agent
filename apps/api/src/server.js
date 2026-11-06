@@ -23,6 +23,7 @@ const paywall = await createPaywall({
 	relayerId: env.RELAYER_ACCOUNT_ID,
 	relayerKey: env.RELAYER_SECRET_KEY,
 	rpcUrl: env.NEAR_RPC_URL,
+	timeoutSeconds: env.PAY_TIMEOUT_SECONDS ? Number(env.PAY_TIMEOUT_SECONDS) : undefined,
 	pingApiKey: env.PING_API_KEY,
 	pingUrl: env.PING_FACILITATOR_URL,
 	pingAmountOut: env.PING_AMOUNT_OUT

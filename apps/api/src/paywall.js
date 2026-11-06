@@ -32,6 +32,7 @@ export const DESCRIPTION = 'Eigenbeleg (PDF/A + CSV) for the payments of own blo
  * @param {string} [c.relayerId] NEAR account that submits the delegate action and pays its gas
  * @param {string} [c.relayerKey] its secret key; else read from the near-cli keychain
  * @param {string} [c.rpcUrl]
+ * @param {number} [c.timeoutSeconds] how far ahead the payer's delegate may expire (1 block ≈ 1 s); browser wallets sign with up to 200 blocks
  * @param {string} [c.pingApiKey]
  * @param {string} [c.pingUrl]
  * @param {string} [c.pingAmountOut] destination USDC base units (>= 200000)
@@ -73,7 +74,7 @@ export async function createPaywall(c) {
 	const price = c.price ?? '$0.10';
 	const routes = {
 		[ROUTE]: {
-			accepts: [{ scheme: 'exact', price, network, payTo: c.payTo, maxTimeoutSeconds: 120 }],
+			accepts: [{ scheme: 'exact', price, network, payTo: c.payTo, maxTimeoutSeconds: c.timeoutSeconds ?? 300 }],
 			description: DESCRIPTION,
 			mimeType: 'application/pdf'
 		}

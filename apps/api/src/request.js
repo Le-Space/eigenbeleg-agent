@@ -25,9 +25,11 @@ function isDate(d) {
 
 /**
  * @param {any} body
+ * @param {{ preview?: boolean }} [opts] preview: the free POST /eigenbeleg/preview, which
+ *   must not get the payer's name and address (a body with `payer` is refused) and has no format
  * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[] }}
  */
-export function parseRequest(body) {
+export function parseRequest(body, { preview = false } = {}) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
 	const chain = typeof body.chain === 'string' ? body.chain : '';
 	const block = Object.hasOwn(BLOCKS, chain) ? BLOCKS[chain] : null;
@@ -58,7 +60,7 @@ export function parseRequest(body) {
 	if (period.from > yesterday) throw new RequestError('period has no finished day yet');
 	if (period.to > yesterday) period = { from: period.from, to: yesterday };
 
-	const format = body.format ?? 'pdf';
+	const format = preview ? 'json' : body.format ?? 'pdf';
 	if (!FORMATS.has(format)) throw new RequestError('format: pdf, csv or json (every file)');
 	// What is delivered: the Eigenbelege (one per transaction, the default), the
 	// Kontoauszug per address, or both when asked for. Never both unasked.
@@ -69,7 +71,9 @@ export function parseRequest(body) {
 	const statementNumber = body.statementNumber ?? `KA-${period.from}`;
 	if (!NUMBER.test(String(statementNumber))) throw new RequestError('statementNumber: up to 40 letters, digits and . _ / -');
 
-	const payer = body.payer ?? {};
+	if (preview && body.payer !== undefined) throw new RequestError('the preview takes no payer: name and address go only to the paid POST /eigenbeleg');
+	// The preview builds the same document, but never shows or draws the payer.
+	const payer = preview ? { name: 'preview', address: 'preview' } : body.payer ?? {};
 	if (typeof payer.name !== 'string' || payer.name.trim().length < 2 || payer.name.length > 200) throw new RequestError('payer.name: 2 to 200 characters');
 	if (typeof payer.address !== 'string' || payer.address.trim().length < 5 || payer.address.length > 500) throw new RequestError('payer.address: the postal address, 5 to 500 characters');
 

@@ -5,7 +5,8 @@
   "license": "AGPL-3.0-or-later",
   "main": "./src/index.js",
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+    "./document": "./src/document.js"
   },
   "imports": {
     "#assets": {

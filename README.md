@@ -117,27 +117,25 @@ A run like this on 6 Nov 2026: [`Aqxuj1QQ…ynUX`](https://testnet.nearblocks.io
 
 ## In the browser: the web UI
 
-A small page for people: fill in the form, see a free preview, pay 0.10 USDC with a NEAR browser wallet, download the Eigenbelege, the Kontoauszug per address and the CSV. Same API, same price, same rules. Concept: [docs/web-ui.md](docs/web-ui.md); how the wallet's signature pays: [docs/delegate-actions.md](docs/delegate-actions.md).
+For people, free: the page does **everything in your browser**. It reads the chain from the public data sources itself, fetches the EUR rates, and draws the Eigenbelege, the Kontoauszug and the CSV on your device, with the same code the API runs ([`@eigenbeleg/pipeline`](packages/pipeline)). Nothing goes to a server of ours: not your name, not your address, not your blockchain addresses. It installs as an app (PWA) and runs from any static host. Plan: [#5](https://github.com/Le-Space/eigenbeleg-agent/issues/5); concept: [docs/web-ui.md](docs/web-ui.md).
 
-1. Open **https://eigenbeleg.le-space.de/ui/** (testnet payments). You see the form with the chains from `GET /blocks`, in German, or in English if your browser is set to another language; **English** / **Deutsch** at the top right switches. The PDFs stay German.
+1. Open **https://eigenbeleg.le-space.de/ui/**. You see the form in German, or in English if your browser is set to another language; **English** / **Deutsch** at the top right switches (the PDFs stay German). *Welche Dienste Ihr Browser dabei fragt* lists every host the page will ask and what each learns.
 
-   Locally instead: build the page and start the API (steps 1–4 above for the accounts and `.env`), then open http://127.0.0.1:4402/ui/:
+   Locally instead:
    ```bash
    npm run web:build
    ```
    ```bash
-   npm run api
+   PAYWALL=none npm run api
    ```
-2. Choose the chain and the network of **your** payments, enter your addresses and a month or a range, pick the documents (**Eigenbelege**, the default; **Kontoauszug**; or **Beide**, one price), and click **Vorschau (kostenlos)**. You see how many Eigenbelege it will be and their numbers (`EB-2026-001 – EB-2026-025`), the positions, the EUR total, the quantities, and per address the Kontoauszug's opening and closing balance (✓ when reconciled with the chain). The preview never gets your name or address.
-3. Below it you see the price from the API's 402, e.g. `Preis für die Eigenbelege: 0,10 USDC an eigenbeleg-api.testnet (near:testnet)`. Click **Wallet verbinden** and choose Meteor or Intear (the wallets that can sign a delegate action on testnet). Only now does the page load the wallet code, in a sandboxed iframe.
-4. Fill in name and postal address, click **Kaufen**, and approve the one USDC transfer in the wallet. The account in the wallet pays; it needs testnet USDC ([faucet.circle.com](https://faucet.circle.com)) but no NEAR for gas.
-5. You see the downloads for what you picked: **Eigenbelege (PDF/A, n)** and/or **Kontoauszug <address> (PDF/A)** for each address, and always **Alle Bewegungen (CSV)**, and the NEAR transaction of your payment as a link to testnet NearBlocks.
+   then open http://127.0.0.1:4402/ui/ (the API only serves the files here).
+2. Choose the chain and network of **your** payments, enter your addresses and a month or a range, pick the documents (**Eigenbelege**, **Kontoauszug** or **Beide**), and fill in name and postal address (they are printed on the documents and stay in the page; tick *merken* to keep them on this device).
+3. Click **Lesen und erstellen**. The first time, the page loads its PDF code and fonts (about 1.6 MB, then cached). You see how many Eigenbelege it made and their numbers, the positions, the EUR total, the quantities and, per address, the Kontoauszug's opening and closing balance (✓ when reconciled with the chain).
+4. Download **Eigenbelege (PDF/A, n)**, **Kontoauszug <address> (PDF/A)** per address, and **Alle Bewegungen (CSV)**.
 
-A run like this on 6 Nov 2026 with the Meteor web wallet: [`DJePEa…YtgM`](https://testnet.nearblocks.io/txns/DJePEaGxPS4ePyjJfa6NJ36wobLKSCpJNaS75wDBtYgM). The payer `cleanwheat4638.testnet` held 1 USDC and **0 NEAR**; it was registered with the USDC contract first (`storage_deposit`, step 2 above, paid by another account). The transaction is signed by the relayer `eigenbeleg-api.testnet` and carries one `Delegate` action with the `ft_transfer` of 0.10 USDC.
+Your browser asks NearBlocks and the FastNEAR archival RPC (NEAR), PublicNode and, through our [Akash CORS proxy](deploy/akash-proxy) when it is set up, the Akash Console indexer (Akash), Filfox (Filecoin), and Kraken and CoinGecko (rates). They see your IP address and, except the rate services, the addresses you enter. Very busy NEAR accounts can hit NearBlocks' free rate limit; the page then says so and you try a shorter period or later.
 
-No browser wallet? The section *Keine passende Wallet?* shows the `npm run agent` command for the same request.
-
-For development, `npm run web:dev` serves the page with hot reload on Vite's port and passes API calls to `API_URL` (default `http://127.0.0.1:4402`). Without a NearBlocks API key (`NEARBLOCKS_API_KEY`), busy mainnet accounts can hit NearBlocks' rate limit; the preview then says so.
+For development, `npm run web:dev` serves the page with hot reload. Build settings: `VITE_AKASH_INDEXER` (the Akash proxy's URL), `VITE_PUBLIC_URL` (for the share cards on a static host).
 
 ## What an Eigenbeleg contains, and why
 
@@ -179,12 +177,13 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 
 | | |
 | --- | --- |
-| `GET /` | What the service is, the price and how to pay (JSON). A browser (`Accept: text/html`) is redirected to `/ui/` instead; `curl`, `fetch` and agents get the JSON |
+| `GET /` | What the service is, the price and how to pay (JSON). A browser (`Accept: text/html`) is redirected to `/ui/` instead; `curl`, `fetch` and agents get the JSON (and a pointer to `/llms.txt`) |
 | `GET /blocks` | The building blocks by chain, with version and data source |
 | `GET /blocks/<chain>/check` | A live check of that block against public data (cached 10 min) |
 | `POST /eigenbeleg` | The Eigenbelege and the Kontoauszug, behind the paywall |
 | `POST /eigenbeleg/preview` | Free: the summary (Eigenbeleg numbers, positions, total, Kontoauszug balances) for the same body **without** `payer` (a body with `payer` is refused); 10 per minute per IP |
-| `GET /ui/` | The web UI, when `npm run web:build` has run |
+| `GET /ui/` | The web UI (a static PWA that talks to none of these routes), when `npm run web:build` has run |
+| `GET /llms.txt` | For agents: what is sold, the price, the x402 steps and the body, as plain text |
 
 ```json
 {
@@ -303,11 +302,7 @@ The addresses of a request go to the data sources of its chain, and nowhere else
 
 The payer's name and address live only for the request. Nothing is stored, and logs hold method, path, status and duration only. There are no request bodies in the logs, and there is no database.
 
-**In the web UI**, the page loads only its own files until you click *Wallet verbinden*. Then your browser loads the code of the wallet you pick from that wallet's provider and runs it isolated in an iframe:
-- Meteor from `raw.githubusercontent.com` (GitHub);
-- Intear from `wallet.intear.tech`.
-
-GitHub or the wallet provider sees your IP address. To sign, the wallet may open its own page (`wallet.meteorwallet.app`, `wallet.intear.tech`). It learns your NEAR account and the one payment you sign, and may talk to NEAR RPC nodes of its choice. Your name and postal address go only to this API, never to the wallet. The UI says this next to the button, before anything is loaded. The free preview takes no name or address at all. Fixtures are public chain data of protocol accounts; every name and address in examples is made up (*Wolkenfabrik Hosting GmbH*, *Musterstraße 1*).
+**In the web UI** nothing reaches this API: the page reads, values and draws in the browser, and asks only the data sources it lists (its Content-Security-Policy allows no other host). Name and postal address never leave the page. The free preview takes no name or address at all. Fixtures are public chain data of protocol accounts; every name and address in examples is made up (*Wolkenfabrik Hosting GmbH*, *Musterstraße 1*).
 
 ## Building blocks
 
@@ -318,10 +313,12 @@ GitHub or the wallet provider sees your IP address. To sign, the wallet may open
 | `packages/chain-cosmos` | Akash: node `tx_search` plus the Akash Console indexer for older history; escrow deposits as their own kind |
 | `packages/chain-filecoin` | Filecoin via Filfox: FIL sends and receipts, miner tip plus burnt fee as one network fee, USDFC (valued at the USD stablecoin rate) |
 | `packages/rates` | EUR per asset and UTC day: Kraken day VWAP, CoinGecko fallback |
-| `packages/eigenbeleg` | The document, the PDF/A-2b and the CSV |
+| `packages/eigenbeleg` | The document, the PDF/A-2b and the CSV (fonts and colour profile from files in Node, fetched in a browser) |
+| `packages/pipeline` | One request start to end (check, read, value, draw) and the list of data sources: the same code in the API and in the web UI; tested in Node and Chromium |
 | `apps/api` | The HTTP API and the paywall (`near` / `ping` / `none`) |
 | `apps/agent` | The agent, its x402 payer, the PR drafts |
-| `apps/web` | The web UI (Vite): form, preview, NEAR Connect wallet, x402 payment in the browser |
+| `apps/web` | The web UI, a PWA (Vite): runs the pipeline in the browser; no wallet, no payment, nothing sent to the API |
+| `deploy/akash-proxy` | A Cloudflare Worker: CORS for the Akash Console indexer, the one source a browser cannot read |
 
 A new chain is a package (AGPL-3.0-or-later, like the others) that exports `block = { chain, networks, version, source, read, probe, isAddress }`; `read` returns ledger entries. `npm run agent` for that chain drafts exactly this.
 

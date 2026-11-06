@@ -6,7 +6,11 @@
   "description": "One request, start to end: check it, read the chain, value in EUR, build the Eigenbelege, the Kontoauszug and the CSV. The same code in the API (Node) and in the web UI (browser).",
   "main": "./src/index.js",
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+    "./request": "./src/request.js",
+    "./blocks": "./src/blocks.js",
+    "./sources": "./src/sources.js",
+    "./generate": "./src/generate.js"
   },
   "dependencies": {
     "@eigenbeleg/chain-cosmos": "0.1.0",

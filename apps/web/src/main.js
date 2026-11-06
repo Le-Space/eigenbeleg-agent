@@ -9,7 +9,10 @@
 import '@fontsource-variable/sora';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
-import { RequestError, describeBlocks, dataSources, generate, parseRequest } from '@eigenbeleg/pipeline';
+// Only the request check, the list of chains and the data sources load with the page.
+import { RequestError, parseRequest } from '@eigenbeleg/pipeline/request';
+import { describeBlocks } from '@eigenbeleg/pipeline/blocks';
+import { dataSources } from '@eigenbeleg/pipeline/sources';
 import { detectLang, lang, locale, setLang, t } from './i18n.js';
 import { fileName, rememberPayer, rememberedPayer, requestBody } from './request.js';
 import { AKASH_INDEXER } from './config.js';
@@ -26,7 +29,7 @@ const blocks = describeBlocks();
 const endpoints = { akash: { indexer: AKASH_INDEXER ?? '' } };
 
 /** what is on screen, so a language switch can draw it again */
-/** @type {{ out: Awaited<ReturnType<typeof generate>>, which: string } | null} */
+/** @type {{ out: Awaited<ReturnType<typeof import('@eigenbeleg/pipeline/generate').generate>>, which: string } | null} */
 let shown = null;
 
 /** @returns {import('./request.js').FormValues} */
@@ -109,6 +112,8 @@ async function onCreate(e) {
 	btn.disabled = true;
 	btn.textContent = t('btnReading');
 	try {
+		// The readers, rates and PDF code (and its fonts) load only now, on the first run.
+		const { generate } = await import('@eigenbeleg/pipeline/generate');
 		const out = await generate(req, { endpoints });
 		shown = { out, which: f.document };
 		showResult();

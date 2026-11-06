@@ -321,3 +321,21 @@ test('the share cards get absolute URLs: PUBLIC_URL, else the request origin, ne
 		derived.close();
 	}
 });
+
+test('GET /llms.txt tells agents what is sold, the price and the x402 steps', async () => {
+	const info = { mode: 'near', scheme: 'exact', network: 'near:testnet', price: '$0.10', asset: 'USDC (NEP-141)', payTo: 'eigenbeleg-api.testnet' };
+	const { base, close } = await serve(createApp({ paywall: { middleware: null, info }, deps, log: () => {}, web: null, publicUrl: 'https://eigenbeleg.example.org' }));
+	try {
+		const r = await globalThis.fetch(base + '/llms.txt');
+		assert.equal(r.status, 200);
+		assert.match(r.headers.get('content-type') ?? '', /^text\/plain/);
+		const text = await r.text();
+		assert.match(text, /^# Eigenbeleg API/);
+		assert.match(text, /POST https:\/\/eigenbeleg\.example\.org\/eigenbeleg: \$0\.10 in USDC \(NEP-141\) on near:testnet, to eigenbeleg-api\.testnet/);
+		assert.match(text, /PAYMENT-REQUIRED[\s\S]*PAYMENT-SIGNATURE[\s\S]*PAYMENT-RESPONSE/);
+		assert.match(text, /web UI at https:\/\/eigenbeleg\.example\.org\/ui\/ instead: it does everything in their browser/);
+		assert.equal((await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json()).agents, '/llms.txt');
+	} finally {
+		close();
+	}
+});

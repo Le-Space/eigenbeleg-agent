@@ -67,8 +67,11 @@ One page, three sections that unfold in order (no router):
   status lines (signing, verifying, settling), then the downloads and the
   transaction link. Errors in plain German ("Zahlung abgelehnt: zu wenig USDC").
 
-German UI text; code and comments in English. No external fonts, images or
-scripts from a CDN in the page itself; plain CSS, system fonts.
+German and English UI text (`apps/web/src/i18n.js`): German by default, English
+for a browser set to another language, and a switch in the header. The
+Eigenbelege and the Kontoauszug themselves stay German. Code and comments in English. No external fonts, images or
+scripts from a CDN in the page itself; plain CSS. The look is Le Space Belege's (signet, paper/amber by day,
+night/lime at night, Sora and IBM Plex Mono), with the fonts bundled from `@fontsource` and served from `/ui/assets`.
 
 ## The free preview route
 
@@ -124,7 +127,7 @@ the connector NEAR now recommends over Wallet Selector) and its wallet manifest
 
 | Wallet | Delegate action | Testnet | Note |
 |---|---|---|---|
-| Meteor Wallet (extension, web) | yes | yes | TTL 200 blocks → needs the 300 s window above |
+| Meteor Wallet (extension, web) | yes | yes | TTL 200 blocks → needs the 300 s window above. **Verified** on testnet with the web wallet: [`DJePEa…YtgM`](https://testnet.nearblocks.io/txns/DJePEaGxPS4ePyjJfa6NJ36wobLKSCpJNaS75wDBtYgM) |
 | Intear Wallet | yes | yes | |
 | Ledger (via NEAR Connect) | yes | yes | hardware; untested here |
 | near-cli connect | yes | yes | developer tool |
@@ -133,7 +136,8 @@ the connector NEAR now recommends over Wallet Selector) and its wallet manifest
 | MyNearWallet, OKX, Nightly, WalletConnect, others | not declared | | not offered |
 
 The UI asks NEAR Connect only for wallets with `signDelegateActions` and the
-chosen network. **Testnet target: Meteor and Intear.** If neither works on
+chosen network. **Testnet target: Meteor and Intear.** Meteor works (verified
+above); Intear is not tried yet. If neither had worked on
 testnet in practice, the concept's fallback applies: the UI shows the agent
 CLI command, and this document says why.
 
@@ -169,7 +173,9 @@ code, against the rule "no remote scripts". The options:
   because `@x402/fetch`, `@x402/near` and NEAR Connect are npm modules to bundle.
   `npm run web:build` writes `apps/web/dist/`; it is not committed.
 - The API serves `apps/web/dist` at **`/ui/`** (exact, strict routing) when the
-  folder exists, and `GET /` (JSON) gets a `ui` field pointing there. Same
+  folder exists, and `GET /` (JSON) gets a `ui` field pointing there. `GET /`
+  uses content negotiation: a browser (`Accept: text/html`) is redirected to
+  `/ui/`, everything else gets the JSON (`Vary: Accept`). Same
   origin, so no CORS and the `PAYMENT-*` headers are readable.
 - `npm run web:dev` runs Vite with a proxy to the API on `:4402` for development.
 - The container (`Dockerfile`) builds the UI in a first stage and copies only
@@ -181,7 +187,8 @@ code, against the rule "no remote scripts". The options:
 
 - Payer name and address go only to `POST /eigenbeleg`, the paid call, and are
   dropped after the response (as today). The preview refuses a body with `payer`.
-- The page itself stores nothing. After the wallet click, NEAR Connect keeps
+- The page itself stores only the language, and only when the user picks it
+  with the switch (`localStorage`, key `lang`). After the wallet click, NEAR Connect keeps
   the chosen wallet in `localStorage` and the executor code in IndexedDB (its
   own cache). No analytics, no remote fonts, no third-party requests from the
   page before that click.

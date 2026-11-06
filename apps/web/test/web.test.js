@@ -134,9 +134,27 @@ test('a wallet that signs something else, or a changed price, is refused before 
 test('the page names the wallet code hosts before anything is loaded', async () => {
 	const { readFile } = await import('node:fs/promises');
 	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
-	const notice = /<p class="note" id="wallet-privacy">([\s\S]*?)<\/p>/.exec(html)?.[1] ?? '';
+	const notice = /<p class="note" id="wallet-privacy"[^>]*>([\s\S]*?)<\/p>/.exec(html)?.[1] ?? '';
+	const { TEXTS } = await import('../src/i18n.js');
 	for (const host of ['raw.githubusercontent.com', 'wallet.intear.tech']) assert.ok(notice.includes(host), host);
 	const manifest = JSON.parse(await readFile(new URL('../src/wallet-manifest.json', import.meta.url), 'utf8'));
 	const wallets = Array.isArray(manifest) ? manifest : manifest.wallets;
-	for (const w of wallets) assert.ok(notice.includes(new URL(w.executor).host), `notice names ${w.executor}`);
+	for (const text of [notice, TEXTS.de.walletPrivacy, TEXTS.en.walletPrivacy]) for (const w of wallets) assert.ok(text.includes(new URL(w.executor).host), `notice names ${w.executor}`);
+});
+
+test('German and English have the same texts and placeholders; German is the default', async () => {
+	const { TEXTS, t, setLang, lang, detectLang } = await import('../src/i18n.js');
+	const vars = (/** @type {string} */ s) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');
+	assert.deepEqual(Object.keys(TEXTS.en).sort(), Object.keys(TEXTS.de).sort());
+	for (const k of Object.keys(TEXTS.de)) assert.equal(vars(TEXTS.en[k]), vars(TEXTS.de[k]), k);
+	assert.equal(lang(), 'de');
+	assert.equal(t('price', { docs: t('docsBeide'), amount: '0,10 USDC', payTo: 'eigenbeleg-api.testnet', network: 'near:testnet' }), 'Preis für Eigenbelege und Kontoauszug: 0,10 USDC an eigenbeleg-api.testnet (near:testnet). Gas zahlt die API.');
+	setLang('en');
+	try {
+		assert.equal(t('btnPay'), 'Buy');
+		assert.equal(t('mismatch', { why: t('whyAmount') }), 'The wallet signed something other than asked (another amount). Nothing was sent.');
+	} finally {
+		setLang('de');
+	}
+	assert.match(detectLang(), /^(de|en)$/);
 });

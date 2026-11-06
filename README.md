@@ -80,7 +80,7 @@ agent ── POST /eigenbeleg + PAYMENT-SIGNATURE ──────▶ API
 agent ◀─ 200 + PDF/CSV + PAYMENT-RESPONSE (NEAR transaction hash)
 ```
 
-What is delegated to whom, step by step: [docs/delegate-actions.md](docs/delegate-actions.md).
+What is delegated to whom, step by step: [docs/delegate-actions.md](docs/delegate-actions.md). Which part runs where and talks to which NEAR endpoint: [docs/components.md](docs/components.md).
 
 This follows the x402 v2 `exact` scheme for NEAR ([spec](https://github.com/x402-foundation/x402/blob/main/specs/schemes/exact/scheme_exact_near.md), package `@x402/near`). The payer needs **USDC but no NEAR**. The API's relayer pays the gas, and the USDC goes straight to the API's NEAR account. If the API fails after the payment was verified (the chain cannot be read, say), it answers with an error and **does not settle**, so the payer is not charged.
 
@@ -119,7 +119,7 @@ A run like this on 6 Nov 2026: [`Aqxuj1QQ…ynUX`](https://testnet.nearblocks.io
 
 A small page for people: fill in the form, see a free preview, pay 0.10 USDC with a NEAR browser wallet, download the Eigenbelege, the Kontoauszug per address and the CSV. Same API, same price, same rules. Concept: [docs/web-ui.md](docs/web-ui.md); how the wallet's signature pays: [docs/delegate-actions.md](docs/delegate-actions.md).
 
-1. Open **https://eigenbeleg.le-space.de/ui/** (testnet payments). You see the form with the chains from `GET /blocks`.
+1. Open **https://eigenbeleg.le-space.de/ui/** (testnet payments). You see the form with the chains from `GET /blocks`, in German, or in English if your browser is set to another language; **English** / **Deutsch** at the top right switches. The PDFs stay German.
 
    Locally instead: build the page and start the API (steps 1–4 above for the accounts and `.env`), then open http://127.0.0.1:4402/ui/:
    ```bash
@@ -132,6 +132,8 @@ A small page for people: fill in the form, see a free preview, pay 0.10 USDC wit
 3. Below it you see the price from the API's 402, e.g. `Preis für die Eigenbelege: 0,10 USDC an eigenbeleg-api.testnet (near:testnet)`. Click **Wallet verbinden** and choose Meteor or Intear (the wallets that can sign a delegate action on testnet). Only now does the page load the wallet code, in a sandboxed iframe.
 4. Fill in name and postal address, click **Kaufen**, and approve the one USDC transfer in the wallet. The account in the wallet pays; it needs testnet USDC ([faucet.circle.com](https://faucet.circle.com)) but no NEAR for gas.
 5. You see the downloads for what you picked: **Eigenbelege (PDF/A, n)** and/or **Kontoauszug <address> (PDF/A)** for each address, and always **Alle Bewegungen (CSV)**, and the NEAR transaction of your payment as a link to testnet NearBlocks.
+
+A run like this on 6 Nov 2026 with the Meteor web wallet: [`DJePEa…YtgM`](https://testnet.nearblocks.io/txns/DJePEaGxPS4ePyjJfa6NJ36wobLKSCpJNaS75wDBtYgM). The payer `cleanwheat4638.testnet` held 1 USDC and **0 NEAR**; it was registered with the USDC contract first (`storage_deposit`, step 2 above, paid by another account). The transaction is signed by the relayer `eigenbeleg-api.testnet` and carries one `Delegate` action with the `ft_transfer` of 0.10 USDC.
 
 No browser wallet? The section *Keine passende Wallet?* shows the `npm run agent` command for the same request.
 
@@ -177,7 +179,7 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 
 | | |
 | --- | --- |
-| `GET /` | What the service is, the price and how to pay (JSON) |
+| `GET /` | What the service is, the price and how to pay (JSON). A browser (`Accept: text/html`) is redirected to `/ui/` instead; `curl`, `fetch` and agents get the JSON |
 | `GET /blocks` | The building blocks by chain, with version and data source |
 | `GET /blocks/<chain>/check` | A live check of that block against public data (cached 10 min) |
 | `POST /eigenbeleg` | The Eigenbelege and the Kontoauszug, behind the paywall |

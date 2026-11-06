@@ -17,9 +17,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 
-import { checkBlock, describeBlocks } from './blocks.js';
-import { generate } from './generate.js';
-import { RequestError, parseRequest } from './request.js';
+import { RequestError, checkBlock, describeBlocks, generate, parseRequest } from '@eigenbeleg/pipeline';
 
 /**
  * @param {object} o

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // One request, start to end: read the chain, value in EUR, build the
 // Eigenbelege (one per transaction) and the Kontoauszug per account, draw
-// the files. Nothing is kept afterwards.
+// the files. Nothing is kept afterwards. Runs in Node (the API) and in a
+// browser (the web UI) alike.
 
 import { sortEntries } from '@eigenbeleg/ledger-core';
 import { createRates, valueEntries } from '@eigenbeleg/rates';
@@ -10,14 +11,15 @@ import { BLOCKS } from './blocks.js';
 
 /**
  * @param {ReturnType<typeof import('./request.js').parseRequest>} req
- * @param {{ fetch?: typeof fetch, rates?: { rateFor: Function }, nearblocksKey?: string, now?: () => Date, probeDay?: string }} [deps]
+ * @param {{ fetch?: typeof fetch, rates?: { rateFor: Function }, nearblocksKey?: string, now?: () => Date, probeDay?: string, endpoints?: Record<string, Record<string, string>> }} [deps]
+ *   endpoints: per chain, endpoints to use instead of the reader's own, e.g. `{ akash: { indexer: 'https://…' } }` for a CORS proxy
  * @param {{ preview?: boolean }} [opts] preview: the summary only, no files
  */
 export async function generate(req, deps = {}, { preview = false } = {}) {
 	const block = BLOCKS[req.chain];
 	const wantBelege = req.document !== 'kontoauszug';
 	const wantStatement = req.document !== 'eigenbelege';
-	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey };
+	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey, endpoints: deps.endpoints?.[req.chain] };
 	/** @type {import('@eigenbeleg/ledger-core').LedgerEntry[]} */
 	const entries = [];
 	/** @type {{ account: string, opening: Record<string, string>, closing: Record<string, string>, method: 'archive' | 'derived', at: any }[]} */

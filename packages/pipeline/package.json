@@ -1,0 +1,17 @@
+{
+  "name": "@eigenbeleg/pipeline",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "description": "One request, start to end: check it, read the chain, value in EUR, build the Eigenbelege, the Kontoauszug and the CSV. The same code in the API (Node) and in the web UI (browser).",
+  "main": "./src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "dependencies": {
+    "@eigenbeleg/chain-cosmos": "0.1.0",
+    "@eigenbeleg/chain-filecoin": "0.1.0",
+    "@eigenbeleg/chain-near": "0.1.0",
+    "@eigenbeleg/eigenbeleg": "0.1.0",
+    "@eigenbeleg/ledger-core": "0.1.0",
+    "@eigenbeleg/rates": "0.1.0"
+  }
+}

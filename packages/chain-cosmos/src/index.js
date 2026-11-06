@@ -60,16 +60,18 @@ export function toLedger(e, { chain, account }) {
  * @param {string} p.to YYYY-MM-DD
  * @param {typeof fetch} [p.fetch]
  * @param {string} [p.chainId] default akash
+ * @param {Record<string, string>} [p.endpoints] instead of the chain's own, e.g. `indexer` behind a CORS proxy in a browser
  */
-async function history({ account, from, fetch = globalThis.fetch, chainId = 'akash' }) {
+async function history({ account, from, fetch = globalThis.fetch, chainId = 'akash', endpoints: own }) {
 	const chain = CHAINS[chainId];
 	if (!chain) throw new Error(`unknown Cosmos chain ${chainId}`);
 	if (!isCosmosAddress(account, chain.bech32Prefix)) throw new Error(`not a valid ${chain.name} address`);
+	const endpoints = { ...chain.endpoints, ...own };
 	const node = createCosmosClient({ fetch });
-	const result = await node.history({ chain, address: account, endpoints: chain.endpoints });
+	const result = await node.history({ chain, address: account, endpoints });
 	let entries = result.entries;
-	if (result.history.pruned && chain.endpoints.indexer && result.history.earliestTime && result.history.earliestTime.slice(0, 10) > from) {
-		const older = await createAkashConsoleClient({ fetch }).history({ chain, address: account, indexer: chain.endpoints.indexer, beforeHeight: result.history.earliestHeight });
+	if (result.history.pruned && endpoints.indexer && result.history.earliestTime && result.history.earliestTime.slice(0, 10) > from) {
+		const older = await createAkashConsoleClient({ fetch }).history({ chain, address: account, indexer: endpoints.indexer, beforeHeight: result.history.earliestHeight });
 		entries = [...older.entries, ...entries];
 	}
 	return { chain, all: sortEntries(entries.map((e) => toLedger(e, { chain, account }))), balances: result.balances };

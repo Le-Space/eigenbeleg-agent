@@ -67,7 +67,9 @@ One page, three sections that unfold in order (no router):
   status lines (signing, verifying, settling), then the downloads and the
   transaction link. Errors in plain German ("Zahlung abgelehnt: zu wenig USDC").
 
-German UI text; code and comments in English. No external fonts, images or
+German and English UI text (`apps/web/src/i18n.js`): German by default, English
+for a browser set to another language, and a switch in the header. The
+Eigenbelege and the Kontoauszug themselves stay German. Code and comments in English. No external fonts, images or
 scripts from a CDN in the page itself; plain CSS, system fonts.
 
 ## The free preview route
@@ -182,7 +184,8 @@ code, against the rule "no remote scripts". The options:
 
 - Payer name and address go only to `POST /eigenbeleg`, the paid call, and are
   dropped after the response (as today). The preview refuses a body with `payer`.
-- The page itself stores nothing. After the wallet click, NEAR Connect keeps
+- The page itself stores only the language, and only when the user picks it
+  with the switch (`localStorage`, key `lang`). After the wallet click, NEAR Connect keeps
   the chosen wallet in `localStorage` and the executor code in IndexedDB (its
   own cache). No analytics, no remote fonts, no third-party requests from the
   page before that click.

@@ -1,5 +1,6 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- German is in the markup; src/i18n.js swaps every [data-i18n] text for English. -->
 <html lang="de">
 	<head>
 		<meta charset="utf-8" />
@@ -11,83 +12,85 @@
 	<body>
 		<main>
 			<header>
-				<h1>Eigenbeleg für Blockchain-Zahlungen</h1>
+				<div class="top">
+					<h1 data-i18n="title">Eigenbeleg für Blockchain-Zahlungen</h1>
+					<button type="button" class="link" id="btn-lang" data-i18n="langSwitch" lang="en">English</button>
+				</div>
 				<p class="lead">
-					Ein Eigenbeleg ist ein Beleg, den Sie selbst für Ihre eigenen Zahlungen ausstellen, wenn niemand eine Rechnung schickt: Netzwerkgebühren,
-					Storage-Deposits, Zahlungen an Peer-to-Peer-Netzwerke. Er ist <strong>keine Rechnung</strong>. Ob Ihr Steuerberater ihn annimmt, entscheidet er.
+					<span data-i18n="lead1">Ein Eigenbeleg ist ein Beleg, den Sie selbst für Ihre eigenen Zahlungen ausstellen, wenn niemand eine Rechnung schickt: Netzwerkgebühren, Storage-Deposits, Zahlungen an Peer-to-Peer-Netzwerke. Er ist </span><strong data-i18n="lead2">keine Rechnung</strong><span data-i18n="lead3">. Ob Ihr Steuerberater ihn annimmt, entscheidet er.</span>
 				</p>
-				<p class="note">Testnet. Nichts wird gespeichert: Name und Anschrift gehen nur an den bezahlten Abruf und werden nach der Antwort verworfen.</p>
+				<p class="note" data-i18n="privacy">Testnet. Nichts wird gespeichert: Name und Anschrift gehen nur an den bezahlten Abruf und werden nach der Antwort verworfen.</p>
 			</header>
 
 			<section id="step-form" aria-labelledby="h-form">
-				<h2 id="h-form">1. Anfrage</h2>
+				<h2 id="h-form" data-i18n="hForm">1. Anfrage</h2>
 				<form id="form" novalidate>
 					<div class="row">
-						<label>Blockchain <select name="chain" id="chain" required></select></label>
-						<label>Netz der Zahlungen <select name="network" id="network" required></select></label>
+						<label><span data-i18n="chain">Blockchain</span> <select name="chain" id="chain" required></select></label>
+						<label><span data-i18n="network">Netz der Zahlungen</span> <select name="network" id="network" required></select></label>
 					</div>
 					<label
-						>Eigene Adressen (eine pro Zeile, bis zu zehn)
+						><span data-i18n="addresses">Eigene Adressen (eine pro Zeile, bis zu zehn)</span>
 						<textarea name="addresses" id="addresses" rows="3" required spellcheck="false" autocomplete="off" placeholder="wolkenfabrik.near"></textarea>
 					</label>
 					<fieldset>
-						<legend>Zeitraum (nur abgeschlossene Tage, höchstens 92)</legend>
-						<label class="inline"><input type="radio" name="periodMode" value="month" checked /> Monat</label>
-						<label class="inline"><input type="radio" name="periodMode" value="range" /> Von – bis</label>
+						<legend data-i18n="period">Zeitraum (nur abgeschlossene Tage, höchstens 92)</legend>
+						<label class="inline"><input type="radio" name="periodMode" value="month" checked /> <span data-i18n="month">Monat</span></label>
+						<label class="inline"><input type="radio" name="periodMode" value="range" /> <span data-i18n="range">Von – bis</span></label>
 						<div class="row">
-							<label id="l-month">Monat <input type="month" name="month" id="month" /></label>
-							<label id="l-from" hidden>Von <input type="date" name="from" id="from" /></label>
-							<label id="l-to" hidden>Bis <input type="date" name="to" id="to" /></label>
+							<label id="l-month"><span data-i18n="month">Monat</span> <input type="month" name="month" id="month" /></label>
+							<label id="l-from" hidden><span data-i18n="from">Von</span> <input type="date" name="from" id="from" /></label>
+							<label id="l-to" hidden><span data-i18n="to">Bis</span> <input type="date" name="to" id="to" /></label>
 						</div>
 					</fieldset>
 					<fieldset>
-						<legend>Was auf den Eigenbeleg kommt</legend>
-						<label class="inline"><input type="checkbox" name="includeKinds" value="fee" checked /> Netzwerkgebühren</label>
-						<label class="inline"><input type="checkbox" name="includeKinds" value="storage" checked /> Storage-Deposits</label>
-						<label class="inline"><input type="checkbox" name="includeKinds" value="transfer" /> Überweisungen</label>
-						<label class="inline"><input type="checkbox" name="includeKinds" value="call" /> Vertragsaufrufe mit Deposit</label>
+						<legend data-i18n="kinds">Was auf den Eigenbeleg kommt</legend>
+						<label class="inline"><input type="checkbox" name="includeKinds" value="fee" checked /> <span data-i18n="kindFee">Netzwerkgebühren</span></label>
+						<label class="inline"><input type="checkbox" name="includeKinds" value="storage" checked /> <span data-i18n="kindStorage">Storage-Deposits</span></label>
+						<label class="inline"><input type="checkbox" name="includeKinds" value="transfer" /> <span data-i18n="kindTransfer">Überweisungen</span></label>
+						<label class="inline"><input type="checkbox" name="includeKinds" value="call" /> <span data-i18n="kindCall">Vertragsaufrufe mit Deposit</span></label>
 					</fieldset>
 					<fieldset>
-						<legend>Welche Dokumente (ein Preis, die CSV kommt immer mit)</legend>
-						<label class="inline"><input type="radio" name="document" value="eigenbelege" checked /> Eigenbelege (je Transaktion einer)</label>
-						<label class="inline"><input type="radio" name="document" value="kontoauszug" /> Kontoauszug (je Adresse: Anfangssaldo, Buchungen, Endsaldo)</label>
-						<label class="inline"><input type="radio" name="document" value="beide" /> Beide</label>
+						<legend data-i18n="documents">Welche Dokumente (ein Preis, die CSV kommt immer mit)</legend>
+						<label class="inline"><input type="radio" name="document" value="eigenbelege" checked /> <span data-i18n="docEigenbelege">Eigenbelege (je Transaktion einer)</span></label>
+						<label class="inline"><input type="radio" name="document" value="kontoauszug" /> <span data-i18n="docKontoauszug">Kontoauszug (je Adresse: Anfangssaldo, Buchungen, Endsaldo)</span></label>
+						<label class="inline"><input type="radio" name="document" value="beide" /> <span data-i18n="docBeide">Beide</span></label>
 					</fieldset>
 					<div class="row">
-						<label id="l-number">Erste Belegnummer (optional, die weiteren zählen hoch) <input name="number" id="number" maxlength="40" placeholder="EB-2026-001" autocomplete="off" /></label>
-						<label id="l-statement" hidden>Nummer des Kontoauszugs (optional) <input name="statementNumber" id="statementNumber" maxlength="40" placeholder="KA-2026-10-01" autocomplete="off" /></label>
+						<label id="l-number"><span data-i18n="number">Erste Belegnummer (optional, die weiteren zählen hoch)</span> <input name="number" id="number" maxlength="40" placeholder="EB-2026-001" autocomplete="off" /></label>
+						<label id="l-statement" hidden><span data-i18n="statementNumber">Nummer des Kontoauszugs (optional)</span> <input name="statementNumber" id="statementNumber" maxlength="40" placeholder="KA-2026-10-01" autocomplete="off" /></label>
 					</div>
 					<fieldset>
-						<legend>Zahler (steht auf dem Eigenbeleg, geht nicht in die Vorschau)</legend>
-						<label>Name <input name="name" id="name" maxlength="200" autocomplete="organization" placeholder="Wolkenfabrik Hosting GmbH" /></label>
+						<legend data-i18n="payer">Zahler (steht auf dem Eigenbeleg, geht nicht in die Vorschau)</legend>
+						<label><span data-i18n="name">Name</span> <input name="name" id="name" maxlength="200" autocomplete="organization" placeholder="Wolkenfabrik Hosting GmbH" /></label>
 						<label
-							>Anschrift
+							><span data-i18n="postal">Anschrift</span>
 							<textarea name="postal" id="postal" rows="2" maxlength="500" autocomplete="street-address" placeholder="Musterstraße 1&#10;12345 Beispielstadt"></textarea>
 						</label>
 					</fieldset>
 					<p class="error" id="form-error" role="alert"></p>
-					<button type="submit" id="btn-preview">Vorschau (kostenlos)</button>
+					<button type="submit" id="btn-preview" data-i18n="btnPreview">Vorschau (kostenlos)</button>
 				</form>
 			</section>
 
 			<section id="step-preview" aria-labelledby="h-preview" hidden>
-				<h2 id="h-preview">2. Vorschau</h2>
+				<h2 id="h-preview" data-i18n="hPreview">2. Vorschau</h2>
 				<dl class="summary" id="summary"></dl>
 				<p class="note" id="preview-note"></p>
 			</section>
 
 			<section id="step-pay" aria-labelledby="h-pay" hidden>
-				<h2 id="h-pay">3. Bezahlen und herunterladen</h2>
+				<h2 id="h-pay" data-i18n="hPay">3. Bezahlen und herunterladen</h2>
 				<div id="pay-offer">
 					<p id="price"></p>
 					<div class="actions">
-						<button type="button" id="btn-wallet">Wallet verbinden</button>
-						<button type="button" id="btn-pay" disabled>Kaufen</button>
+						<button type="button" id="btn-wallet" data-i18n="btnWallet">Wallet verbinden</button>
+						<button type="button" id="btn-pay" data-i18n="btnPay" disabled>Kaufen</button>
 					</div>
-					<p class="note" id="wallet-state">
+					<p class="note" id="wallet-state" data-i18n="walletHint">
 						Zahlung per x402 auf NEAR: Sie signieren genau eine USDC-Überweisung, die API reicht sie ein und zahlt das Gas. Unterstützt: Meteor, Intear.
 					</p>
-					<p class="note" id="wallet-privacy">
+					<p class="note" id="wallet-privacy" data-i18n="walletPrivacy">
 						Datenschutz: Erst wenn Sie auf „Wallet verbinden“ klicken, lädt Ihr Browser den Code der Wallet, die Sie dann wählen, von deren Anbieter –
 						Meteor von raw.githubusercontent.com (GitHub), Intear von wallet.intear.tech – und führt ihn abgeschottet in einem eingebetteten Rahmen aus.
 						Dabei sehen GitHub bzw. der Wallet-Anbieter Ihre IP-Adresse; zum Signieren kann die Wallet ihre eigene Seite öffnen (wallet.meteorwallet.app bzw. wallet.intear.tech)
@@ -99,20 +102,22 @@
 				<p class="error" id="pay-error" role="alert"></p>
 				<div id="result" hidden>
 					<div class="actions" id="downloads"></div>
-					<p>Zahlung: <a id="tx-link" target="_blank" rel="noopener noreferrer"></a></p>
-					<p class="note">Drucken, prüfen und unterschreiben: Ein Eigenbeleg gilt erst mit Ihrer Unterschrift.</p>
+					<p><span data-i18n="payment">Zahlung:</span> <a id="tx-link" target="_blank" rel="noopener noreferrer"></a></p>
+					<p class="note" data-i18n="signHint">Drucken, prüfen und unterschreiben: Ein Eigenbeleg gilt erst mit Ihrer Unterschrift.</p>
 				</div>
 				<details id="cli">
-					<summary>Keine passende Wallet? Mit dem Agenten auf der Kommandozeile kaufen</summary>
-					<p class="note">Im Repository, mit <code>AGENT_ACCOUNT_ID</code> in <code>.env</code> (siehe README). Name und Anschrift selbst einsetzen.</p>
+					<summary data-i18n="cliSummary">Keine passende Wallet? Mit dem Agenten auf der Kommandozeile kaufen</summary>
+					<p class="note">
+						<span data-i18n="cliHint1">Im Repository, mit </span><code>AGENT_ACCOUNT_ID</code><span data-i18n="cliHint2"> in </span><code>.env</code><span data-i18n="cliHint3"> (siehe README). Name und Anschrift selbst einsetzen.</span>
+					</p>
 					<pre><code id="cli-command"></code></pre>
 				</details>
 			</section>
 
 			<footer>
 				<p>
-					<a href="https://github.com/Le-Space/eigenbeleg-agent" rel="noopener noreferrer">Quellcode</a> (AGPL-3.0-or-later) · Daten: NearBlocks.io,
-					Kurse: Kraken · <a href="/">API</a>
+					<a href="https://github.com/Le-Space/eigenbeleg-agent" rel="noopener noreferrer" data-i18n="source">Quellcode</a> (AGPL-3.0-or-later) ·
+					<span data-i18n="data">Daten: NearBlocks.io, Kurse: Kraken</span> · <a href="/">API</a>
 				</p>
 			</footer>
 		</main>

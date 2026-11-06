@@ -4,6 +4,7 @@
 // checks what comes back before it is sent. See docs/delegate-actions.md.
 
 import { decodeSignedDelegateB64, parseFtTransferArgs } from '@x402/near';
+import { t } from './i18n.js';
 
 export const FT_TRANSFER_GAS = '30000000000000'; // 30 Tgas
 export const ONE_YOCTO = '1';
@@ -35,18 +36,18 @@ export function checkSignedDelegate(b64, r, accountId) {
 	const d = decodeSignedDelegateB64(b64);
 	const da = d.delegate;
 	const fail = (/** @type {string} */ why) => {
-		throw new Error(`Die Wallet hat etwas anderes signiert als verlangt (${why}). Nichts wurde gesendet.`);
+		throw new Error(t('mismatch', { why }));
 	};
-	if (!d.verifySignature()) fail('Signatur ungültig');
-	if (da.senderId !== accountId) fail(`Absender ${da.senderId}`);
-	if (da.actionCount !== 1 || !da.functionCall) fail('nicht genau eine Aktion');
+	if (!d.verifySignature()) fail(t('whySignature'));
+	if (da.senderId !== accountId) fail(t('whySender', { sender: da.senderId }));
+	if (da.actionCount !== 1 || !da.functionCall) fail(t('whyActions'));
 	const fc = /** @type {NonNullable<typeof da.functionCall>} */ (da.functionCall);
 	if (fc.methodName !== 'ft_transfer') fail(fc.methodName);
-	if (da.receiverId !== r.asset) fail('anderer Token');
-	const t = parseFtTransferArgs(fc.args);
-	if (t.receiver_id !== r.payTo) fail('anderer Empfänger');
-	if (t.amount !== r.amount) fail('anderer Betrag');
-	if (fc.deposit !== 1n) fail('anderer Deposit');
+	if (da.receiverId !== r.asset) fail(t('whyToken'));
+	const args = parseFtTransferArgs(fc.args);
+	if (args.receiver_id !== r.payTo) fail(t('whyRecipient'));
+	if (args.amount !== r.amount) fail(t('whyAmount'));
+	if (fc.deposit !== 1n) fail(t('whyDeposit'));
 	return da;
 }
 
@@ -65,13 +66,13 @@ export function walletSigner({ wallet, accountId, network, confirmed, say = () =
 		async createSignedDelegateAction({ paymentRequirements: r }) {
 			const ok = confirmed();
 			if (!ok || ok.asset !== r.asset || ok.payTo !== r.payTo || ok.amount !== r.amount)
-				throw new Error('Die API verlangt jetzt eine andere Zahlung als bestätigt. Bitte neu starten.');
-			say('Bitte in der Wallet signieren …');
+				throw new Error(t('otherPayment'));
+			say(t('signPlease'));
 			const res = await wallet.signDelegateActions({ network, signerId: accountId, delegateActions: [transferDelegate(r)] });
 			const b64 = res?.signedDelegateActions?.[0];
-			if (typeof b64 !== 'string') throw new Error('Die Wallet hat keine signierte Delegate Action zurückgegeben.');
+			if (typeof b64 !== 'string') throw new Error(t('noDelegate'));
 			checkSignedDelegate(b64, r, accountId);
-			say('Signiert. Die API prüft und rechnet ab …');
+			say(t('signed'));
 			return b64;
 		}
 	};

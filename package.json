@@ -1,0 +1,15 @@
+{
+  "name": "eigenbeleg-monorepo",
+  "private": true,
+  "type": "module",
+  "description": "Eigenbelege (self-issued proofs of payment) from public blockchain transactions: open building blocks, a paid API and a minimal agent.",
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "test": "node --test \"packages/*/test/*.test.js\" \"apps/*/test/*.test.js\"",
+    "api": "node apps/api/src/server.js",
+    "agent": "node apps/agent/src/cli.js",
+    "demo": "node apps/agent/src/demo.js"
+  }
+}

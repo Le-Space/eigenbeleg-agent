@@ -28,6 +28,9 @@ const paywall = await createPaywall({
 	pingAmountOut: env.PING_AMOUNT_OUT
 });
 const app = createApp({ paywall, deps: { nearblocksKey: env.NEARBLOCKS_API_KEY }, source: env.SOURCE_URL });
+// Behind a reverse proxy (Caddy): trust its X-Forwarded-Proto, so the x402
+// resource URL says https. Express's syntax: e.g. "uniquelocal" or a subnet.
+if (env.TRUST_PROXY) app.set('trust proxy', env.TRUST_PROXY);
 const host = env.HOST ?? '127.0.0.1';
 const port = Number(env.PORT ?? 4402);
 app.listen(port, host, () => {

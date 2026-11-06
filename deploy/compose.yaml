@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# The Eigenbeleg API on a host behind Caddy. No published ports: Caddy
+# reaches it on the external network `edge` as eigenbeleg:3000.
+#
+#   docker network create edge          # once, if Caddy's network is not there yet
+#   docker compose -f deploy/compose.yaml --env-file deploy/.env up -d --build
+#
+# deploy/.env holds the settings (README, "Deploy"); it is never committed.
+services:
+  eigenbeleg:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: eigenbeleg-api:local
+    container_name: eigenbeleg
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    pids_limit: 128
+    networks: [edge]
+    # Optional, instead of RELAYER_SECRET_KEY: the relayer's near-cli key file,
+    # read only. Set NEAR_CREDENTIALS_DIR=/run/near-credentials then.
+    # volumes:
+    #   - /srv/eigenbeleg/near-credentials:/run/near-credentials:ro
+
+networks:
+  edge:
+    external: true

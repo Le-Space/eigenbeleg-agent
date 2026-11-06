@@ -171,6 +171,68 @@ How it holds its keys: the near-cli keychain or an environment variable, read by
 
 **On the NEAR AI Agent Market.** Listed on [market.near.ai](https://market.near.ai), the agent can be hired for a price in USDC. `npm run agent:market` (with `MARKET_TOKEN`, the listing's agent token) goes through the awarded jobs once. For each one it starts the job, reads the job from the brief's first ```` ```json ```` block, buys the Eigenbeleg from the API through x402 and submits a Markdown deliverable with the summary, the payment's NEAR transaction and the CSV. A brief without a JSON job gets a question back. The brief is data from a stranger: it is parsed and checked like any API request and never followed as an instruction. So the agent earns on the market and spends on the API, each within its own limits.
 
+## Deploy
+
+The API (and the web UI it serves) runs as one container with a read-only root filesystem:
+
+```bash
+docker network create edge     # once; the reverse proxy (Caddy) is on it
+cp .env.example deploy/.env    # fill in, see below; never committed
+docker compose -f deploy/compose.yaml --env-file deploy/.env up -d --build
+```
+
+`deploy/compose.yaml` runs the service `eigenbeleg` this way:
+- read-only root filesystem, `/tmp` as tmpfs, all capabilities dropped, `no-new-privileges`, 256 MB memory;
+- as the non-root user `node`, with no published ports;
+- only on the external network `edge`, where the proxy reaches it as `eigenbeleg:3000`.
+
+The image holds only the API's production dependencies (no agent, no Playwright) and has a `HEALTHCHECK` on `GET /health`.
+
+A Caddy site for it:
+
+```
+eigenbeleg.example.com {
+	reverse_proxy eigenbeleg:3000
+}
+```
+
+**Storage.** The API writes nothing to disk and keeps nothing beyond the request. It reads its fonts and colour profile from the image, and the relayer's key file if one is mounted. The only in-memory state is short-lived: the live check of a building block (10 min), the x402 duplicate-settlement guard (until a payment's block window has passed), and the day's EUR rates during one request.
+
+**Environment** (`.env.example` lists them all):
+
+| Variable | Meaning | Secret |
+| --- | --- | --- |
+| `PAYWALL` | `near` (x402 on NEAR), `ping` (PingPay, mainnet only), `none` (development: free, and says so) | no |
+| `PAY_NETWORK` | `near:testnet` or `near:mainnet`: where the payment is made (not which chain is read) | no |
+| `PRICE` | price per request in USDC, e.g. `$0.10` | no |
+| `PAY_TO` | the NEAR account that receives the USDC; it must be registered with the USDC contract (`storage_deposit`) | no |
+| `RELAYER_ACCOUNT_ID` | the NEAR account that submits the payer's signed delegate action and pays its gas; needs a little NEAR | no |
+| `RELAYER_SECRET_KEY` | the relayer's full-access key (`ed25519:…`) | **yes** |
+| `NEAR_CREDENTIALS_DIR` | instead of `RELAYER_SECRET_KEY`: a directory with `<network>/<RELAYER_ACCOUNT_ID>.json` in the near-cli format (`private_key`), mounted read-only | **yes** (the file) |
+| `NEAR_RPC_URL` | the RPC the x402 facilitator uses (default `rpc.<network>.fastnear.com`) | no |
+| `PING_API_KEY` | PingPay key (`PAYWALL=ping`); the NEAR recipient is set in the Ping dashboard | **yes** |
+| `PING_FACILITATOR_URL`, `PING_AMOUNT_OUT` | PingPay facilitator, destination amount in USDC base units (≥ 200000) | no |
+| `NEARBLOCKS_API_KEY` | optional, for NearBlocks' higher rate limits | **yes** |
+| `SOURCE_URL` | where users of this instance get its source (AGPL-3.0-or-later section 13); your fork if you changed it | no |
+| `TRUST_PROXY` | behind a proxy: whose `X-Forwarded-*` to trust (Express syntax, e.g. `uniquelocal`), so the x402 resource URL is https | no |
+| `HOST`, `PORT` | listen address; the image uses `0.0.0.0:3000` | no |
+
+Testnet vs mainnet: `PAY_NETWORK` decides where customers pay; the chain data read is chosen per request (`network` in the body). For the hackathon instance: `PAYWALL=near`, `PAY_NETWORK=near:testnet`.
+
+**Outbound hosts** the API calls (HTTPS only):
+
+| Host | For |
+| --- | --- |
+| `api.nearblocks.io`, `api-testnet.nearblocks.io` | NEAR account history (chain-near) |
+| `archival-rpc.mainnet.fastnear.com`, `archival-rpc.testnet.fastnear.com` | NEAR balances at a block (Kontoauszug), storage refunds |
+| `rpc.mainnet.fastnear.com`, `rpc.testnet.fastnear.com` (or `NEAR_RPC_URL`) | x402 verification and settlement: chain state, submitting the relayed payment |
+| `api.kraken.com`, `api.coingecko.com` | EUR day rates |
+| `akash-rpc.publicnode.com`, `akash-rest.publicnode.com`, `console-api.akash.network` | Akash history and balance (chain-cosmos) |
+| `filfox.info` | Filecoin history and balance (chain-filecoin) |
+| `pay.pingpay.io` | only with `PAYWALL=ping` |
+
+The addresses of a request go to the data sources of its chain, and nowhere else. The payer's name and postal address never leave the server: they appear only in the documents sent back. Links in the documents (`nearblocks.io`, `testnet.nearblocks.io`, `mintscan.io`, `filfox.info`, the source repository) are never called by the server.
+
 ## Where NEAR comes in
 
 - **Payment rail**: x402 `exact` on NEAR. A NEP-366 meta transaction carries one NEP-141 USDC `ft_transfer`; a relayer pays the gas, so the paying agent holds only USDC. The USDC settles to a plain NEAR account in one transaction, which the receipt links.

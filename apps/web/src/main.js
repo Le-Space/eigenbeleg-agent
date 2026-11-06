@@ -2,6 +2,10 @@
 // The page: form → free preview → wallet → x402 payment → downloads.
 // Text from the API or the chain is only ever set with textContent.
 
+// Brand typefaces, bundled and served from /ui/assets (SIL Open Font License 1.1); no font CDN.
+import '@fontsource-variable/sora';
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/500.css';
 import { detectLang, lang, locale, setLang, t } from './i18n.js';
 import { cliCommand, decodeHeader, explorerUrl, paidBody, previewBody, previewKey, usdc } from './request.js';
 

@@ -1,0 +1,9 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- The Le Space Belege signet (coin and receipt), single colour on ink, as the Belege site's favicon. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="22" fill="#0F1B2D"/>
+  <g transform="translate(16 16) scale(0.68)" fill="#F4F6FB">
+    <circle cx="36" cy="38" r="27" fill="none" stroke="#F4F6FB" stroke-width="17"/>
+    <path fill-rule="evenodd" d="M43 47h50a9 9 0 0 1 9 9v37a9 9 0 0 1-9 9H43a9 9 0 0 1-9-9V56a9 9 0 0 1 9-9zM58 60h20a6 6 0 0 1 6 6v17a6 6 0 0 1-6 6H58a6 6 0 0 1-6-6V66a6 6 0 0 1 6-6z"/>
+  </g>
+</svg>

@@ -70,7 +70,8 @@ One page, three sections that unfold in order (no router):
 German and English UI text (`apps/web/src/i18n.js`): German by default, English
 for a browser set to another language, and a switch in the header. The
 Eigenbelege and the Kontoauszug themselves stay German. Code and comments in English. No external fonts, images or
-scripts from a CDN in the page itself; plain CSS, system fonts.
+scripts from a CDN in the page itself; plain CSS. The look is Le Space Belege's (signet, paper/amber by day,
+night/lime at night, Sora and IBM Plex Mono), with the fonts bundled from `@fontsource` and served from `/ui/assets`.
 
 ## The free preview route
 

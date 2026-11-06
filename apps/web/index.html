@@ -6,16 +6,29 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="csp-nonce" content="__CSP_NONCE__" />
-		<title>Eigenbeleg</title>
+		<title>Eigenbeleg · Le Space Belege</title>
+		<link rel="icon" href="/src/favicon.svg" type="image/svg+xml" />
 		<link rel="stylesheet" href="/src/style.css" />
 	</head>
 	<body>
 		<main>
 			<header>
 				<div class="top">
-					<h1 data-i18n="title">Eigenbeleg für Blockchain-Zahlungen</h1>
+					<span class="logo">
+						<!-- The Le Space Belege signet: a coin (payment) and a receipt (document) interlocking. -->
+						<svg class="mark" viewBox="0 0 100 100" aria-hidden="true">
+							<circle class="coin" cx="36" cy="38" r="27" fill="none" stroke-width="17" />
+							<path
+								class="receipt"
+								fill-rule="evenodd"
+								d="M43 47h50a9 9 0 0 1 9 9v37a9 9 0 0 1-9 9H43a9 9 0 0 1-9-9V56a9 9 0 0 1 9-9zM58 60h20a6 6 0 0 1 6 6v17a6 6 0 0 1-6 6H58a6 6 0 0 1-6-6V66a6 6 0 0 1 6-6z"
+							/>
+						</svg>
+						<span class="words" aria-label="Le Space Eigenbeleg"><span class="prefix" aria-hidden="true">LE SPACE</span><span class="name" aria-hidden="true">eigenbeleg</span></span>
+					</span>
 					<button type="button" class="link" id="btn-lang" data-i18n="langSwitch" lang="en">English</button>
 				</div>
+				<h1 data-i18n="title">Eigenbeleg für Blockchain-Zahlungen</h1>
 				<p class="lead">
 					<span data-i18n="lead1">Ein Eigenbeleg ist ein Beleg, den Sie selbst für Ihre eigenen Zahlungen ausstellen, wenn niemand eine Rechnung schickt: Netzwerkgebühren, Storage-Deposits, Zahlungen an Peer-to-Peer-Netzwerke. Er ist </span><strong data-i18n="lead2">keine Rechnung</strong><span data-i18n="lead3">. Ob Ihr Steuerberater ihn annimmt, entscheidet er.</span>
 				</p>

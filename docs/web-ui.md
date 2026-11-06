@@ -78,9 +78,12 @@ says so.
   form-action 'none'` – as `<meta>` in `index.html` and as `dist/csp.txt`, which
   the API sends as a header with `frame-ancestors 'none'`.
 - PWA as in Le Space Belege: `manifest.webmanifest`, the signet as icons (192,
-  512, maskable 512), `sw.js` caching only the page's own files (the shell,
-  hashed assets, fonts), never a data source's answer; a new version takes
-  over once the page's tabs are reloaded.
+  512, maskable 512), `sw.js` caching only the page's own files, never a data
+  source's answer. On install it loads every file of the build (about 3 MB: the
+  page, the PDF code, the fonts; the build writes the list and a cache name from
+  the files' hash into `sw.js`), so the installed app starts and draws documents
+  offline; reading a chain still needs the network. A new version takes over
+  once the page's tabs are closed or reloaded.
 - The API serves `dist/` at `/ui/` (`GET /` sends browsers there) and the share
   cards; `__PUBLIC_URL__` in the share tags is the API's origin, or
   `VITE_PUBLIC_URL` at build time for a static host.

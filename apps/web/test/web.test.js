@@ -62,3 +62,14 @@ test('German and English have the same texts and placeholders; German is the def
 	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 	for (const m of html.matchAll(/data-i18n="(\w+)"/g)) assert.ok(m[1] in TEXTS.de, m[1]);
 });
+
+test('the service worker keeps the placeholders the build fills with every file to precache', async () => {
+	const sw = await readFile(new URL('../public/sw.js', import.meta.url), 'utf8');
+	const config = await readFile(new URL('../vite.config.js', import.meta.url), 'utf8');
+	for (const marker of ['const PRECACHE = /** @type {string[]} */ ([]);', "const CACHE = 'eigenbeleg-dev';"]) {
+		assert.ok(sw.includes(marker), `sw.js: ${marker}`);
+		assert.ok(config.includes(marker.replace(/'/g, '"')) || config.includes(marker), `vite.config.js replaces ${marker}`);
+	}
+	// Never a data source's answer in the cache: only requests to the worker's own scope are handled.
+	assert.match(sw, /url\.origin !== scope\.origin/);
+});

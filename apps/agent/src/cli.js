@@ -13,6 +13,7 @@ import { parseArgs } from 'node:util';
 
 import { runJob } from './agent.js';
 import { createPayer } from './payer.js';
+import { marketPass } from './market.js';
 
 try {
 	for (const line of readFileSync(new URL('../../../.env', import.meta.url), 'utf8').split('\n')) {
@@ -26,6 +27,7 @@ try {
 const { values: v } = parseArgs({
 	options: {
 		job: { type: 'string' },
+		market: { type: 'boolean', default: false },
 		chain: { type: 'string', default: 'near' },
 		network: { type: 'string', default: 'mainnet' },
 		address: { type: 'string', multiple: true },
@@ -41,7 +43,7 @@ const { values: v } = parseArgs({
 	}
 });
 
-const job = v.job
+const job = v.market ? null : v.job
 	? JSON.parse(await readFile(v.job, 'utf8'))
 	: {
 			chain: v.chain,
@@ -71,5 +73,12 @@ if (env.AGENT_ACCOUNT_ID) {
 	console.log('Wallet: none (AGENT_ACCOUNT_ID not set) – works only against an API without paywall.');
 }
 
-const result = await runJob({ job, api, fetch, paidFetch, lastPayment, outDir: v.out ?? env.OUT_DIR ?? 'out' });
-process.exitCode = result.status === 'delivered' || result.status === 'proposed' ? 0 : 1;
+const outDir = v.out ?? env.OUT_DIR ?? 'out';
+if (v.market) {
+	if (!env.MARKET_TOKEN) throw new Error('--market needs MARKET_TOKEN (the agent token from market.near.ai)');
+	const done = await marketPass({ token: env.MARKET_TOKEN, api, fetch, paidFetch, lastPayment, outDir });
+	console.log(`Market pass done: ${JSON.stringify(done)}`);
+} else {
+	const result = await runJob({ job: /** @type {any} */ (job), api, fetch, paidFetch, lastPayment, outDir });
+	process.exitCode = result.status === 'delivered' || result.status === 'proposed' ? 0 : 1;
+}

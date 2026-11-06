@@ -10,6 +10,7 @@
     "test": "node --test \"packages/*/test/*.test.js\" \"apps/*/test/*.test.js\"",
     "api": "node apps/api/src/server.js",
     "agent": "node apps/agent/src/cli.js",
+    "agent:market": "node apps/agent/src/cli.js --market",
     "demo": "node apps/agent/src/demo.js"
   }
 }

@@ -8,7 +8,7 @@ import { BLOCKS } from './blocks.js';
 
 /**
  * @param {ReturnType<typeof import('./request.js').parseRequest>} req
- * @param {{ fetch?: typeof fetch, rates?: { rateFor: Function }, nearblocksKey?: string, now?: () => Date }} [deps]
+ * @param {{ fetch?: typeof fetch, rates?: { rateFor: Function }, nearblocksKey?: string, now?: () => Date, probeDay?: string }} [deps]
  */
 export async function generate(req, deps = {}) {
 	const block = BLOCKS[req.chain];

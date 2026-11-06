@@ -283,6 +283,22 @@ export async function readNear(p) {
 	return mapRaw(await fetchRaw(p));
 }
 
+/** A public account that signs transactions every day (Aurora's relayer, fees only): the live check reads it. */
+export const PROBE_ACCOUNT = 'relay.aurora';
+
+/**
+ * Checks the block against live data: one page of yesterday's history of a
+ * busy public account must map to valid entries.
+ *
+ * @param {{ fetch?: typeof fetch, apiKey?: string, day?: string }} [o] day: YYYY-MM-DD, yesterday when not given
+ */
+export async function probe({ fetch = globalThis.fetch, apiKey, day = new Date(Date.now() - 86400000).toISOString().slice(0, 10) } = {}) {
+	const raw = await fetchRaw({ account: PROBE_ACCOUNT, network: 'mainnet', from: day, to: day, fetch, apiKey, maxPages: 1, partial: true });
+	const entries = mapRaw(raw);
+	if (entries.length === 0) throw new Error(`no entries for ${PROBE_ACCOUNT} on ${day}: the data source may have changed`);
+	return { sample: `${PROBE_ACCOUNT} on ${day}`, entries: entries.length };
+}
+
 /** What this building block covers, for the agent's registry. */
 export const block = {
 	name: '@eigenbeleg/chain-near',
@@ -292,5 +308,6 @@ export const block = {
 	source: 'NearBlocks API v3',
 	version: '0.1.0',
 	read: readNear,
+	probe,
 	isAddress: isAccountId
 };

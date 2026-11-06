@@ -11,7 +11,7 @@
 
 import express from 'express';
 
-import { describeBlocks } from './blocks.js';
+import { checkBlock, describeBlocks } from './blocks.js';
 import { generate } from './generate.js';
 import { RequestError, parseRequest } from './request.js';
 
@@ -54,6 +54,7 @@ export function createApp({ paywall, deps = {}, log = (l) => console.log(l) }) {
 		});
 	});
 	app.get('/blocks', (_req, res) => res.json({ blocks: describeBlocks() }));
+	app.get('/blocks/:chain/check', async (req, res) => res.json(await checkBlock(req.params.chain, deps)));
 	app.get('/health', (_req, res) => res.json({ ok: true, paywall: paywall.info.mode }));
 
 	/** @type {import('express').RequestHandler} */

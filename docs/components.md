@@ -16,8 +16,8 @@ not separate services:
 | Paywall (x402 resource server) | `@x402/express`, `apps/api/src/paywall.js` | answers 402 with `PAYMENT-REQUIRED`; on a request with `PAYMENT-SIGNATURE` asks the facilitator to verify, lets the route run, then asks it to settle; sends `PAYMENT-RESPONSE` |
 | Facilitator (in-process) | `@x402/near` `exact` facilitator | checks the signed delegate (signature, one `ft_transfer`, token, recipient, amount, nonce, expiry, USDC balance); on settle hands it to the relayer |
 | Relayer | `createFacilitatorNearSigner` with `RELAYER_ACCOUNT_ID` and its key | wraps the payer's signed delegate into its own NEAR transaction, signs it with its key, pays the gas, waits for the `ft_transfer` receipt |
-| Chain readers | `packages/chain-*` | read the payments of the addresses on the Eigenbeleg, and the balances for the Kontoauszug |
-| Rates | `packages/rates` | EUR per asset and day |
+| Chain readers | `@le-space/chains` (npm, from Le-Space/belege), wired by `packages/pipeline/src/blocks.js` | read the payments of the addresses on the Eigenbeleg, and the balances for the Kontoauszug |
+| Rates | `@le-space/rates` (npm), named by `packages/pipeline/src/rates.js` | EUR per asset and day: the price at 00:00 UTC |
 | Documents | `packages/eigenbeleg` | Eigenbelege and Kontoauszug as PDF/A-2b, CSV |
 
 On testnet the relayer and the recipient are the same account,
@@ -50,7 +50,7 @@ Our API process
  │                          └▶ archival RPC (archival-rpc.<network>.fastnear.com): balances for the Kontoauszug
  ├─ chain reader Akash ──────▶ akash-rpc/akash-rest.publicnode.com, console-api.akash.network
  ├─ chain reader Filecoin ───▶ filfox.info
- └─ rates ───────────────────▶ api.kraken.com (VWAP of the day), api.coingecko.com (fallback)
+ └─ rates ───────────────────▶ api.coingecko.com (price at 00:00 UTC), api.kraken.com (fallback: the daily open)
 ```
 
 Two different "networks" are in play and need not match:
@@ -71,7 +71,7 @@ Two different "networks" are in play and need not match:
 3. The agent posts again with `PAYMENT-SIGNATURE`.
 4. The facilitator verifies against NEAR RPC: access key, nonce, expiry, USDC
    balance, recipient registered. Nothing is sent yet.
-5. The route reads the chain (NearBlocks, archival RPC), the rates (Kraken), and
+5. The route reads the chain (NearBlocks, archival RPC), the rates (CoinGecko, Kraken), and
    draws the files. If that fails: 502, nothing is settled.
 6. Settle: the relayer sends one transaction `eigenbeleg-api.testnet →
    payer` with one `Delegate` action through NEAR RPC and waits for the inner

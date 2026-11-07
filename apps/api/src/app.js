@@ -82,7 +82,7 @@ export function createApp({
 			},
 			blocks: describeBlocks(),
 			privacy: 'Nothing is stored beyond the request; logs hold method, path, status and duration only.',
-			data: 'Powered by NearBlocks.io APIs; EUR rates from Kraken (VWAP of the day) or CoinGecko.',
+			data: 'Powered by NearBlocks.io APIs; EUR rates: the price at 00:00 UTC from CoinGecko, else Kraken (@le-space/rates).',
 			license: 'AGPL-3.0-or-later',
 			source
 		});

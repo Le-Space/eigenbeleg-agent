@@ -4,7 +4,7 @@
 // Access-Control-Allow-Origin. A Cloudflare Worker (issue #5).
 //
 // It forwards only the two read paths the Akash reader uses
-// (packages/chain-cosmos/src/vendor/akash-console.js), only GET, only for the
+// (@le-space/chains, akash-console.js), only GET, only for the
 // origins in ALLOWED_ORIGINS. It keeps nothing: no logging, no cache
 // (`no-store`), observability off in wrangler.toml. The address in the path
 // passes through and is gone with the response. A rate limit per IP applies

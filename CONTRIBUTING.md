@@ -18,63 +18,68 @@ in German or English to eigenbelege@le-space.de are fine too.
 
 ## Adding a chain
 
-A chain is one package, `packages/chain-<name>`, and one line in the pipeline.
-Copy the smallest one, [`packages/chain-filecoin`](packages/chain-filecoin),
-and keep its shape:
+The readers are shared with Le Space Belege: they live in
+[`@le-space/chains`](https://github.com/Le-Space/belege/tree/main/packages/chains)
+(repository `Le-Space/belege`, `packages/chains`, published to npm), together
+with the booking format [`@le-space/ledger`](https://github.com/Le-Space/belege/tree/main/packages/ledger)
+and the rates [`@le-space/rates`](https://github.com/Le-Space/belege/tree/main/packages/rates).
+This repository holds what the Eigenbeleg makes of a chain. So a new chain is
+two pull requests, and nothing is written twice:
 
-1. **`src/index.js` exports a `block`:**
+1. **The reader, in `Le-Space/belege`** (`packages/chains/src/<name>.js`, with
+   that package's README): a function that reads a wallet's movements from a
+   public source and hands out `WalletEntry` or `LedgerEntry` objects
+   (`@le-space/ledger`: chain, network, account, hash, height, time, type
+   `sent` | `received` | `fee`, kind `fee` | `storage` | `transfer` | `call` |
+   …, asset, contract, decimals, a signed amount, counterparty, memo, success).
+   Browser-ready: no `Buffer`, no `node:*`, `fetch` and the endpoints handed
+   in; bytes and hashes from `@le-space/ledger/bytes` and `@noble/hashes`.
+   Tests from recorded answers of a **public** account (never a person's), in
+   Node and Chromium. The NEAR reader (`near.js`) is the example that gives
+   ledger entries, balances and a live check (`probe`) directly.
+2. **The block, here,** in
+   [`packages/pipeline/src/blocks.js`](packages/pipeline/src/blocks.js):
    ```js
-   export const block = {
-   	name: '@eigenbeleg/chain-<name>',
+   {
+   	name: '@le-space/chains/<name>',
    	chain: '<name>',            // the id in requests and the web UI
    	networks: ['mainnet'],      // where payments can be read
    	assets: ['XYZ'],            // what the chain's fees and deposits are paid in
-   	source: 'Which API; where the reader comes from',
-   	version: '0.1.0',
-   	read,                       // ({ account, from, to, fetch }) → ledger entries
-   	statement,                  // ({ account, from, to, fetch }) → balances for the Kontoauszug
+   	source: 'Which API',
+   	version: CHAINS_VERSION,
+   	read,                       // ({ account, network, from, to, fetch, endpoints }) → ledger entries of the period
+   	statement,                  // the entries and the balances before and after the period
    	probe,                      // ({ fetch }) → a live check against public data (GET /blocks/<chain>/check)
    	isAddress                   // (string) → boolean, before anything is fetched
-   };
+   }
    ```
-   `read` returns entries in the neutral booking format of
-   [`@eigenbeleg/ledger-core`](packages/ledger-core) (`entry(...)`: chain,
-   network, account, hash, height, time, type `sent` | `received` | `fee`,
-   kind `fee` | `storage` | `transfer` | `call` | …, asset, contract,
-   decimals, a signed amount, counterparty, method, memo, success). `statement` gives opening and closing
-   balances; where the chain has no archival node, derive them from today's
-   balance less the movements since (`derivedStatement`), as Akash and
-   Filecoin do, and say so with `method: 'derived'`.
-2. **Browser-ready.** No `Buffer`, no `node:*` imports, no code that only runs
-   in Node: the same reader runs in the page. Bytes and hashes come from
-   `@eigenbeleg/ledger-core/bytes` and `@noble/hashes`. `fetch` is always a
-   parameter with `globalThis.fetch` as default, so tests can record and
-   replay answers.
-3. **Tests from recorded answers,** `test/<name>.test.js`: a recorded day of a
-   **public** account (never a person's), with the reader's output checked
-   entry by entry; a wrong address refused by `isAddress`; retries where the
-   source rate-limits. Tests run offline.
-4. **Register the block** in
-   [`packages/pipeline/src/blocks.js`](packages/pipeline/src/blocks.js)
-   (`BLOCKS`), and **list every host** the reader fetches from in
+   Where the reader gives `WalletEntry` objects, an adapter under
+   [`packages/pipeline/src/readers/`](packages/pipeline/src/readers) maps them
+   with `fromWalletEntry` and says what the Eigenbeleg reads differently (the
+   fee goes to the network, which assets are priced; see `akash.js`). Where the
+   chain has no archival node, derive the balances from today's balance less
+   the movements since (`derivedStatement`), and say so with `method: 'derived'`.
+   Tests in `packages/pipeline/test/readers.test.js`.
+3. **List every host** the reader fetches from in
    [`packages/pipeline/src/sources.js`](packages/pipeline/src/sources.js) with
    what it learns (`addresses` or `assets`): the page shows this list and builds
-   its Content-Security-Policy from it, and a test fails when a URL in the
-   package is not listed.
-5. **Rates.** EUR day rates come from [`packages/rates`](packages/rates)
-   (Kraken, then CoinGecko). A new asset needs its Kraken pair or CoinGecko id
-   there.
-6. **Name the chain for people** in `apps/web/src/main.js` (`CHAIN_NAMES`), the
-   explorer link for the documents in the reader, and a line in the README's
-   building-blocks table.
-7. `npm test`, including the browser test (`packages/pipeline/test/browser.test.js`:
+   its Content-Security-Policy from it, and a test holds it against the
+   readers' endpoints.
+4. **Rates.** The day's EUR rate comes from `@le-space/rates` (the price at
+   00:00 UTC: CoinGecko, else Kraken). A new asset needs its CoinGecko id or
+   Kraken pair in that package's `RATE_SOURCES`; `priceAs` on the entry says
+   which asset an entry is valued as.
+5. **Name the chain for people** in `apps/web/src/main.js` (`CHAIN_NAMES`), and
+   a line in the README's building-blocks table.
+6. `npm test`, including the browser test (`packages/pipeline/test/browser.test.js`:
    Node and Chromium give the same bytes). Add your chain to the fixture run
    only if you recorded a public account for it.
 
 If you would rather not write the reader yourself: the agent in
-[`apps/agent`](apps/agent) drafts a package skeleton with failing contract
+[`apps/agent`](apps/agent) drafts a reader skeleton with failing contract
 tests for a chain it cannot serve (`npm run demo` shows it for Solana). Open
-that draft as a pull request and say what you could not fill in.
+that draft as a pull request on `Le-Space/belege` and say what you could not
+fill in.
 
 ## Other contributions
 
@@ -92,9 +97,10 @@ that draft as a pull request and say what you could not fill in.
 - **No `innerHTML` with text from a chain or a user**, no remote scripts, fonts
   or trackers in the page.
 - **Nothing twice:** the API and the page run the same code
-  (`@eigenbeleg/pipeline`); the chain readers are shared with Le Space Belege
-  (#6). Before writing something new, look whether it exists in one of the
-  packages.
+  (`@eigenbeleg/pipeline`); readers, booking format and rates are the
+  `@le-space/*` packages shared with Le Space Belege (#6), and a test fails
+  when `packages/chain-*`, `ledger-core` or `rates` come back here. Before
+  writing something new, look whether it exists in one of the packages.
 - Every new file starts with `// SPDX-License-Identifier: AGPL-3.0-or-later`.
   By contributing you agree that your contribution is licensed under the
   AGPL-3.0-or-later, like the rest.

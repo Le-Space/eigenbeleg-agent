@@ -2,9 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-import { entry } from '@eigenbeleg/ledger-core';
-import { mapRaw } from '@eigenbeleg/chain-near';
-import { fixedRates, valueEntries } from '@eigenbeleg/rates';
+import { entry } from '@le-space/ledger';
+import { mapRaw } from '@le-space/chains/near';
+import { fixedRates, valueEntries } from '../src/value.js';
 import { NOTE, buildDocument, deEuro, deNumber, eigenbelegCsv, eigenbelegPdf } from '../src/index.js';
 
 // Made-up payer, as everywhere in this repository.
@@ -88,7 +88,7 @@ test('the PDF is PDF/A-2b shaped: XMP, sRGB intent, id, embedded fonts, the note
 });
 
 test('a real relayer day (public data) gives one position per fee', async () => {
-	const raw = JSON.parse(await readFile(new URL('../../chain-near/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
+	const raw = JSON.parse(await readFile(new URL('../../pipeline/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
 	const valued = await valueEntries(mapRaw(raw), fixedRates({ NEAR: '2' }));
 	const d = buildDocument({ payer: { ...payer, addresses: ['relay.aurora'] }, chain: 'near', network: 'mainnet', period: { from: '2026-11-01', to: '2026-11-01' }, entries: valued });
 	assert.equal(d.positions.length, raw.txns.length);

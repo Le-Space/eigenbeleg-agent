@@ -60,9 +60,10 @@ export async function proposeBlock({ chain, outDir, say = console.log, reason, f
 ${reason ? `Why: the existing block failed its live check – ${reason}\n` : `Why: a job asked for an Eigenbeleg on **${known?.name ?? id}** and there is no building block for it.\n`}
 ## What it must do
 
-Implement the block contract of \`@eigenbeleg/chain-near\` for ${known?.name ?? id}:
+Implement a reader for ${known?.name ?? id}:
 
-- \`read({ account, network, from, to, fetch })\` → ledger entries (\`@eigenbeleg/ledger-core\`, schema \`eigenbeleg.ledger/1\`), oldest first
+- the reader belongs in \`@le-space/chains\` (Le-Space/belege, packages/chains), shared with Le Space Belege; here a block in \`packages/pipeline/src/blocks.js\` wires it
+- \`read({ account, network, from, to, fetch })\` → ledger entries (\`@le-space/ledger\`, schema \`le-space.ledger/1\`), oldest first
 - one entry per movement seen from the own address: \`sent\`, \`received\`, and the network fee as \`fee\` (negative, counterparty the network)
 - amounts as decimal strings from base units, never through a float
 - \`priceAs\` only for assets with a trusted market price; anything else is listed, never valued
@@ -87,14 +88,14 @@ AGPL-3.0-or-later, like every building block: whoever changes it and runs it as 
 
 	await writeFile(
 		join(pkg, 'package.json'),
-		JSON.stringify({ name: `@eigenbeleg/chain-${id}`, version: '0.0.1', type: 'module', license: 'AGPL-3.0-or-later', main: './src/index.js', exports: { '.': './src/index.js' }, dependencies: { '@eigenbeleg/ledger-core': '0.1.0' } }, null, 2) + '\n'
+		JSON.stringify({ name: `@eigenbeleg/chain-${id}`, version: '0.0.1', type: 'module', license: 'AGPL-3.0-or-later', main: './src/index.js', exports: { '.': './src/index.js' }, dependencies: { '@le-space/ledger': '^0.2.0' } }, null, 2) + '\n'
 	);
 	await writeFile(
 		join(pkg, 'src', 'index.js'),
 		`// ${known?.name ?? id}: what an own address paid and received, as ledger entries.
 // Drafted by the eigenbeleg agent; to be written by a person. See PLAN.md.
 
-import { entry, sortEntries } from '@eigenbeleg/ledger-core';
+import { entry, sortEntries } from '@le-space/ledger';
 
 /** @param {string} address */
 export function isAddress(address) {
@@ -121,7 +122,7 @@ void sortEntries;
 		`import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SCHEMA } from '@eigenbeleg/ledger-core';
+import { SCHEMA } from '@le-space/ledger';
 import { block } from '../src/index.js';
 
 // Fails until the reader exists: that is the point of the draft.

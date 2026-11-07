@@ -4,15 +4,15 @@
 // every file, so the two sides can be compared without moving the bytes.
 
 import { sha256 } from '@noble/hashes/sha2.js';
-import { toHex, utf8 } from '@eigenbeleg/ledger-core';
-import { fixedRates } from '@eigenbeleg/rates';
+import { toHex, utf8 } from '@le-space/ledger';
+import { fixedRates } from '@eigenbeleg/eigenbeleg';
 
 import { generate, parseRequest } from '../src/index.js';
 import { recordedNear } from '../../../apps/agent/src/recorded.js';
 
 const NOW = Date.parse('2026-11-06T12:00:00Z');
 
-/** @param {any} raw the recorded NearBlocks day (chain-near/test/fixtures) */
+/** @param {any} raw the recorded NearBlocks day (test/fixtures) */
 export async function fixtureRun(raw) {
 	const req = parseRequest(
 		{

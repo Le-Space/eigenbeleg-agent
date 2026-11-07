@@ -3,7 +3,7 @@
 // Only for accounts whose history holds no personal data (a protocol's relayer,
 // our own demo accounts): fixtures are public.
 import { writeFile } from 'node:fs/promises';
-import { fetchRaw } from '@eigenbeleg/chain-near';
+import { fetchRaw } from '@le-space/chains/near';
 
 const [account, network, from, to, out, maxPages = '2'] = process.argv.slice(2);
 let raw;

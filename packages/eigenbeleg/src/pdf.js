@@ -10,7 +10,7 @@ import { PDFDocument, PDFHexString, PDFName, PDFString, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { encode } from 'uqr';
 
-import { round, toHex, utf8 } from '@eigenbeleg/ledger-core';
+import { round, toHex, utf8 } from '@le-space/ledger';
 
 import { deDate, deEuro, deNumber } from './document.js';
 import { asset, FONTS } from './assets.js';

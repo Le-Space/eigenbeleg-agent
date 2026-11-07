@@ -70,3 +70,28 @@ export function rememberPayer(p) {
 		// private mode or blocked storage: nothing is kept
 	}
 }
+
+/** The chain, network and addresses kept in this browser, only when the user ticks their "remember". */
+const ACCOUNTS_KEY = 'accounts';
+
+/** @typedef {{ chain: string, network: string, addresses: string }} Accounts */
+
+/** @returns {Accounts | null} */
+export function rememberedAccounts() {
+	try {
+		const a = JSON.parse(globalThis.localStorage?.getItem(ACCOUNTS_KEY) ?? 'null');
+		return a && typeof a.chain === 'string' && typeof a.network === 'string' && typeof a.addresses === 'string' ? { chain: a.chain, network: a.network, addresses: a.addresses } : null;
+	} catch {
+		return null;
+	}
+}
+
+/** @param {Accounts | null} a null forgets them */
+export function rememberAccounts(a) {
+	try {
+		if (a) globalThis.localStorage?.setItem(ACCOUNTS_KEY, JSON.stringify({ chain: a.chain, network: a.network, addresses: a.addresses }));
+		else globalThis.localStorage?.removeItem(ACCOUNTS_KEY);
+	} catch {
+		// private mode or blocked storage: nothing is kept
+	}
+}

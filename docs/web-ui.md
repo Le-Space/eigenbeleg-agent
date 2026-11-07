@@ -25,7 +25,10 @@ share these building blocks with Le Space Belege as well is #6.
    Eigenbeleg, which documents (Eigenbelege, Kontoauszug, both), the first
    numbers (optional), name and postal address of the issuer. *Name und
    Anschrift auf diesem Gerät merken* keeps those two in `localStorage`, only
-   when ticked; unticking deletes them.
+   when ticked; unticking deletes them. The same for chain, network and the
+   addresses with their own *merken*. A note under the addresses says where a
+   missing chain goes: a pull request ([CONTRIBUTING.md](../CONTRIBUTING.md))
+   or eigenbelege@le-space.de.
 2. **Lesen und erstellen:** the page runs `parseRequest` (the API's check: a
    wrong address or period is said here, before anything is read) and then
    `generate`, loaded on this first click with its PDF code and fonts.

@@ -67,7 +67,7 @@ function lastMonth() {
 }
 
 /** How the chains are written for people; the value stays the block's id. */
-const CHAIN_NAMES = /** @type {Record<string, string>} */ ({ near: 'NEAR', akash: 'Akash (AKT)', filecoin: 'Filecoin (FIL, USDFC)' });
+const CHAIN_NAMES = /** @type {Record<string, string>} */ ({ near: 'NEAR', akash: 'Akash (AKT)', filecoin: 'Filecoin (FIL, USDFC)', aleph: 'Aleph Cloud (Credits)' });
 
 function fillChains() {
 	chainSel.replaceChildren(...blocks.map((b) => new Option(CHAIN_NAMES[b.chain] ?? b.chain, b.chain)));
@@ -77,6 +77,25 @@ function fillChains() {
 function fillNetworks() {
 	const b = blocks.find((x) => x.chain === chainSel.value);
 	networkSel.replaceChildren(...(b?.networks ?? []).map((n) => new Option(n, n)));
+	syncChain();
+}
+
+/** A block that gives only some documents, or reads whole months (Aleph): the form offers only those. */
+function syncChain() {
+	const b = blocks.find((x) => x.chain === chainSel.value);
+	const docs = /** @type {NodeListOf<HTMLInputElement>} */ (form.querySelectorAll('input[name="document"]'));
+	for (const r of docs) r.disabled = Boolean(b?.documents && !b.documents.includes(r.value));
+	if ([...docs].find((r) => r.checked)?.disabled) {
+		const first = [...docs].find((r) => !r.disabled);
+		if (first) first.checked = true;
+	}
+	const monthly = b?.period === 'month';
+	for (const r of /** @type {NodeListOf<HTMLInputElement>} */ (form.querySelectorAll('input[name="periodMode"]'))) {
+		r.disabled = monthly && r.value !== 'month';
+		if (monthly) r.checked = r.value === 'month';
+	}
+	$('chain-note').hidden = !monthly;
+	syncPeriod();
 }
 
 function showSources() {

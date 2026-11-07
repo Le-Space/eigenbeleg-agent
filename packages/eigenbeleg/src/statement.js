@@ -17,6 +17,12 @@
 import { normalize, sum } from '@le-space/ledger';
 import { CHAIN_NAMES, KIND_TEXT } from './document.js';
 
+/** Aleph Cloud credits: the same layout, as a monthly Verbrauchsauszug. */
+export const USAGE_NOTE =
+	'Verbrauchsauszug eines Aleph-Cloud-Kontos (Credits), erstellt vom Kontoinhaber aus der öffentlichen Aleph-API. ' +
+	'Kein Dokument eines Kreditinstituts und keine Rechnung von Aleph. Verbrauch je Tag und Ressource; Euro-Wert: USD-Preis je Credit ' +
+	'(letzter Kauf am oder vor dem Tag, sonst Alephs Listenpreis von 1 USD je 1.000.000 Credits) zum EZB-Referenzkurs des Tages.';
+
 export const STATEMENT_NOTE =
 	'Kontoauszug eines Blockchain-Kontos, erstellt vom Kontoinhaber aus öffentlichen Chain-Daten. ' +
 	'Kein Dokument eines Kreditinstituts. Jede Buchung ist über ihren Transaktions-Hash in einem öffentlichen Block-Explorer nachprüfbar.';
@@ -35,6 +41,8 @@ export const STATEMENT_NOTE =
  * @property {string} eur signed EUR value at the day's rate, or ''
  * @property {string} beleg the Eigenbeleg's number, when the booking has one
  * @property {boolean} fee
+ * @property {boolean} usage consumption billed from the balance (Aleph credits)
+ * @property {string} hashLabel what the hash is: `Tx`, or `Ressource` for usage
  */
 
 /**
@@ -75,7 +83,9 @@ export function buildStatement({ payer, account, chain, network, period, entries
 				balance,
 				eur: e.eur?.value ?? '',
 				beleg: belege.get(e.hash) ?? '',
-				fee: e.type === 'fee'
+				fee: e.type === 'fee',
+				usage: e.kind === 'usage',
+				hashLabel: e.kind === 'usage' ? 'Ressource' : 'Tx'
 			});
 		}
 		const debit = sum(rows.map((r) => r.debit || '0'));
@@ -93,11 +103,15 @@ export function buildStatement({ payer, account, chain, network, period, entries
 			eurOut: sum(rows.filter((r) => r.debit && r.eur).map((r) => r.eur.replace(/^-/, ''))),
 			eurIn: sum(rows.filter((r) => r.credit && r.eur).map((r) => r.eur)),
 			eurFees: sum(rows.filter((r) => r.fee && r.eur).map((r) => r.eur.replace(/^-/, ''))),
+			eurUsage: sum(rows.filter((r) => r.usage && r.eur).map((r) => r.eur.replace(/^-/, ''))),
 			unvalued: rows.filter((r) => !r.eur).length
 		};
 	});
+	// Aleph credits: a monthly usage statement, laid out as the Kontoauszug.
+	const usage = chain === 'aleph';
 	return {
 		kind: 'kontoauszug',
+		title: usage ? 'Verbrauchsauszug' : 'Kontoauszug',
 		number: number || `KA-${period.from}`,
 		issuedAt: issuedAt ?? new Date().toISOString(),
 		holder: { name: payer.name.trim(), address: payer.address.trim() },
@@ -111,7 +125,7 @@ export function buildStatement({ payer, account, chain, network, period, entries
 		at,
 		sections,
 		unlisted: entries.filter((e) => e.account === account && !e.priceAs && !assets.includes(e.asset)).length,
-		note: STATEMENT_NOTE
+		note: usage ? USAGE_NOTE : STATEMENT_NOTE
 	};
 }
 

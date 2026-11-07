@@ -2,8 +2,8 @@
 // Every host the pipeline asks, and what it learns: the web UI shows this list
 // before the first request and builds its Content-Security-Policy from it, so
 // the page can reach no other host. A test holds it against the URLs in the
-// packages. Explorer links (nearblocks.io, mintscan.io, filfox.info/en) are
-// only printed on the documents, never fetched.
+// packages. Explorer links (nearblocks.io, mintscan.io, filfox.info/en,
+// explorer.aleph.cloud) are only printed on the documents, never fetched.
 
 /**
  * @typedef {object} Source
@@ -29,7 +29,9 @@ export function dataSources({ akashIndexer = 'https://console-api.akash.network'
 		{ origin: 'https://akash-rest.publicnode.com', chain: 'akash', learns: 'addresses', what: 'Akash balances (PublicNode REST)' },
 		...(akashIndexer ? [{ origin: new URL(akashIndexer).origin, chain: 'akash', learns: /** @type {const} */ ('addresses'), what: 'older Akash history (Akash Console indexer)' }] : []),
 		{ origin: 'https://filfox.info', chain: 'filecoin', learns: 'addresses', what: 'Filecoin messages and balances (Filfox)' },
+		{ origin: 'https://api2.aleph.im', chain: 'aleph', learns: 'addresses', what: 'Aleph Cloud credit history and balance (Aleph API)' },
 		{ origin: 'https://api.kraken.com', chain: 'rates', learns: 'assets', what: 'EUR rates where CoinGecko has none (Kraken, the day\'s open)' },
-		{ origin: 'https://api.coingecko.com', chain: 'rates', learns: 'assets', what: 'EUR rates (CoinGecko, the price at 00:00 UTC)' }
+		{ origin: 'https://api.coingecko.com', chain: 'rates', learns: 'assets', what: 'EUR rates (CoinGecko, the price at 00:00 UTC)' },
+		{ origin: 'https://data-api.ecb.europa.eu', chain: 'rates', learns: 'assets', what: 'EUR per USD, for Aleph credits (ECB reference rate)' }
 	];
 }

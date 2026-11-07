@@ -4,7 +4,8 @@
 // holder and account in the head, per asset the opening balance, a table of
 // bookings (date, text, debit, credit, running balance, EUR value), the
 // closing balance with its check against the chain, and the sums a
-// bookkeeper needs. German, for German bookkeeping.
+// bookkeeper needs. German, for German bookkeeping. Aleph Cloud credits get
+// the same layout titled »Verbrauchsauszug« (`st.title`).
 
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
@@ -40,8 +41,10 @@ const qty = (q) => (q ? deNumber(round(q, 12)) : '');
  */
 export async function statementPdf(st) {
 	const created = new Date(st.issuedAt);
-	const title = `Kontoauszug ${st.number}`;
-	const subject = `Kontoauszug ${st.chainName} ${st.account}, ${deDate(st.period.from)} – ${deDate(st.period.to)}`;
+	// Aleph credits: a Verbrauchsauszug in the same layout, valued by its own rule.
+	const aleph = st.chain === 'aleph';
+	const title = `${st.title} ${st.number}`;
+	const subject = `${st.title} ${st.chainName} ${st.account}, ${deDate(st.period.from)} – ${deDate(st.period.to)}`;
 	const producer = 'eigenbeleg (Le Space UG), pdf-lib';
 	const pdf = await PDFDocument.create({ updateMetadata: false });
 	pdf.registerFontkit(fontkit);
@@ -102,7 +105,7 @@ export async function statementPdf(st) {
 		page = pdf.addPage(A4);
 		pages.push(page);
 		y = A4[1] - M;
-		const head = clean(`Kontoauszug ${st.number} · ${st.account}`, regular);
+		const head = clean(`${st.title} ${st.number} · ${st.account}`, regular);
 		page.drawText(head, { x: M, y: y - 8, size: 8, font: regular, color: GREY });
 		y -= 18;
 	};
@@ -140,7 +143,8 @@ export async function statementPdf(st) {
 	y = top;
 	const rx = M + 300;
 	const facts = [
-		['Kontoauszug', st.number],
+		// The label column is 72 pt wide: »Verbrauchsauszug« does not fit.
+		[st.title === 'Kontoauszug' ? 'Kontoauszug' : 'Auszug-Nr.', st.number],
 		['Zeitraum', `${deDate(st.period.from)} – ${deDate(st.period.to)}`],
 		['Chain', `${st.chainName} (${st.network})`],
 		['Erstellt am', `${deDate(st.issuedAt)}, ${st.issuedAt.slice(11, 16)} UTC`]
@@ -151,7 +155,7 @@ export async function statementPdf(st) {
 		y -= 12;
 	}
 	y = Math.min(y, leftEnd) - 14;
-	text('Kontoauszug', { font: bold, size: 18 });
+	text(st.title, { font: bold, size: 18 });
 	text('Konto', { font: bold, size: 7.5, color: GREY });
 	text(st.account, { font: mono, size: 9 });
 	y -= 6;
@@ -181,7 +185,7 @@ export async function statementPdf(st) {
 		right(qty(s.opening), M + 451 - 4, 8, bold);
 		y -= 13;
 		for (const r of s.rows) {
-			const detail = [r.counterparty && `${r.debit ? "an" : "von"} ${r.counterparty}`, `Tx ${r.hash.slice(0, 10)}…${r.hash.slice(-6)}`, r.beleg && `Eigenbeleg ${r.beleg}`].filter(Boolean).join(' · ');
+			const detail = [r.counterparty && `${r.debit ? "an" : "von"} ${r.counterparty}`, r.hash && `${r.hashLabel} ${r.hash.slice(0, 10)}…${r.hash.slice(-6)}`, r.beleg && `Eigenbeleg ${r.beleg}`].filter(Boolean).join(' · ');
 			const lines = wrap(r.text, regular, 8, COLS[1].w - 6);
 			const sub = wrap(detail, regular, 6.5, COLS[1].w - 6);
 			const h = lines.length * 10 + sub.length * 8.5 + 4;
@@ -227,11 +231,13 @@ export async function statementPdf(st) {
 				{ size: 7.5, color: ok ? OK : WARN }
 			);
 		} else {
-			text('Anfangs- und Endstand abgeleitet aus dem heutigen Kontostand abzüglich aller Bewegungen seither (die Chain hält keine alten Kontostände vor).', { size: 7.5, color: GREY });
+			text(`Anfangs- und Endstand abgeleitet aus dem heutigen Kontostand abzüglich aller Bewegungen seither (${aleph ? 'die Aleph-API nennt den heutigen Stand und die Summen seither' : 'die Chain hält keine alten Kontostände vor'}).`, { size: 7.5, color: GREY });
 		}
 		y -= 4;
 		text(
-			`Ausgänge ${deEuro(s.eurOut)} · Eingänge ${deEuro(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${deEuro(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – Euro-Werte zum Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken).`,
+			aleph
+				? `Ausgänge ${deEuro(s.eurOut)} · Eingänge ${deEuro(s.eurIn)} · davon Verbrauch (Aufwand) ${deEuro(s.eurUsage)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – Euro-Werte: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis) × EZB-Referenzkurs USD/EUR des Tages.`
+				: `Ausgänge ${deEuro(s.eurOut)} · Eingänge ${deEuro(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${deEuro(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – Euro-Werte zum Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken).`,
 			{ size: 7.5, color: GREY }
 		);
 		y -= 12;
@@ -242,7 +248,8 @@ export async function statementPdf(st) {
 	pages.forEach((p, i) => {
 		const f = clean(`${st.number} · Seite ${i + 1} von ${pages.length}`, regular);
 		p.drawText(f, { x: M, y: M / 2, size: 7, font: regular, color: GREY });
-		const r = `Daten: ${st.chain === 'near' ? 'NearBlocks.io APIs, NEAR-Archiv-RPC' : st.chain === 'filecoin' ? 'Filfox' : 'Akash-RPC, Akash Console'} · kein Dokument eines Kreditinstituts`;
+		const data = /** @type {Record<string, string>} */ ({ near: 'NearBlocks.io APIs, NEAR-Archiv-RPC', filecoin: 'Filfox', akash: 'Akash-RPC, Akash Console', aleph: 'Aleph-API (api2.aleph.im)' });
+		const r = `Daten: ${data[st.chain] ?? st.chainName} · kein Dokument eines Kreditinstituts`;
 		p.drawText(r, { x: A4[0] - M - regular.widthOfTextAtSize(r, 7), y: M / 2, size: 7, font: regular, color: GREY });
 	});
 

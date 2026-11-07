@@ -9,6 +9,7 @@
 import * as near from '@le-space/chains/near';
 import * as akash from './readers/akash.js';
 import * as filecoin from './readers/filecoin.js';
+import * as aleph from './readers/aleph.js';
 
 /** The version of @le-space/chains the blocks are built on (a test holds it against the installed package). */
 export const CHAINS_VERSION = '0.2.0';
@@ -25,6 +26,10 @@ export const CHAINS_VERSION = '0.2.0';
  * @property {(p: any) => Promise<any>} [statement] the entries and the balances before and after the period
  * @property {(o?: any) => Promise<{ sample: string, entries: number }>} probe a live check against public data
  * @property {(a: string) => boolean} isAddress before anything is fetched
+ * @property {(a: string) => string} [canonical] one spelling per account, where the source has one
+ * @property {string[]} [documents] the documents it gives, when not all (Aleph: the statement only)
+ * @property {'month'} [period] reads whole finished months only
+ * @property {string} [statementPrefix] the statement's number prefix, when not KA
  */
 
 /** @type {Record<string, Block>} */
@@ -64,12 +69,29 @@ export const BLOCKS = {
 		statement: filecoin.statementFilecoin,
 		probe: filecoin.probe,
 		isAddress: filecoin.isAddress
+	},
+	aleph: {
+		name: '@le-space/chains/aleph',
+		chain: 'aleph',
+		networks: ['mainnet'],
+		assets: ['ALEPH-CREDIT (Aleph Cloud credits, by the Ethereum address)'],
+		source: 'Aleph API, no key; EUR per USD from the ECB',
+		version: CHAINS_VERSION,
+		// A Verbrauchsauszug (VA-…) of one whole finished month; no Eigenbeleg for usage.
+		documents: ['kontoauszug'],
+		period: 'month',
+		statementPrefix: 'VA',
+		read: aleph.readAleph,
+		statement: aleph.statementAleph,
+		probe: aleph.probe,
+		isAddress: aleph.isAddress,
+		canonical: aleph.canonical
 	}
 };
 
 /** What GET /blocks says about each block (no functions). */
 export function describeBlocks() {
-	return Object.values(BLOCKS).map(({ read: _read, isAddress: _is, probe: _probe, statement: _st, ...rest }) => rest);
+	return Object.values(BLOCKS).map((b) => Object.fromEntries(Object.entries(b).filter(([, v]) => typeof v !== 'function')));
 }
 
 /** @type {Map<string, { at: number, ttl: number, result: Promise<Record<string, unknown>> }>} */

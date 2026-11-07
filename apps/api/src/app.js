@@ -112,7 +112,7 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
 ## Body
 
 {
-  "chain": "near" | "akash" | "filecoin"   (GET ${base}/blocks lists them and their networks),
+  "chain": ${describeBlocks().map((b) => `"${b.chain}"`).join(' | ')}   (GET ${base}/blocks lists them and their networks),
   "network": "mainnet" | "testnet",           where the payments were made,
   "addresses": ["own-account.near"],          one to ten own addresses,
   "period": { "month": "YYYY-MM" } or { "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }   finished days, at most 92,
@@ -125,6 +125,7 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
 
 ## Notes
 
+- aleph (Aleph Cloud credits, by the Ethereum address): one finished month (\`period.month\`), \`document\` kontoauszug only; it is a Verbrauchsauszug (VA-…), usage per day and resource, valued at the USD price per credit and the ECB rate of the day. No Eigenbeleg: usage from a prepaid balance is no single payment.
 - The documents are in German. An Eigenbeleg counts only once the payer signs it; whether a tax adviser accepts it is theirs to decide.
 - Nothing is stored beyond the request. Source (AGPL-3.0-or-later): ${source}
 `);

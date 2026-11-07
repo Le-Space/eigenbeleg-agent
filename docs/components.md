@@ -51,6 +51,7 @@ Our API process
  ├─ chain reader Akash ──────▶ akash-rpc/akash-rest.publicnode.com, console-api.akash.network
  ├─ chain reader Filecoin ───▶ filfox.info
  ├─ Aleph Cloud credits ─────▶ api2.aleph.im
+ ├─ Ethereum, Base ──────────▶ eth-mainnet/base-mainnet.g.alchemy.com (only with ALCHEMY_KEY)
  └─ rates ───────────────────▶ api.coingecko.com (price at 00:00 UTC), api.kraken.com (fallback: the daily open), data-api.ecb.europa.eu (USD)
 ```
 

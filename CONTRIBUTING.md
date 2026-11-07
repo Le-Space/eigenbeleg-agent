@@ -56,7 +56,11 @@ two pull requests, and nothing is written twice:
    Optional: `canonical` (one spelling per account), `documents` (when the
    block gives only some, e.g. `['kontoauszug']`), `period: 'month'` (whole
    finished months only) and `statementPrefix` (instead of `KA`); the Aleph
-   block uses all four.
+   block uses all four. A block that needs a key (Ethereum and Base: Alchemy)
+   goes in [`packages/pipeline/src/keyed.js`](packages/pipeline/src/keyed.js)
+   with `needs: 'alchemyKey'`: it is offered only where the server has the key
+   (`blocksFor`), never in the page, and the key reaches its reads as a
+   parameter.
    Where the reader gives `WalletEntry` objects, an adapter under
    [`packages/pipeline/src/readers/`](packages/pipeline/src/readers) maps them
    with `fromWalletEntry` and says what the Eigenbeleg reads differently (the

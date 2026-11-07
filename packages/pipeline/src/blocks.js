@@ -30,6 +30,7 @@ export const CHAINS_VERSION = '0.2.0';
  * @property {string[]} [documents] the documents it gives, when not all (Aleph: the statement only)
  * @property {'month'} [period] reads whole finished months only
  * @property {string} [statementPrefix] the statement's number prefix, when not KA
+ * @property {'alchemyKey'} [needs] a key only the server has (keyed.js); such a block is never in BLOCKS
  */
 
 /** @type {Record<string, Block>} */
@@ -89,9 +90,13 @@ export const BLOCKS = {
 	}
 };
 
-/** What GET /blocks says about each block (no functions). */
-export function describeBlocks() {
-	return Object.values(BLOCKS).map((b) => Object.fromEntries(Object.entries(b).filter(([, v]) => typeof v !== 'function')));
+/**
+ * What GET /blocks says about each block (no functions).
+ *
+ * @param {Record<string, Block>} [blocks] what this side serves: BLOCKS, or on the API `blocksFor(deps)` (keyed.js)
+ */
+export function describeBlocks(blocks = BLOCKS) {
+	return Object.values(blocks).map((b) => Object.fromEntries(Object.entries(b).filter(([, v]) => typeof v !== 'function')));
 }
 
 /** @type {Map<string, { at: number, ttl: number, result: Promise<Record<string, unknown>> }>} */
@@ -103,17 +108,19 @@ const checks = new Map();
  * while a check runs share it, so the data source is asked once.
  *
  * @param {string} chain
- * @param {{ fetch?: typeof fetch, nearblocksKey?: string, probeDay?: string }} [deps]
+ * @param {{ fetch?: typeof fetch, nearblocksKey?: string, probeDay?: string, blocks?: Record<string, Block>, alchemyKey?: string }} [deps]
+ *   blocks: what this side serves (BLOCKS when not given); alchemyKey: the server's, only for a block that needs it
  */
 export function checkBlock(chain, deps = {}) {
-	const block = Object.hasOwn(BLOCKS, chain) ? BLOCKS[chain] : null;
+	const blocks = deps.blocks ?? BLOCKS;
+	const block = Object.hasOwn(blocks, chain) ? blocks[chain] : null;
 	if (!block) return Promise.resolve({ ok: false, chain, error: 'no building block for this chain' });
 	const cached = checks.get(chain);
 	if (cached && Date.now() - cached.at < cached.ttl) return cached.result;
 	const entry = { at: Date.now(), ttl: Infinity, result: Promise.resolve(/** @type {Record<string, unknown>} */ ({})) };
 	entry.result = (async () => {
 		try {
-			const r = await block.probe({ fetch: deps.fetch, apiKey: deps.nearblocksKey, day: deps.probeDay });
+			const r = await block.probe({ fetch: deps.fetch, apiKey: deps.nearblocksKey, day: deps.probeDay, ...(block.needs === 'alchemyKey' ? { alchemyKey: deps.alchemyKey } : {}) });
 			entry.at = Date.now();
 			entry.ttl = 600_000;
 			return { ok: true, chain, version: block.version, ...r, checkedAt: new Date().toISOString() };

@@ -8,7 +8,10 @@ import * as near from '@le-space/chains/near';
 import { AKASH_CHAIN } from '@le-space/chains/cosmos-chains';
 import { FILECOIN } from '@le-space/chains';
 import { ALEPH_API, ALEPH_EXPLORER } from '@le-space/chains/aleph';
+import { alchemyBaseUrl } from '@le-space/chains/alchemy';
+import { CHAINS } from '@le-space/chains/registry';
 import { dataSources } from '../src/sources.js';
+import { KEYED_BLOCKS, keyedSources } from '../src/keyed.js';
 
 /** Explorer links are printed on the documents, never fetched. */
 const PRINTED_ONLY = new Set(['https://nearblocks.io', 'https://testnet.nearblocks.io', 'https://www.mintscan.io', 'https://filfox.info/en', new URL(ALEPH_EXPLORER).origin]);
@@ -39,6 +42,12 @@ test('dataSources names every host the readers and the rates ask, and only those
 	}
 	const listed = new Set(dataSources().map((s) => s.origin));
 	assert.deepEqual([...listed].sort(), [...expected].sort());
+	// Ethereum and Base (only with the server's Alchemy key): the API's list, never the page's.
+	assert.deepEqual(
+		keyedSources().map((s) => s.origin),
+		Object.keys(KEYED_BLOCKS).map((id) => new URL(alchemyBaseUrl(/** @type {any} */ (CHAINS[id]).alchemy.network)).origin)
+	);
+	assert.ok(![...listed].some((o) => /alchemy/i.test(o)), 'the page (its list and CSP) has no Alchemy host');
 	const proxied = dataSources({ akashIndexer: 'https://akash-proxy.example.workers.dev' }).map((s) => s.origin);
 	assert.ok(proxied.includes('https://akash-proxy.example.workers.dev') && !proxied.includes('https://console-api.akash.network'));
 });

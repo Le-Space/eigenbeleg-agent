@@ -272,6 +272,7 @@ eigenbeleg.example.com {
 | `PING_API_KEY` | PingPay key (`PAYWALL=ping`); the NEAR recipient is set in the Ping dashboard | **yes** |
 | `PING_FACILITATOR_URL`, `PING_AMOUNT_OUT` | PingPay facilitator, destination amount in USDC base units (≥ 200000) | no |
 | `NEARBLOCKS_API_KEY` | optional, for NearBlocks' higher rate limits | **yes** |
+| `ALCHEMY_KEY` | optional: with it the API also serves Ethereum and Base (ETH, USDC, ALEPH and the gas) through Alchemy; without it, it does not offer them. The key goes to Alchemy only, never into an answer, a document or a log; the web UI never gets it and never offers them | **yes** |
 | `SOURCE_URL` | where users of this instance get its source (AGPL-3.0-or-later section 13); your fork if you changed it | no |
 | `PUBLIC_URL` | this instance's public origin, e.g. `https://eigenbeleg.le-space.de`, for the share cards (Open Graph, X) on `/ui/`; unset: taken from the request's Host and `X-Forwarded-Proto` | no |
 | `TRUST_PROXY` | behind a proxy: whose `X-Forwarded-*` to trust (Express syntax, e.g. `uniquelocal`), so the x402 resource URL is https | no |
@@ -291,6 +292,7 @@ Testnet vs mainnet: `PAY_NETWORK` decides where customers pay; the chain data re
 | `filfox.info` | Filecoin history and balance (`@le-space/chains/filecoin`) |
 | `api2.aleph.im` | Aleph Cloud credit history and balance (`@le-space/chains/aleph`) |
 | `data-api.ecb.europa.eu` | EUR per USD, for Aleph credits |
+| `eth-mainnet.g.alchemy.com`, `base-mainnet.g.alchemy.com` | only with `ALCHEMY_KEY`: Ethereum and Base history and balances (`@le-space/chains/evm`) |
 | `pay.pingpay.io` | only with `PAYWALL=ping` |
 
 The addresses of a request go to the data sources of its chain, and nowhere else. The payer's name and postal address never leave the server: they appear only in the documents sent back. Links in the documents (`nearblocks.io`, `testnet.nearblocks.io`, `mintscan.io`, `filfox.info`, the source repository) are never called by the server.
@@ -313,10 +315,10 @@ The payer's name and address live only for the request. Nothing is stored, and l
 | Package | What |
 | --- | --- |
 | [`@le-space/ledger`](https://github.com/Le-Space/belege/tree/main/packages/ledger) (npm) | The booking format `le-space.ledger/1` (one entry per movement, from one own address), decimal arithmetic on strings, bytes without `Buffer`. Shared with Le Space Belege (#6) |
-| [`@le-space/chains`](https://github.com/Le-Space/belege/tree/main/packages/chains) (npm) | The readers: NEAR via NearBlocks API v3 and the FastNEAR archival RPC; Akash via the node's `tx_search` plus the Akash Console indexer; Filecoin via Filfox (FIL, USDFC); Aleph Cloud credits via the Aleph API. Also EVM, Bitcoin and Nym for Belege |
+| [`@le-space/chains`](https://github.com/Le-Space/belege/tree/main/packages/chains) (npm) | The readers: NEAR via NearBlocks API v3 and the FastNEAR archival RPC; Akash via the node's `tx_search` plus the Akash Console indexer; Filecoin via Filfox (FIL, USDFC); Aleph Cloud credits via the Aleph API; Ethereum and Base via Alchemy. Also Bitcoin and Nym for Belege |
 | [`@le-space/rates`](https://github.com/Le-Space/belege/tree/main/packages/rates) (npm) | EUR per asset and UTC day: the price at 00:00 UTC (CoinGecko, else Kraken's daily open); the ECB reference rate for USD and the rule for Aleph credits (`aleph-credits`) |
 | `packages/eigenbeleg` | The document, the PDF/A-2b and the CSV (fonts and colour profile from files in Node, fetched in a browser); the euro valuation of entries |
-| `packages/pipeline` | One request start to end (check, read, value, draw), the blocks (what the Eigenbeleg makes of each chain: the fee to the network, an Akash escrow its own kind, which assets are priced; Aleph Cloud credits as a monthly Verbrauchsauszug, `readers/aleph.js`), the rate's name on the document, and the list of data sources: the same code in the API and in the web UI; tested in Node and Chromium |
+| `packages/pipeline` | One request start to end (check, read, value, draw), the blocks (what the Eigenbeleg makes of each chain: the fee to the network, an Akash escrow its own kind, which assets are priced; Aleph Cloud credits as a monthly Verbrauchsauszug, `readers/aleph.js`; Ethereum and Base with ETH, USDC and ALEPH, the token Aleph Cloud is paid with, only in the API with `ALCHEMY_KEY`, `keyed.js` and `readers/evm.js`), the rate's name on the document, and the list of data sources: the same code in the API and in the web UI; tested in Node and Chromium |
 | `apps/api` | The HTTP API and the paywall (`near` / `ping` / `none`) |
 | `apps/agent` | The agent, its x402 payer, the PR drafts |
 | `apps/web` | The web UI, a PWA (Vite): runs the pipeline in the browser; no wallet, no payment, nothing sent to the API |

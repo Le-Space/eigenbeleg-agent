@@ -341,3 +341,42 @@ test('GET /llms.txt tells agents what is sold, the price and the x402 steps', as
 		close();
 	}
 });
+
+test('Ethereum and Base only with ALCHEMY_KEY; the key is in no answer and no log line', async () => {
+	const key = 'wolkenfabrik-test-key-0001';
+	const own = `0x${'7a'.repeat(20)}`;
+	const body = { chain: 'base', addresses: [own], period: { month: '2026-10' } };
+	const preview = (/** @type {string} */ base) => globalThis.fetch(`${base}/eigenbeleg/preview`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+	const info = { mode: 'none' };
+	const without = await serve(createApp({ paywall: { middleware: null, info }, deps, log: () => {}, web: null }));
+	try {
+		const { blocks } = await (await globalThis.fetch(`${without.base}/blocks`)).json();
+		assert.ok(!blocks.some((/** @type {any} */ b) => b.chain === 'ethereum' || b.chain === 'base'));
+		assert.equal((await preview(without.base)).status, 400);
+		assert.doesNotMatch(await (await globalThis.fetch(`${without.base}/llms.txt`)).text(), /"base"|ethereum, base/);
+	} finally {
+		without.close();
+	}
+	/** @type {string[]} */
+	const lines = [];
+	// Alchemy is not reachable here: the preview fails as a 502, with the host at most.
+	const offline = /** @type {typeof globalThis.fetch} */ (async () => { throw new TypeError('fetch failed'); });
+	const withKey = await serve(createApp({ paywall: { middleware: null, info }, deps: { ...deps, fetch: offline, alchemyKey: key }, log: (l) => lines.push(l), web: null }));
+	try {
+		const answers = [];
+		const blocks = await (await globalThis.fetch(`${withKey.base}/blocks`)).text();
+		answers.push(blocks);
+		assert.deepEqual(JSON.parse(blocks).blocks.filter((/** @type {any} */ b) => b.needs).map((/** @type {any} */ b) => b.chain), ['ethereum', 'base']);
+		const llms = await (await globalThis.fetch(`${withKey.base}/llms.txt`)).text();
+		answers.push(llms);
+		assert.match(llms, /"base"/);
+		const p = await preview(withKey.base);
+		answers.push(await p.text());
+		assert.equal(p.status, 502);
+		answers.push(await (await globalThis.fetch(`${withKey.base}/blocks/base/check`)).text());
+		assert.equal(JSON.parse(answers[3]).ok, false);
+		assert.ok(!(answers.join('\n') + lines.join('\n')).includes(key), 'the key is in no answer and no log line');
+	} finally {
+		withKey.close();
+	}
+});

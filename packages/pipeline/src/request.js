@@ -25,14 +25,15 @@ function isDate(d) {
 
 /**
  * @param {any} body
- * @param {{ preview?: boolean, today?: string }} [opts] today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
- *   must not get the payer's name and address (a body with `payer` is refused) and has no format
+ * @param {{ preview?: boolean, today?: string, blocks?: Record<string, import('./blocks.js').Block> }} [opts] today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
+ *   must not get the payer's name and address (a body with `payer` is refused) and has no format; blocks: what this side serves
+ *   (the API with an Alchemy key: `blocksFor(deps)`, keyed.js), the keyless BLOCKS when not given
  * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[] }}
  */
-export function parseRequest(body, { preview = false, today } = {}) {
+export function parseRequest(body, { preview = false, today, blocks = BLOCKS } = {}) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
 	const chain = typeof body.chain === 'string' ? body.chain : '';
-	const block = Object.hasOwn(BLOCKS, chain) ? BLOCKS[chain] : null;
+	const block = Object.hasOwn(blocks, chain) ? blocks[chain] : null;
 	if (!block) throw new RequestError(`no building block for chain "${chain}" yet; see GET /blocks`);
 	const network = body.network ?? 'mainnet';
 	if (!block.networks.includes(network)) throw new RequestError(`network must be one of ${block.networks.join(', ')}`);

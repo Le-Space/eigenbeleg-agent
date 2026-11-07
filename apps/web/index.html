@@ -50,40 +50,31 @@
 					</span>
 					<button type="button" class="link" id="btn-lang" data-i18n="langSwitch" lang="en">English</button>
 				</div>
+			</header>
+			<nav class="jump" aria-label="Abschnitte">
+				<a href="#erstellen" data-i18n="navCreate">Erstellen</a>
+				<a href="#so-gehts" data-i18n="navHow">So geht's</a>
+				<a href="#agents" data-i18n="navAgents">Für Agenten</a>
+				<a href="#datenschutz" data-i18n="navPrivacy">Datenschutz</a>
+			</nav>
+			<div class="intro">
 				<h1 data-i18n="title">Eigenbeleg für Blockchain-Zahlungen</h1>
 				<p class="tagline" data-i18n="tagline">Kostenlos und quelloffen. Alles in Ihrem Browser, nichts auf unseren Servern.</p>
 				<p class="lead">
 					<span data-i18n="lead1">Ein Eigenbeleg ist ein Beleg, den Sie selbst für Ihre eigenen Zahlungen ausstellen, wenn niemand eine Rechnung schickt: Netzwerkgebühren, Storage-Deposits, Zahlungen an Peer-to-Peer-Netzwerke. Er ist </span><strong data-i18n="lead2">keine Rechnung</strong><span data-i18n="lead3">. Ob Ihr Steuerberater ihn annimmt, entscheidet er.</span>
 				</p>
-				<p class="lead" data-i18n="forWhom">Für alle, die auf NEAR, Akash oder Filecoin bezahlen, für Hosting, Speicher oder Verträge, und dafür einen Beleg für die Buchhaltung brauchen.</p>
-				<figure class="sample">
-					<!-- Example data only: what one Eigenbeleg looks like, in the share card's style. -->
-					<div class="card" aria-hidden="true">
-						<div class="doc">Eigenbeleg</div>
-						<div class="no">EB-2026-042</div>
-						<div class="line"><span data-i18n="kindFee">Netzwerkgebühren</span><span>0,0012 NEAR</span></div>
-						<div class="line dash"><span>9fK3…tx7Q</span><span>0,00 €</span></div>
-						<div class="line"><span data-i18n="kindStorage">Storage-Deposits</span><span>0,05 NEAR</span></div>
-						<div class="line dash"><span>Kurs 00:00 UTC</span><span>0,10 €</span></div>
-						<span class="badge">PDF/A · CSV</span>
-					</div>
-					<figcaption>
-						<strong data-i18n="sampleTitle">So sieht das Ergebnis aus</strong>
-						<span class="note" data-i18n="sampleText">Je Transaktion ein Eigenbeleg mit Hash, Von/An, allen Bewegungen, QR-Code zum Explorer und Unterschriftszeile. Je Adresse ein Kontoauszug mit Anfangssaldo, Buchungen und Endsaldo, gegen die Chain geprüft. Beides als PDF/A, dazu eine CSV für die Tabelle.</span>
-					</figcaption>
-				</figure>
-				<p class="note" data-i18n="privacy">Die Seite liest die Chain, holt die Kurse und erstellt die PDFs in diesem Browser. Name und Anschrift verlassen das Gerät nie, und kein Server von uns sieht Ihre Adressen. Der Quellcode ist offen (AGPL-3.0), jeder kann prüfen, was die Seite tut.</p>
-				<details id="sources">
-					<summary data-i18n="sourcesSummary">Welche Dienste Ihr Browser dabei fragt</summary>
-					<p class="note" data-i18n="sourcesIntro">Ihr Browser fragt nur diese Dienste, direkt.</p>
-					<ul id="sources-list" class="note"></ul>
-				</details>
-				<p class="note" data-i18n="install">Die Seite lässt sich als App installieren (im Browser-Menü „Installieren“ oder „Zum Home-Bildschirm“) und startet dann auch ohne Netz.</p>
-			</header>
+			</div>
 
-			<section id="step-form" aria-labelledby="h-form">
-				<h2 id="h-form" data-i18n="hForm">1. Angaben</h2>
+			<section id="erstellen" aria-labelledby="h-form">
+				<h2 id="h-form" data-i18n="hForm">Eigenbeleg erstellen</h2>
+				<ol class="steps" aria-label="Schritte">
+					<li data-step="1" aria-current="step" data-i18n="stepAddress">Adresse</li>
+					<li data-step="2" data-i18n="stepPeriod">Zeitraum</li>
+					<li data-step="3" data-i18n="stepPayer">Aussteller</li>
+					<li data-step="4" data-i18n="stepResult">Ergebnis</li>
+				</ol>
 				<form id="form" novalidate>
+					<div data-step="1">
 					<div class="row">
 						<label><span data-i18n="chain">Blockchain</span> <select name="chain" id="chain" required></select></label>
 						<label><span data-i18n="network">Netz der Zahlungen</span> <select name="network" id="network" required></select></label>
@@ -109,6 +100,15 @@
 							<label id="l-to" hidden><span data-i18n="to">Bis</span> <input type="date" name="to" id="to" /></label>
 						</div>
 					</fieldset>
+					<fieldset data-step="2">
+						<legend data-i18n="documents">Welche Dokumente (die CSV kommt immer mit)</legend>
+						<label class="inline"><input type="radio" name="document" value="eigenbelege" checked /> <span data-i18n="docEigenbelege">Eigenbelege (je Transaktion einer)</span></label>
+						<label class="inline"><input type="radio" name="document" value="kontoauszug" /> <span data-i18n="docKontoauszug">Kontoauszug (je Adresse: Anfangssaldo, Buchungen, Endsaldo)</span></label>
+						<label class="inline"><input type="radio" name="document" value="beide" /> <span data-i18n="docBeide">Beide</span></label>
+						<label class="inline"><input type="checkbox" name="logo" id="logo" /> <span data-i18n="logo">Logo der Blockchain auf den Dokumenten (klein, neben dem Titel)</span></label>
+					</fieldset>
+					<details class="more" data-step="2">
+						<summary data-i18n="moreSettings">Mehr Einstellungen: Belegnummern und was auf den Beleg kommt</summary>
 					<fieldset>
 						<legend data-i18n="kinds">Was auf den Eigenbeleg kommt</legend>
 						<label class="inline"><input type="checkbox" name="includeKinds" value="fee" checked /> <span data-i18n="kindFee">Netzwerkgebühren</span></label>
@@ -116,18 +116,12 @@
 						<label class="inline"><input type="checkbox" name="includeKinds" value="transfer" /> <span data-i18n="kindTransfer">Überweisungen</span></label>
 						<label class="inline"><input type="checkbox" name="includeKinds" value="call" /> <span data-i18n="kindCall">Vertragsaufrufe mit Deposit</span></label>
 					</fieldset>
-					<fieldset>
-						<legend data-i18n="documents">Welche Dokumente (die CSV kommt immer mit)</legend>
-						<label class="inline"><input type="radio" name="document" value="eigenbelege" checked /> <span data-i18n="docEigenbelege">Eigenbelege (je Transaktion einer)</span></label>
-						<label class="inline"><input type="radio" name="document" value="kontoauszug" /> <span data-i18n="docKontoauszug">Kontoauszug (je Adresse: Anfangssaldo, Buchungen, Endsaldo)</span></label>
-						<label class="inline"><input type="radio" name="document" value="beide" /> <span data-i18n="docBeide">Beide</span></label>
-						<label class="inline"><input type="checkbox" name="logo" id="logo" /> <span data-i18n="logo">Logo der Blockchain auf den Dokumenten (klein, neben dem Titel)</span></label>
-					</fieldset>
 					<div class="row">
 						<label id="l-number"><span data-i18n="number">Erste Belegnummer (optional, die weiteren zählen hoch)</span> <input name="number" id="number" maxlength="40" placeholder="EB-2026-001" autocomplete="off" /></label>
 						<label id="l-statement" hidden><span data-i18n="statementNumber">Nummer des Kontoauszugs (optional)</span> <input name="statementNumber" id="statementNumber" maxlength="40" placeholder="KA-2026-10-01" autocomplete="off" /></label>
 					</div>
-					<fieldset>
+					</details>
+					<fieldset data-step="3">
 						<legend data-i18n="payer">Aussteller (steht auf dem Eigenbeleg, bleibt in diesem Browser)</legend>
 						<label><span data-i18n="name">Name</span> <input name="name" id="name" maxlength="200" autocomplete="organization" placeholder="Wolkenfabrik Hosting GmbH" /></label>
 						<label
@@ -142,11 +136,39 @@
 			</section>
 
 			<section id="step-result" aria-labelledby="h-result" hidden>
-				<h2 id="h-result" data-i18n="hResult">2. Ergebnis</h2>
+				<h2 id="h-result" data-i18n="hResult">Ergebnis</h2>
 				<dl class="summary" id="summary"></dl>
 				<p class="note" id="result-note"></p>
 				<div class="actions" id="downloads"></div>
 				<p class="note" data-i18n="signHint">Drucken, prüfen und unterschreiben: Ein Eigenbeleg gilt erst mit Ihrer Unterschrift.</p>
+			</section>
+
+			<section id="so-gehts" aria-labelledby="h-how">
+				<h2 id="h-how" data-i18n="hHow">So geht's</h2>
+				<p class="lead" data-i18n="forWhom">Für alle, die auf NEAR, Akash oder Filecoin bezahlen, für Hosting, Speicher oder Verträge, und dafür einen Beleg für die Buchhaltung brauchen.</p>
+				<figure class="sample">
+					<!-- Example data only: what one Eigenbeleg looks like, in the share card's style. -->
+					<div class="card" aria-hidden="true">
+						<div class="doc">Eigenbeleg</div>
+						<div class="no">EB-2026-042</div>
+						<div class="line"><span data-i18n="kindFee">Netzwerkgebühren</span><span>0,0012 NEAR</span></div>
+						<div class="line dash"><span>9fK3…tx7Q</span><span>0,00 €</span></div>
+						<div class="line"><span data-i18n="kindStorage">Storage-Deposits</span><span>0,05 NEAR</span></div>
+						<div class="line dash"><span>Kurs 00:00 UTC</span><span>0,10 €</span></div>
+						<span class="badge">PDF/A · CSV</span>
+					</div>
+					<figcaption>
+						<strong data-i18n="sampleTitle">So sieht das Ergebnis aus</strong>
+						<span class="note" data-i18n="sampleText">Je Transaktion ein Eigenbeleg mit Hash, Von/An, allen Bewegungen, QR-Code zum Explorer und Unterschriftszeile. Je Adresse ein Kontoauszug mit Anfangssaldo, Buchungen und Endsaldo, gegen die Chain geprüft. Beides als PDF/A, dazu eine CSV für die Tabelle.</span>
+					</figcaption>
+				</figure>
+				<p class="note" data-i18n="privacy">Die Seite liest die Chain, holt die Kurse und erstellt die PDFs in diesem Browser. Name und Anschrift verlassen das Gerät nie, und kein Server von uns sieht Ihre Adressen. Der Quellcode ist offen (AGPL-3.0), jeder kann prüfen, was die Seite tut.</p>
+				<details id="sources">
+					<summary data-i18n="sourcesSummary">Welche Dienste Ihr Browser dabei fragt</summary>
+					<p class="note" data-i18n="sourcesIntro">Ihr Browser fragt nur diese Dienste, direkt.</p>
+					<ul id="sources-list" class="note"></ul>
+				</details>
+				<p class="note" data-i18n="install">Die Seite lässt sich als App installieren (im Browser-Menü „Installieren“ oder „Zum Home-Bildschirm“) und startet dann auch ohne Netz.</p>
 			</section>
 
 			<section id="agents" aria-labelledby="h-agents">

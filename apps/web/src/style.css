@@ -134,3 +134,25 @@ footer nav { display: flex; gap: 0.4rem 1.1rem; flex-wrap: wrap; }
 footer p { margin: 0.5rem 0 0; }
 [hidden] { display: none !important; }
 @media (max-width: 30rem) { .summary { grid-template-columns: 1fr; } .summary dd { margin-bottom: 0.4rem; } }
+
+/* The jump bar: four places on the page, the one in view marked; it sticks under the top edge. */
+.jump { position: sticky; top: 0; z-index: 4; display: flex; gap: 0.25rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0.75rem -1rem 0; padding: 0.4rem 1rem; background: var(--bg); border-bottom: 1px solid var(--line); }
+.jump::-webkit-scrollbar { display: none; }
+.jump a { white-space: nowrap; }
+.jump a { color: var(--muted); text-decoration: none; font-weight: 500; font-size: 0.9rem; padding: 0.3rem 0.7rem; border-radius: 999px; }
+.jump a:hover { color: var(--fg); }
+.jump a[aria-current] { background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
+.jump a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+section, details.legal { scroll-margin-top: 3.4rem; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+/* The steps above the form: the current one in the accent. */
+.steps { display: flex; gap: 0.4rem; list-style: none; padding: 0; margin: 0 0 1rem; counter-reset: step; }
+.steps li { flex: 1 1 0; min-width: 0; border-top: 3px solid var(--line); padding-top: 0.35rem; font-size: 0.8rem; color: var(--muted); counter-increment: step; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.steps li::before { content: counter(step) ' · '; font-family: var(--mono); }
+.steps li[aria-current] { border-color: var(--accent); color: var(--fg); font-weight: 600; }
+@media (max-width: 30rem) { .steps li { font-size: 0.72rem; white-space: normal; overflow: visible; } .steps li::before { display: block; } }
+/* The rarely needed settings, folded. */
+details.more { margin: 1rem 0; }
+details.more summary { cursor: pointer; font-weight: 500; color: var(--muted); }
+details.more summary:hover { color: var(--fg); }
+details.more[open] summary { margin-bottom: 0.25rem; }

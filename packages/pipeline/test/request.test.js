@@ -35,3 +35,9 @@ test('the preview mode takes no payer and needs none', () => {
 	assert.throws(() => parseRequest({ ...body, payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1' } }, { preview: true }), RequestError);
 	assert.throws(() => parseRequest(body), RequestError, 'the paid route still needs the payer');
 });
+
+test('the logo is off unless asked for, and only true or false', () => {
+	assert.equal(parseRequest(ok).logo, false);
+	assert.equal(parseRequest({ ...ok, logo: true }).logo, true);
+	refused({ logo: 'yes' });
+});

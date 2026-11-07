@@ -82,7 +82,8 @@ export function createApp({
 				document: 'eigenbelege (default; one per transaction) | kontoauszug (per address) | beide (format json only)',
 				payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' },
 				number: 'EB-2026-001 (optional, from your own range)',
-				includeKinds: ['fee', 'storage']
+				includeKinds: ['fee', 'storage'],
+				logo: 'true | false (optional: the chain\'s mark, small, beside the title)'
 			},
 			blocks: describeBlocks(blocks),
 			privacy: 'Nothing is stored beyond the request; logs hold method, path, status and duration only.',
@@ -124,7 +125,8 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
   "document": "eigenbelege" | "kontoauszug" | "beide",
   "payer": { "name": "…", "address": "street, postcode town" }   printed on the documents; used for this response only, never stored or logged,
   "number": "EB-2026-001",                    optional, first number of the payer's own range,
-  "includeKinds": ["fee", "storage"]          optional: fee, storage, transfer, call
+  "includeKinds": ["fee", "storage"],         optional: fee, storage, transfer, call
+  "logo": false                               optional: the chain's mark, small, beside the title
 }
 
 ## Notes

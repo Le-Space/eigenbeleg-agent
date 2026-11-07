@@ -85,9 +85,9 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	};
 	if (preview) return { summary, pdf: null, statements: [], csv: null };
 	onProgress?.({ step: 'draw' });
-	const pdf = req.format !== 'csv' && wantBelege ? await eigenbelegPdf(doc) : null;
+	const pdf = req.format !== 'csv' && wantBelege ? await eigenbelegPdf(doc, { logo: req.logo }) : null;
 	const statementPdfs = [];
-	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s) });
+	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s, { logo: req.logo }) });
 	const csv = req.format === 'pdf' ? null : eigenbelegCsv(doc);
 	return { summary, pdf, statements: statementPdfs, csv };
 }

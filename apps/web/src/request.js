@@ -17,6 +17,7 @@
  * @property {string} number first Eigenbeleg number; the others count up from it
  * @property {string} statementNumber Kontoauszug number (default KA-<from>)
  * @property {string[]} includeKinds
+ * @property {boolean} logo the chain's mark on the documents
  * @property {'eigenbelege' | 'kontoauszug' | 'beide'} document which documents are made
  */
 
@@ -39,6 +40,7 @@ export function requestBody(f) {
 		...(f.number.trim() ? { number: f.number.trim() } : {}),
 		...(f.statementNumber.trim() ? { statementNumber: f.statementNumber.trim() } : {}),
 		includeKinds: [...f.includeKinds],
+		logo: f.logo,
 		document: f.document,
 		format: 'json',
 		payer: { name: f.name.trim(), address: f.postal.trim() }

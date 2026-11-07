@@ -50,6 +50,7 @@ function values() {
 		number: s('number'),
 		statementNumber: s('statementNumber'),
 		includeKinds: fd.getAll('includeKinds').map(String),
+		logo: fd.get('logo') === 'on',
 		document: /** @type {'eigenbelege' | 'kontoauszug' | 'beide'} */ (s('document') || 'eigenbelege')
 	};
 }

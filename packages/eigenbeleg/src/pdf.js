@@ -13,7 +13,7 @@ import { encode } from 'uqr';
 import { round, toHex, utf8 } from '@le-space/ledger';
 
 import { deDate, deEuro, deNumber } from './document.js';
-import { asset, FONTS } from './assets.js';
+import { asset, FONTS, LOGOS } from './assets.js';
 
 
 const A4 = /** @type {[number, number]} */ ([595.28, 841.89]);
@@ -26,9 +26,10 @@ const WARN = rgb(0.6, 0.12, 0.08);
 
 /**
  * @param {import('./document.js').EigenbelegDocument} doc
+ * @param {{ logo?: boolean }} [o] logo: the chain's mark, small, beside the title (off unless asked for)
  * @returns {Promise<Uint8Array>}
  */
-export async function eigenbelegPdf(doc) {
+export async function eigenbelegPdf(doc, { logo = false } = {}) {
 	const created = new Date(doc.issuedAt);
 	const title = `Eigenbeleg ${doc.number}`;
 	const producer = 'eigenbeleg (Le Space UG), pdf-lib';
@@ -49,6 +50,7 @@ export async function eigenbelegPdf(doc) {
 	const regular = await pdf.embedFont(fontBytes[0], { subset: true });
 	const bold = await pdf.embedFont(fontBytes[1], { subset: true });
 	const mono = await pdf.embedFont(fontBytes[2], { subset: true });
+	const mark = logo && LOGOS[doc.chain] ? await pdf.embedPng(await asset(LOGOS[doc.chain])) : null;
 
 	let page = pdf.addPage(A4);
 	let y = A4[1] - M;
@@ -168,7 +170,9 @@ export async function eigenbelegPdf(doc) {
 			text('TESTNET – keine echte Zahlung. Kurse des Mainnet-Assets nur zur Veranschaulichung; dieser Beleg ist kein Buchungsbeleg.', { font: bold, size: 9, color: WARN });
 			gap(4);
 		}
+		const titleTop = y;
 		text('Eigenbeleg', { font: bold, size: 20 });
+		if (mark) page.drawImage(mark, { x: M + bold.widthOfTextAtSize('Eigenbeleg', 20) + 10, y: titleTop - 22, width: 22, height: 22 });
 		text(`Nr. ${number}`, { font: bold, size: 12 });
 		gap(2);
 		text(subtitle, { size: 10 });

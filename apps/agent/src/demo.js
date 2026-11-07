@@ -40,7 +40,9 @@ await runJob({
 		payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' },
 		number: 'EB-2026-001',
 		// both documents, asked for: the API delivers only what is asked
-		document: 'beide'
+		document: 'beide',
+		// the chain's mark beside the title (veraPDF checks this output in CI)
+		logo: true
 	}
 });
 

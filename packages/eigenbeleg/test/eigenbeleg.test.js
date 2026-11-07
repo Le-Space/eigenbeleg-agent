@@ -94,6 +94,10 @@ test('a real relayer day (public data) gives one position per fee', async () => 
 	assert.equal(d.positions.length, raw.txns.length);
 	assert.equal(d.excluded.length, 0);
 	assert.ok((await eigenbelegPdf(d)).length > 10_000);
+	// With the chain's mark: a bigger file, and the same bytes every time.
+	const marked = await eigenbelegPdf(d, { logo: true });
+	assert.ok(marked.length > (await eigenbelegPdf(d)).length + 2000);
+	assert.deepEqual(await eigenbelegPdf(d, { logo: true }), marked);
 });
 
 test('letters the fonts lack and bidi or control characters do not break the PDF (veraPDF rule 6.2.11.8)', async () => {
@@ -154,4 +158,7 @@ test('the Kontoauszug: running balance, sums, and the check against the chain', 
 	assert.ok((await statementPdf(dust)).length > 10_000);
 	assert.equal(ok.unlisted, 1, 'the spam token is not a section');
 	assert.ok((await statementPdf(ok)).length > 10_000);
+	const marked = await statementPdf(ok, { logo: true });
+	assert.ok(marked.length > (await statementPdf(ok)).length + 2000, 'the mark is in it');
+	assert.deepEqual(await statementPdf(ok, { logo: true }), marked, 'the same bytes every time');
 });

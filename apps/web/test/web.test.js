@@ -61,6 +61,9 @@ test('German and English have the same texts and placeholders; German is the def
 	// Every data-i18n key in the page has a text.
 	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 	for (const m of html.matchAll(/data-i18n="(\w+)"/g)) assert.ok(m[1] in TEXTS.de, m[1]);
+	// The privacy policy is in the markup in both languages; the Impressum is le-space.de's.
+	assert.deepEqual([...html.matchAll(/data-lang="(\w+)"/g)].map((m) => m[1]), ['de', 'en']);
+	assert.match(html, /href="https:\/\/le-space\.de\/#impressum"/);
 });
 
 test('the service worker keeps the placeholders the build fills with every file to precache', async () => {

@@ -84,6 +84,11 @@ says so.
   the files' hash into `sw.js`), so the installed app starts and draws documents
   offline; reading a chain still needs the network. A new version takes over
   once the page's tabs are closed or reloaded.
+- Legal: the privacy policy is in the page (`#datenschutz`, folded; German and
+  English in the markup, written for what this page does: served from our
+  server without access logs, the data sources, localStorage, the API). The
+  Impressum is the one on le-space.de (`#impressum` / `#imprint` open it there),
+  so no second copy has to be kept current.
 - The API serves `dist/` at `/ui/` (`GET /` sends browsers there) and the share
   cards; `__PUBLIC_URL__` in the share tags is the API's origin, or
   `VITE_PUBLIC_URL` at build time for a static host.

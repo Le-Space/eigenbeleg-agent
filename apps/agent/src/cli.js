@@ -25,8 +25,23 @@ try {
 	// no .env
 }
 
+const HELP = `The Eigenbeleg agent: buys Eigenbelege and Kontoauszüge from the API, paying with x402.
+
+  npm run agent -- --chain near --network testnet --address me.testnet --month 2026-10 \\
+    --name "Wolkenfabrik Hosting GmbH" --postal "Musterstraße 1, 12345 Beispielstadt"
+  npm run agent -- --job job.json          the request body from a file
+  npm run agent -- --market                one pass over the NEAR AI Agent Market (MARKET_TOKEN)
+
+Options: --chain, --network, --address (repeatable), --month YYYY-MM or --from/--to YYYY-MM-DD,
+  --name and --postal (the payer, printed on the documents), --number, --statement,
+  --include fee,storage,transfer,call, --document eigenbelege|kontoauszug|beide,
+  --api URL (else API_URL), --out DIR (else OUT_DIR, default ./out).
+Environment (.env): API_URL, AGENT_ACCOUNT_ID and AGENT_SECRET_KEY (or the near-cli keychain),
+  PAY_NETWORK (near:testnet), AGENT_BUDGET per payment (default $0.25).`;
+
 const { values: v } = parseArgs({
 	options: {
+		help: { type: 'boolean', short: 'h', default: false },
 		job: { type: 'string' },
 		market: { type: 'boolean', default: false },
 		chain: { type: 'string', default: 'near' },
@@ -45,6 +60,11 @@ const { values: v } = parseArgs({
 		out: { type: 'string' }
 	}
 });
+
+if (v.help) {
+	console.log(HELP);
+	process.exit(0);
+}
 
 const job = v.market ? null : v.job
 	? JSON.parse(await readFile(v.job, 'utf8'))

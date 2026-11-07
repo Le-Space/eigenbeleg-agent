@@ -144,6 +144,14 @@ test('the Kontoauszug: running balance, sums, and the check against the chain', 
 	assert.equal(near.closing, '11.998303634875');
 	assert.equal(near.difference, '-0.000000004875', 'off by what the chain says');
 	assert.equal(st('11.998303634875').sections[0].difference, '0');
+	// Reconciled: exactly, or below the twelve decimals the documents print (the 1 yoctoNEAR
+	// security deposit of a token transfer, which the reader leaves out). Not: 4.875 nanoNEAR.
+	const { isDust, reconciled } = await import('../src/index.js');
+	assert.deepEqual([reconciled('0'), reconciled('-0.000000000000000000000003'), reconciled('-0.000000004875'), reconciled(null)], [true, true, false, null]);
+	assert.deepEqual([isDust('-0.000000000000000000000003'), isDust('0.000000000001'), isDust('0')], [true, false, false]);
+	const dust = st('11.998303634874999999999997');
+	assert.equal(dust.sections[0].difference, '-0.000000000000000000000003');
+	assert.ok((await statementPdf(dust)).length > 10_000);
 	assert.equal(ok.unlisted, 1, 'the spam token is not a section');
 	assert.ok((await statementPdf(ok)).length > 10_000);
 });

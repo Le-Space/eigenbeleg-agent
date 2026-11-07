@@ -1,17 +1,75 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The building blocks this service has, by chain: what the agent checks
-// before it takes a job (GET /blocks).
+// before it takes a job (GET /blocks). The readers are @le-space/chains
+// (Le-Space/belege, packages/chains), shared with Le Space Belege; a block
+// here says what the Eigenbeleg makes of a chain: how to read a period, the
+// balances for a Kontoauszug, a live check, and the address check that runs
+// before anything is fetched.
 
-import { block as near } from '@eigenbeleg/chain-near';
-import { block as akash } from '@eigenbeleg/chain-cosmos';
-import { block as filecoin } from '@eigenbeleg/chain-filecoin';
+import * as near from '@le-space/chains/near';
+import * as akash from './readers/akash.js';
+import * as filecoin from './readers/filecoin.js';
 
-/** @type {Record<string, typeof near>} */
-export const BLOCKS = { near, akash, filecoin };
+/** The version of @le-space/chains the blocks are built on (a test holds it against the installed package). */
+export const CHAINS_VERSION = '0.2.0';
+
+/**
+ * @typedef {object} Block
+ * @property {string} name the module the reading comes from
+ * @property {string} chain the id in requests and the web UI
+ * @property {string[]} networks where payments can be read
+ * @property {string[]} assets what the chain's fees and deposits are paid in
+ * @property {string} source which API
+ * @property {string} version
+ * @property {(p: any) => Promise<import('@le-space/ledger').LedgerEntry[]>} read a period's entries, oldest first
+ * @property {(p: any) => Promise<any>} [statement] the entries and the balances before and after the period
+ * @property {(o?: any) => Promise<{ sample: string, entries: number }>} probe a live check against public data
+ * @property {(a: string) => boolean} isAddress before anything is fetched
+ */
+
+/** @type {Record<string, Block>} */
+export const BLOCKS = {
+	near: {
+		name: '@le-space/chains/near',
+		chain: 'near',
+		networks: ['mainnet', 'testnet'],
+		assets: ['NEAR', 'NEP-141 tokens (USDC, USDT, …)'],
+		source: 'NearBlocks API v3; balances from the FastNEAR archival RPC',
+		version: CHAINS_VERSION,
+		read: near.readNear,
+		statement: near.statementNear,
+		probe: near.probe,
+		isAddress: near.isAccountId
+	},
+	akash: {
+		name: '@le-space/chains/cosmos',
+		chain: 'akash',
+		networks: ['mainnet'],
+		assets: ['AKT'],
+		source: 'Akash RPC (PublicNode) + Akash Console indexer',
+		version: CHAINS_VERSION,
+		read: akash.readAkash,
+		statement: akash.statementAkash,
+		probe: akash.probe,
+		isAddress: akash.isAddress
+	},
+	filecoin: {
+		name: '@le-space/chains/filecoin',
+		chain: 'filecoin',
+		networks: ['mainnet'],
+		assets: ['FIL', 'USDFC'],
+		source: 'Filfox API',
+		version: CHAINS_VERSION,
+		read: filecoin.readFilecoin,
+		statement: filecoin.statementFilecoin,
+		probe: filecoin.probe,
+		isAddress: filecoin.isAddress
+	}
+};
 
 /** What GET /blocks says about each block (no functions). */
 export function describeBlocks() {
-	return Object.values(BLOCKS).map(({ read: _read, isAddress: _is, probe: _probe, ...rest }) => rest);
+	return Object.values(BLOCKS).map(({ read: _read, isAddress: _is, probe: _probe, statement: _st, ...rest }) => rest);
 }
 
 /** @type {Map<string, { at: number, ttl: number, result: Promise<Record<string, unknown>> }>} */

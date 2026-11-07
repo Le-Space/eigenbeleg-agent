@@ -4,3 +4,7 @@ export { eigenbelegCsv } from './csv.js';
 export { eigenbelegPdf } from './pdf.js';
 export { buildStatement, STATEMENT_NOTE } from './statement.js';
 export { statementPdf } from './statement-pdf.js';
+export { valueEntries, fixedRates } from './value.js';
+/** @typedef {import('./value.js').Rate} Rate */
+/** @typedef {import('./value.js').Rates} Rates */
+/** @typedef {import('./value.js').ValuedEntry} ValuedEntry */

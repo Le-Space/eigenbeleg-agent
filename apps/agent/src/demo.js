@@ -10,12 +10,12 @@
 
 import { readFile } from 'node:fs/promises';
 
-import { fixedRates } from '@eigenbeleg/rates';
+import { fixedRates } from '@eigenbeleg/eigenbeleg';
 import { createApp } from '../../api/src/app.js';
 import { runJob } from './agent.js';
 import { recordedNear } from './recorded.js';
 
-const raw = JSON.parse(await readFile(new URL('../../../packages/chain-near/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
+const raw = JSON.parse(await readFile(new URL('../../../packages/pipeline/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
 const recorded = recordedNear(raw);
 const app = createApp({
 	paywall: { middleware: null, info: { mode: 'none', note: 'demo: no payment' } },

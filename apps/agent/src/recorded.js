@@ -6,8 +6,8 @@
 // fixture's day and that balance plus the day's movements after it – what a
 // real archival node would say for an account that did only this.
 
-import { sum, toUnits, utf8 } from '@eigenbeleg/ledger-core';
-import { mapRaw } from '@eigenbeleg/chain-near';
+import { sum, toUnits, utf8 } from '@le-space/ledger';
+import { mapRaw } from '@le-space/chains/near';
 
 const T0 = Date.parse('2026-01-01T00:00:00Z');
 

@@ -7,7 +7,7 @@
 // spreadsheet shows it as text: account names and memos come from the chain,
 // where anyone can write anything.
 
-import { round } from '@eigenbeleg/ledger-core';
+import { round } from '@le-space/ledger';
 import { KIND_TEXT } from './document.js';
 
 const HEADER = [
@@ -53,7 +53,7 @@ export function eigenbelegCsv(doc) {
 	/** @type {unknown[][]} */
 	const rows = [HEADER];
 	const numberOf = (/** @type {number | string} */ pos) => (doc.layout === 'single' ? doc.transactions[Number(pos) - 1]?.number ?? '' : doc.number);
-	/** @param {import('@eigenbeleg/rates').ValuedEntry} e @param {string | number} pos @param {boolean} on @param {string} why */
+	/** @param {import('./value.js').ValuedEntry} e @param {string | number} pos @param {boolean} on @param {string} why */
 	const line = (e, pos, on, why) => [
 		on ? numberOf(pos) : '',
 		pos,

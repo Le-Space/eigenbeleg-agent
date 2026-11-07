@@ -22,7 +22,7 @@
 // with the reason) and its explorer link as a QR code.
 // Numbers come from the payer's own range, since this service stores nothing.
 
-import { normalize, round, sum } from '@eigenbeleg/ledger-core';
+import { normalize, round, sum } from '@le-space/ledger';
 
 /* The document is German: it is for German bookkeeping. */
 
@@ -59,14 +59,14 @@ export const CHAIN_NAMES = { near: 'NEAR Protocol', akash: 'Akash', filecoin: 'F
 /**
  * @typedef {object} Position
  * @property {number} pos
- * @property {import('@eigenbeleg/rates').ValuedEntry} entry
+ * @property {import('./value.js').ValuedEntry} entry
  * @property {string} what
  * @property {string} recipient
  */
 
 /**
  * @typedef {object} Movement one movement of a transaction
- * @property {import('@eigenbeleg/rates').ValuedEntry} entry
+ * @property {import('./value.js').ValuedEntry} entry
  * @property {string} what
  * @property {boolean} onIt on the Eigenbeleg
  * @property {string} why why not, when not
@@ -91,7 +91,7 @@ export const CHAIN_NAMES = { near: 'NEAR Protocol', akash: 'Akash', filecoin: 'F
  * @param {string} p.chain
  * @param {string} p.network
  * @param {{ from: string, to: string }} p.period
- * @param {import('@eigenbeleg/rates').ValuedEntry[]} p.entries every entry of the period, all own addresses
+ * @param {import('./value.js').ValuedEntry[]} p.entries every entry of the period, all own addresses
  * @param {string} [p.number] the Eigenbeleg's number in the payer's range, e.g. EB-2026-007
  * @param {string[]} [p.includeKinds]
  * @param {string} [p.issuedAt] ISO; now when not given
@@ -104,7 +104,7 @@ export function buildDocument({ payer, chain, network, period, entries, number, 
 	const own = new Set(payer.addresses);
 	/** @type {Position[]} */
 	const positions = [];
-	/** @type {{ entry: import('@eigenbeleg/rates').ValuedEntry, why: string }[]} */
+	/** @type {{ entry: import('./value.js').ValuedEntry, why: string }[]} */
 	const excluded = [];
 	for (const e of entries) {
 		const why =

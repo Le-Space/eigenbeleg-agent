@@ -4,14 +4,14 @@
 // the files. Nothing is kept afterwards. Runs in Node (the API) and in a
 // browser (the web UI) alike.
 
-import { sortEntries } from '@eigenbeleg/ledger-core';
-import { createRates, valueEntries } from '@eigenbeleg/rates';
-import { buildDocument, buildStatement, eigenbelegCsv, eigenbelegPdf, statementPdf } from '@eigenbeleg/eigenbeleg';
+import { sortEntries } from '@le-space/ledger';
+import { buildDocument, buildStatement, eigenbelegCsv, eigenbelegPdf, statementPdf, valueEntries } from '@eigenbeleg/eigenbeleg';
+import { dayRates } from './rates.js';
 import { BLOCKS } from './blocks.js';
 
 /**
  * @param {ReturnType<typeof import('./request.js').parseRequest>} req
- * @param {{ fetch?: typeof fetch, rates?: { rateFor: Function }, nearblocksKey?: string, now?: () => Date, probeDay?: string, endpoints?: Record<string, Record<string, string>> }} [deps]
+ * @param {{ fetch?: typeof fetch, rates?: import('@eigenbeleg/eigenbeleg').Rates, nearblocksKey?: string, now?: () => Date, probeDay?: string, endpoints?: Record<string, Record<string, string>> }} [deps]
  *   endpoints: per chain, endpoints to use instead of the reader's own, e.g. `{ akash: { indexer: 'https://…' } }` for a CORS proxy
  * @param {{ preview?: boolean }} [opts] preview: the summary only, no files
  */
@@ -20,7 +20,7 @@ export async function generate(req, deps = {}, { preview = false } = {}) {
 	const wantBelege = req.document !== 'kontoauszug';
 	const wantStatement = req.document !== 'eigenbelege';
 	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey, endpoints: deps.endpoints?.[req.chain] };
-	/** @type {import('@eigenbeleg/ledger-core').LedgerEntry[]} */
+	/** @type {import('@le-space/ledger').LedgerEntry[]} */
 	const entries = [];
 	/** @type {{ account: string, opening: Record<string, string>, closing: Record<string, string>, method: 'archive' | 'derived', at: any }[]} */
 	const balances = [];
@@ -31,8 +31,8 @@ export async function generate(req, deps = {}, { preview = false } = {}) {
 			balances.push({ account, opening: st.opening, closing: st.closing, method: st.method, at: st.at });
 		} else entries.push(...(await block.read({ ...read, account })));
 	}
-	const rates = deps.rates ?? createRates({ fetch: deps.fetch });
-	const valued = await valueEntries(sortEntries(entries), /** @type {any} */ (rates));
+	const rates = deps.rates ?? dayRates({ fetch: deps.fetch });
+	const valued = await valueEntries(sortEntries(entries), rates);
 	const issuedAt = (deps.now?.() ?? new Date()).toISOString();
 	const doc = buildDocument({ payer: req.payer, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single' });
 	const belege = new Map(doc.transactions.map((t) => [t.hash, t.number]));

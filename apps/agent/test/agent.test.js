@@ -4,12 +4,12 @@ import { mkdtemp, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { fixedRates } from '@eigenbeleg/rates';
+import { fixedRates } from '@eigenbeleg/eigenbeleg';
 import { createApp } from '../../api/src/app.js';
 import { recordedNear } from '../src/recorded.js';
 import { runJob } from '../src/agent.js';
 
-const raw = JSON.parse(await readFile(new URL('../../../packages/chain-near/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
+const raw = JSON.parse(await readFile(new URL('../../../packages/pipeline/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
 const recorded = recordedNear(raw);
 const payer = { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' };
 

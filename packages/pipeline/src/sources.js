@@ -29,7 +29,7 @@ export function dataSources({ akashIndexer = 'https://console-api.akash.network'
 		{ origin: 'https://akash-rest.publicnode.com', chain: 'akash', learns: 'addresses', what: 'Akash balances (PublicNode REST)' },
 		...(akashIndexer ? [{ origin: new URL(akashIndexer).origin, chain: 'akash', learns: /** @type {const} */ ('addresses'), what: 'older Akash history (Akash Console indexer)' }] : []),
 		{ origin: 'https://filfox.info', chain: 'filecoin', learns: 'addresses', what: 'Filecoin messages and balances (Filfox)' },
-		{ origin: 'https://api.kraken.com', chain: 'rates', learns: 'assets', what: 'EUR rates (Kraken)' },
-		{ origin: 'https://api.coingecko.com', chain: 'rates', learns: 'assets', what: 'EUR rates where Kraken has none (CoinGecko)' }
+		{ origin: 'https://api.kraken.com', chain: 'rates', learns: 'assets', what: 'EUR rates where CoinGecko has none (Kraken, the day\'s open)' },
+		{ origin: 'https://api.coingecko.com', chain: 'rates', learns: 'assets', what: 'EUR rates (CoinGecko, the price at 00:00 UTC)' }
 	];
 }

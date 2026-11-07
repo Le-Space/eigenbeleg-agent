@@ -14,7 +14,7 @@
 // balances (Akash, Filecoin), the balances are derived from today's balance
 // less the movements since, and the statement says that instead.
 
-import { normalize, sum } from '@eigenbeleg/ledger-core';
+import { normalize, sum } from '@le-space/ledger';
 import { CHAIN_NAMES, KIND_TEXT } from './document.js';
 
 export const STATEMENT_NOTE =
@@ -44,7 +44,7 @@ export const STATEMENT_NOTE =
  * @param {string} p.chain
  * @param {string} p.network
  * @param {{ from: string, to: string }} p.period
- * @param {import('@eigenbeleg/rates').ValuedEntry[]} p.entries this account's entries in the period
+ * @param {import('./value.js').ValuedEntry[]} p.entries this account's entries in the period
  * @param {Record<string, string>} p.opening asset → balance before the period
  * @param {Record<string, string>} p.closing asset → balance after it, as the chain or the derivation says
  * @param {'archive' | 'derived'} p.method

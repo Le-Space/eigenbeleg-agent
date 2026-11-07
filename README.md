@@ -149,7 +149,7 @@ One Eigenbeleg per transaction, as Belege writes them (`EB-2026-007`, `EB-2026-0
 | The transaction: date and time (UTC), the **full hash**, **Von** (your address) and **An** (the full recipient address), the explorer link and a **QR code** of it | Anyone can check it from paper. |
 | **Every movement** of the transaction (payment, gas; what is not on the Eigenbeleg greyed, with the reason), quantity with all decimals, EUR rate, EUR value | Nothing of the transaction is left out. |
 | Amount in EUR (rounded to cents; the exact value below it), "Was wurde bezahlt", "Warum kein Fremdbeleg" | The amount to book and the reason. |
-| **Rate source** (Kraken day VWAP for the asset in EUR; CoinGecko where Kraken has no day) | The rate can be looked up again. |
+| **Rate source** (the price at 00:00 UTC of the day: CoinGecko, else Kraken's daily open; `@le-space/rates`, the same rule as Le Space Belege) | The rate can be looked up again. |
 | "Dies ist keine Rechnung …" and a signature line | It is your document, not ours. |
 
 ## What the Kontoauszug contains
@@ -281,12 +281,12 @@ Testnet vs mainnet: `PAY_NETWORK` decides where customers pay; the chain data re
 
 | Host | For |
 | --- | --- |
-| `api.nearblocks.io`, `api-testnet.nearblocks.io` | NEAR account history (chain-near) |
+| `api.nearblocks.io`, `api-testnet.nearblocks.io` | NEAR account history (`@le-space/chains/near`) |
 | `archival-rpc.mainnet.fastnear.com`, `archival-rpc.testnet.fastnear.com` | NEAR balances at a block (Kontoauszug), storage refunds |
 | `rpc.mainnet.fastnear.com`, `rpc.testnet.fastnear.com` (or `NEAR_RPC_URL`) | x402 verification and settlement: chain state, submitting the relayed payment |
 | `api.kraken.com`, `api.coingecko.com` | EUR day rates |
-| `akash-rpc.publicnode.com`, `akash-rest.publicnode.com`, `console-api.akash.network` | Akash history and balance (chain-cosmos) |
-| `filfox.info` | Filecoin history and balance (chain-filecoin) |
+| `akash-rpc.publicnode.com`, `akash-rest.publicnode.com`, `console-api.akash.network` | Akash history and balance (`@le-space/chains/cosmos`) |
+| `filfox.info` | Filecoin history and balance (`@le-space/chains/filecoin`) |
 | `pay.pingpay.io` | only with `PAYWALL=ping` |
 
 The addresses of a request go to the data sources of its chain, and nowhere else. The payer's name and postal address never leave the server: they appear only in the documents sent back. Links in the documents (`nearblocks.io`, `testnet.nearblocks.io`, `mintscan.io`, `filfox.info`, the source repository) are never called by the server.
@@ -308,23 +308,21 @@ The payer's name and address live only for the request. Nothing is stored, and l
 
 | Package | What |
 | --- | --- |
-| `packages/ledger-core` | The neutral booking format `eigenbeleg.ledger/1` (one entry per movement, from one own address), and decimal arithmetic on strings |
-| `packages/chain-near` | NEAR via NearBlocks API v3: NEAR sent and received, gas fee per signed transaction, NEP-141 transfers; spam tokens listed but never valued |
-| `packages/chain-cosmos` | Akash: node `tx_search` plus the Akash Console indexer for older history; escrow deposits as their own kind |
-| `packages/chain-filecoin` | Filecoin via Filfox: FIL sends and receipts, miner tip plus burnt fee as one network fee, USDFC (valued at the USD stablecoin rate) |
-| `packages/rates` | EUR per asset and UTC day: Kraken day VWAP, CoinGecko fallback |
-| `packages/eigenbeleg` | The document, the PDF/A-2b and the CSV (fonts and colour profile from files in Node, fetched in a browser) |
-| `packages/pipeline` | One request start to end (check, read, value, draw) and the list of data sources: the same code in the API and in the web UI; tested in Node and Chromium |
+| [`@le-space/ledger`](https://github.com/Le-Space/belege/tree/main/packages/ledger) (npm) | The booking format `le-space.ledger/1` (one entry per movement, from one own address), decimal arithmetic on strings, bytes without `Buffer`. Shared with Le Space Belege (#6) |
+| [`@le-space/chains`](https://github.com/Le-Space/belege/tree/main/packages/chains) (npm) | The readers: NEAR via NearBlocks API v3 and the FastNEAR archival RPC; Akash via the node's `tx_search` plus the Akash Console indexer; Filecoin via Filfox (FIL, USDFC). Also EVM, Bitcoin, Nym and Aleph for Belege |
+| [`@le-space/rates`](https://github.com/Le-Space/belege/tree/main/packages/rates) (npm) | EUR per asset and UTC day: the price at 00:00 UTC (CoinGecko, else Kraken's daily open) |
+| `packages/eigenbeleg` | The document, the PDF/A-2b and the CSV (fonts and colour profile from files in Node, fetched in a browser); the euro valuation of entries |
+| `packages/pipeline` | One request start to end (check, read, value, draw), the blocks (what the Eigenbeleg makes of each chain: the fee to the network, an Akash escrow its own kind, which assets are priced), the rate's name on the document, and the list of data sources: the same code in the API and in the web UI; tested in Node and Chromium |
 | `apps/api` | The HTTP API and the paywall (`near` / `ping` / `none`) |
 | `apps/agent` | The agent, its x402 payer, the PR drafts |
 | `apps/web` | The web UI, a PWA (Vite): runs the pipeline in the browser; no wallet, no payment, nothing sent to the API |
 | `deploy/akash-proxy` | A Cloudflare Worker: CORS for the Akash Console indexer, the one source a browser cannot read |
 
-A new chain is a package (AGPL-3.0-or-later, like the others) that exports `block = { chain, networks, version, source, read, probe, isAddress }`; `read` returns ledger entries. `npm run agent` for that chain drafts exactly this.
+A new chain is a reader in `@le-space/chains` (Le-Space/belege, `packages/chains`, AGPL-3.0-or-later) and a block in `packages/pipeline/src/blocks.js` (`{ chain, networks, version, source, read, statement, probe, isAddress }`); `read` returns ledger entries. `npm run agent` for that chain drafts the reader; [CONTRIBUTING.md](CONTRIBUTING.md) says how.
 
 ## What was built during the hackathon
 
-Everything in this repository was written for NEAR HACKATHON from 6 Nov 2026 (see the git history), with one exception. The readers under `packages/chain-cosmos/src/vendor/` (Akash) and `packages/chain-filecoin/src/vendor/` (Filecoin) are Le Space's own pre-hackathon code from [Belege](https://github.com/Le-Space/belege) (Oct 2026). They carry the same licence as Belege, AGPL-3.0-or-later, and count as baseline; the adapters around them are new. Libraries used: `pdf-lib`, `@noble/hashes`, `@scure/base`, `@pdf-lib/fontkit`, DejaVu fonts, `express`, `@x402/core`, `@x402/express`, `@x402/fetch`, `@x402/near`, `@pingpay/agentpay-middleware`, and a CC0 sRGB profile ([Compact-ICC-Profiles](https://github.com/saucecontrol/Compact-ICC-Profiles)).
+Everything in this repository was written for NEAR HACKATHON from 6 Nov 2026 (see the git history), with one exception. The Akash and Filecoin readers (now `@le-space/chains`, shared with [Belege](https://github.com/Le-Space/belege), AGPL-3.0-or-later) are Le Space's own pre-hackathon code (Oct 2026) and count as baseline; the NEAR reader, the booking format, the documents and the pipeline were written here and moved to the shared packages afterwards (#6). Libraries used: `pdf-lib`, `@noble/hashes`, `@scure/base`, `@pdf-lib/fontkit`, DejaVu fonts, `express`, `@x402/core`, `@x402/express`, `@x402/fetch`, `@x402/near`, `@pingpay/agentpay-middleware`, and a CC0 sRGB profile ([Compact-ICC-Profiles](https://github.com/saucecontrol/Compact-ICC-Profiles)).
 
 ## Limits
 
@@ -342,4 +340,4 @@ What this means in practice:
 - **Changing it** is allowed; changed versions stay under the AGPL.
 - **Running it as a service for others**: anyone who runs the API, changed or not, for users over a network must offer those users the complete source of the version they run, changes included (AGPL section 13). The API does this itself. `GET /` answers with a `source` link, set with `SOURCE_URL` (default: this repository). Point it at your fork if you changed something.
 
-Chain data powered by [NearBlocks.io](https://nearblocks.io) APIs. Rates from Kraken and CoinGecko. Third-party parts keep their own licences: DejaVu fonts (Bitstream Vera licence) and the CC0 sRGB profile; the npm dependencies are MIT or Apache-2.0.
+Chain data powered by [NearBlocks.io](https://nearblocks.io) APIs. Rates from CoinGecko and Kraken. Third-party parts keep their own licences: DejaVu fonts (Bitstream Vera licence) and the CC0 sRGB profile; the npm dependencies are MIT or Apache-2.0.

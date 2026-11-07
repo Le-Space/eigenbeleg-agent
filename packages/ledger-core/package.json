@@ -1,8 +1,0 @@
-{
-  "name": "@eigenbeleg/ledger-core",
-  "version": "0.1.0",
-  "type": "module",
-  "license": "AGPL-3.0-or-later",
-  "main": "./src/index.js",
-  "exports": { ".": "./src/index.js", "./bytes": "./src/bytes.js" }
-}

@@ -4,12 +4,12 @@ import { readFile } from 'node:fs/promises';
 
 import { paymentMiddleware, x402ResourceServer } from '@x402/express';
 import { ExactNearScheme } from '@x402/near/exact/server';
-import { fixedRates } from '@eigenbeleg/rates';
+import { fixedRates } from '@eigenbeleg/eigenbeleg';
 
 import { createApp } from '../src/app.js';
 import { recordedNear } from '../../agent/src/recorded.js';
 
-const raw = JSON.parse(await readFile(new URL('../../../packages/chain-near/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
+const raw = JSON.parse(await readFile(new URL('../../../packages/pipeline/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
 /** NearBlocks and the archival RPC, as the fixture has them. */
 const fetch = recordedNear(raw);
 const deps = { fetch, rates: fixedRates({ NEAR: '2' }), now: () => new Date('2026-11-06T10:00:00Z') };

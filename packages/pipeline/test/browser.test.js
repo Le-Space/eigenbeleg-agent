@@ -13,7 +13,7 @@ import { extname, join, normalize } from 'node:path';
 
 import { fixtureRun } from './fixture-run.js';
 
-const raw = JSON.parse(await readFile(new URL('../../chain-near/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
+const raw = JSON.parse(await readFile(new URL('./fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
 
 /** @param {string} dir */
 function serve(dir) {

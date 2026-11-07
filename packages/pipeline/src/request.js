@@ -3,7 +3,7 @@
 // What the payer sends (name, postal address) is used for this one response
 // and dropped; it is never logged or stored.
 
-import { monthPeriod } from '@eigenbeleg/ledger-core';
+import { monthPeriod } from '@le-space/ledger';
 import { DEFAULT_KINDS } from '@eigenbeleg/eigenbeleg/document';
 import { BLOCKS } from './blocks.js';
 

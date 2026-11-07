@@ -53,7 +53,7 @@ no other host. A test holds the list against every URL in the packages.
 | akash-rpc / akash-rest.publicnode.com | Akash transactions and balances | the addresses |
 | the Akash proxy (`VITE_AKASH_INDEXER`) | older Akash history (Akash Console indexer) | the addresses |
 | filfox.info | Filecoin | the addresses |
-| api.kraken.com, api.coingecko.com | EUR rates | the currency only |
+| api.coingecko.com, api.kraken.com | EUR rates (the price at 00:00 UTC, `@le-space/rates`) | the currency only |
 
 All of these send `Access-Control-Allow-Origin` (checked 6 Nov 2026), except the
 Akash Console indexer; for it, [`deploy/akash-proxy`](../deploy/akash-proxy) is a

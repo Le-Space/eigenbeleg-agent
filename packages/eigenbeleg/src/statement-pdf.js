@@ -9,7 +9,7 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 
-import { round } from '@eigenbeleg/ledger-core';
+import { round } from '@le-space/ledger';
 import { deDate, deEuro, deNumber } from './document.js';
 import { makePdfA } from './pdf.js';
 import { asset, FONTS } from './assets.js';
@@ -231,7 +231,7 @@ export async function statementPdf(st) {
 		}
 		y -= 4;
 		text(
-			`Ausgänge ${deEuro(s.eurOut)} · Eingänge ${deEuro(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${deEuro(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – Euro-Werte zum Tageskurs (Kraken VWAP, sonst CoinGecko).`,
+			`Ausgänge ${deEuro(s.eurOut)} · Eingänge ${deEuro(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${deEuro(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – Euro-Werte zum Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken).`,
 			{ size: 7.5, color: GREY }
 		);
 		y -= 12;

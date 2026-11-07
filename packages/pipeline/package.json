@@ -10,15 +10,14 @@
     "./request": "./src/request.js",
     "./blocks": "./src/blocks.js",
     "./sources": "./src/sources.js",
-    "./generate": "./src/generate.js"
+    "./generate": "./src/generate.js",
+    "./rates": "./src/rates.js"
   },
   "dependencies": {
-    "@eigenbeleg/chain-cosmos": "0.1.0",
-    "@eigenbeleg/chain-filecoin": "0.1.0",
-    "@eigenbeleg/chain-near": "0.1.0",
     "@eigenbeleg/eigenbeleg": "0.1.0",
-    "@eigenbeleg/ledger-core": "0.1.0",
-    "@eigenbeleg/rates": "0.1.0"
+    "@le-space/chains": "0.2.0",
+    "@le-space/ledger": "0.2.0",
+    "@le-space/rates": "0.2.0"
   },
   "devDependencies": {
     "@noble/hashes": "2.4.0"

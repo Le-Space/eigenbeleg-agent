@@ -207,6 +207,7 @@ function applyLang() {
 		if (key) el.textContent = t(/** @type {any} */ (key));
 	}
 	$('btn-lang').lang = l === 'de' ? 'en' : 'de';
+	for (const btn of document.querySelectorAll('button[data-copy]')) btn.setAttribute('aria-label', t('copy'));
 	// Texts written in both languages in the markup (the privacy policy), and the Impressum on le-space.de.
 	for (const el of document.querySelectorAll('[data-lang]')) /** @type {HTMLElement} */ (el).hidden = /** @type {HTMLElement} */ (el).dataset.lang !== l;
 	/** @type {HTMLAnchorElement} */ ($('link-imprint')).href = l === 'de' ? 'https://le-space.de/#impressum' : 'https://le-space.de/#imprint';
@@ -231,6 +232,22 @@ if (saved) {
 remember.addEventListener('change', () => {
 	if (!remember.checked) rememberPayer(null);
 });
+// The prompt and the curl lines: a button copies the block next to it.
+for (const btn of document.querySelectorAll('button[data-copy]')) {
+	btn.addEventListener('click', async () => {
+		const pre = btn.parentElement?.querySelector('pre');
+		const label = /** @type {HTMLElement} */ (btn.querySelector('span'));
+		try {
+			await navigator.clipboard.writeText(pre?.textContent ?? '');
+			label.textContent = t('copied');
+		} catch {
+			// no clipboard (insecure context, denied): select the text so the person copies it
+			if (pre) getSelection()?.selectAllChildren(pre);
+			label.textContent = '';
+		}
+		setTimeout(() => (label.textContent = ''), 1500);
+	});
+}
 // A link to #datenschutz opens the folded policy.
 const openLegal = () => {
 	if (location.hash === '#datenschutz') /** @type {HTMLDetailsElement} */ ($('datenschutz')).open = true;

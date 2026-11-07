@@ -144,11 +144,17 @@
 			<section id="agents" aria-labelledby="h-agents">
 				<h2 id="h-agents" data-i18n="hAgents">Für Agenten: dieselben Dokumente per API, bezahlt per x402</h2>
 				<p data-i18n="agentsText">Wer einen Agenten für sich arbeiten lässt, nutzt die API. Sie prüft die Anfrage, liest, bewertet und zeichnet mit demselben Code wie diese Seite. Der Agent zahlt je Anfrage 0,10 USDC per x402, ohne Gas (derzeit auf dem NEAR-Testnet). Die Vorschau ist kostenlos, und abgebucht wird nur, wenn die Chain gelesen werden konnte.</p>
-				<p class="note" data-i18n="agentsPrompt">So beauftragen Sie zum Beispiel Claude oder einen anderen Agenten, der x402 kann:</p>
-				<pre data-i18n="prompt">Besorge mir die Eigenbelege für Oktober 2026 für meine NEAR-Adresse wolkenfabrik.near von https://eigenbeleg.le-space.de. Lies zuerst https://eigenbeleg.le-space.de/llms.txt. Aussteller: Wolkenfabrik Hosting GmbH, Musterstraße 1, 12345 Beispielstadt. Zahle höchstens 0,10 USDC.</pre>
+				<p class="note" data-i18n="agentsPrompt">So beauftragen Sie zum Beispiel Claude oder einen anderen Agenten, der x402 kann (die Adresse ist unser eigener Testnet-Agent, mit echten Zahlungen):</p>
+				<div class="copy">
+					<pre data-i18n="prompt">Besorge mir die Eigenbelege und den Kontoauszug für den 1. bis 6. November 2026 für meine NEAR-Testnet-Adresse eigenbeleg-agent.testnet von https://eigenbeleg.le-space.de. Lies zuerst https://eigenbeleg.le-space.de/llms.txt. Aussteller: Wolkenfabrik Hosting GmbH, Musterstraße 1, 12345 Beispielstadt. Zahle höchstens 0,10 USDC.</pre>
+					<button type="button" class="copy-btn" data-copy aria-label="In die Zwischenablage"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2" /><path d="M15 9V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4" fill="none" stroke="currentColor" stroke-width="2" /></svg><span></span></button>
+				</div>
 				<p class="note" data-i18n="agentsCurl">Was die API ist, was sie kostet und wie man zahlt, sagt sie selbst:</p>
-				<pre>curl https://eigenbeleg.le-space.de/
+				<div class="copy">
+					<pre>curl https://eigenbeleg.le-space.de/
 curl https://eigenbeleg.le-space.de/llms.txt</pre>
+					<button type="button" class="copy-btn" data-copy aria-label="In die Zwischenablage"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2" /><path d="M15 9V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4" fill="none" stroke="currentColor" stroke-width="2" /></svg><span></span></button>
+				</div>
 				<p class="note">
 					<span data-i18n="agentsMore">Der Agent aus dem Quellcode kauft innerhalb seines Budgets, prüft die PDFs und legt eine Quittung ab. Beauftragen lässt er sich auch auf dem</span>
 					<a href="https://market.near.ai" rel="noopener noreferrer">NEAR AI Agent Market</a>.

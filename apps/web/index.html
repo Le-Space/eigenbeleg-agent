@@ -51,15 +51,34 @@
 					<button type="button" class="link" id="btn-lang" data-i18n="langSwitch" lang="en">English</button>
 				</div>
 				<h1 data-i18n="title">Eigenbeleg für Blockchain-Zahlungen</h1>
+				<p class="tagline" data-i18n="tagline">Kostenlos und quelloffen. Alles in Ihrem Browser, nichts auf unseren Servern.</p>
 				<p class="lead">
 					<span data-i18n="lead1">Ein Eigenbeleg ist ein Beleg, den Sie selbst für Ihre eigenen Zahlungen ausstellen, wenn niemand eine Rechnung schickt: Netzwerkgebühren, Storage-Deposits, Zahlungen an Peer-to-Peer-Netzwerke. Er ist </span><strong data-i18n="lead2">keine Rechnung</strong><span data-i18n="lead3">. Ob Ihr Steuerberater ihn annimmt, entscheidet er.</span>
 				</p>
-				<p class="note" data-i18n="privacy">Alles geschieht in diesem Browser: Er liest die Chain, holt die Kurse und erstellt die PDFs. Name und Anschrift verlassen das Gerät nie, und kein Server von uns sieht Ihre Adressen. Kostenlos.</p>
+				<p class="lead" data-i18n="forWhom">Für alle, die auf NEAR, Akash oder Filecoin bezahlen, für Hosting, Speicher oder Verträge, und dafür einen Beleg für die Buchhaltung brauchen.</p>
+				<figure class="sample">
+					<!-- Example data only: what one Eigenbeleg looks like, in the share card's style. -->
+					<div class="card" aria-hidden="true">
+						<div class="doc">Eigenbeleg</div>
+						<div class="no">EB-2026-042</div>
+						<div class="line"><span data-i18n="kindFee">Netzwerkgebühren</span><span>0,0012 NEAR</span></div>
+						<div class="line dash"><span>9fK3…tx7Q</span><span>0,00 €</span></div>
+						<div class="line"><span data-i18n="kindStorage">Storage-Deposits</span><span>0,05 NEAR</span></div>
+						<div class="line dash"><span>Kraken VWAP</span><span>0,10 €</span></div>
+						<span class="badge">PDF/A · CSV</span>
+					</div>
+					<figcaption>
+						<strong data-i18n="sampleTitle">So sieht das Ergebnis aus</strong>
+						<span class="note" data-i18n="sampleText">Je Transaktion ein Eigenbeleg mit Hash, Von/An, allen Bewegungen, QR-Code zum Explorer und Unterschriftszeile. Je Adresse ein Kontoauszug mit Anfangssaldo, Buchungen und Endsaldo, gegen die Chain geprüft. Beides als PDF/A, dazu eine CSV für die Tabelle.</span>
+					</figcaption>
+				</figure>
+				<p class="note" data-i18n="privacy">Die Seite liest die Chain, holt die Kurse und erstellt die PDFs in diesem Browser. Name und Anschrift verlassen das Gerät nie, und kein Server von uns sieht Ihre Adressen. Der Quellcode ist offen (AGPL-3.0), jeder kann prüfen, was die Seite tut.</p>
 				<details id="sources">
 					<summary data-i18n="sourcesSummary">Welche Dienste Ihr Browser dabei fragt</summary>
 					<p class="note" data-i18n="sourcesIntro">Ihr Browser fragt nur diese Dienste, direkt.</p>
 					<ul id="sources-list" class="note"></ul>
 				</details>
+				<p class="note" data-i18n="install">Die Seite lässt sich als App installieren (im Browser-Menü „Installieren“ oder „Zum Home-Bildschirm“) und startet dann auch ohne Netz.</p>
 			</header>
 
 			<section id="step-form" aria-labelledby="h-form">
@@ -122,11 +141,29 @@
 				<p class="note" data-i18n="signHint">Drucken, prüfen und unterschreiben: Ein Eigenbeleg gilt erst mit Ihrer Unterschrift.</p>
 			</section>
 
-			<footer>
-				<p>
-					<a href="https://github.com/Le-Space/eigenbeleg-agent" rel="noopener noreferrer" data-i18n="source">Quellcode</a> (AGPL-3.0-or-later) ·
-					<a href="https://github.com/Le-Space/eigenbeleg-agent#api" rel="noopener noreferrer" data-i18n="agents">Für Agenten: API mit x402</a>
+			<section id="agents" aria-labelledby="h-agents">
+				<h2 id="h-agents" data-i18n="hAgents">Für Agenten: dieselben Dokumente per API, bezahlt per x402</h2>
+				<p data-i18n="agentsText">Wer einen Agenten für sich arbeiten lässt, nutzt die API. Sie prüft die Anfrage, liest, bewertet und zeichnet mit demselben Code wie diese Seite. Der Agent zahlt je Anfrage 0,10 USDC per x402, ohne Gas (derzeit auf dem NEAR-Testnet). Die Vorschau ist kostenlos, und abgebucht wird nur, wenn die Chain gelesen werden konnte.</p>
+				<p class="note" data-i18n="agentsPrompt">So beauftragen Sie zum Beispiel Claude oder einen anderen Agenten, der x402 kann:</p>
+				<pre data-i18n="prompt">Besorge mir die Eigenbelege für Oktober 2026 für meine NEAR-Adresse wolkenfabrik.near von https://eigenbeleg.le-space.de. Lies zuerst https://eigenbeleg.le-space.de/llms.txt. Aussteller: Wolkenfabrik Hosting GmbH, Musterstraße 1, 12345 Beispielstadt. Zahle höchstens 0,10 USDC.</pre>
+				<p class="note" data-i18n="agentsCurl">Was die API ist, was sie kostet und wie man zahlt, sagt sie selbst:</p>
+				<pre>curl https://eigenbeleg.le-space.de/
+curl https://eigenbeleg.le-space.de/llms.txt</pre>
+				<p class="note">
+					<span data-i18n="agentsMore">Der Agent aus dem Quellcode kauft innerhalb seines Budgets, prüft die PDFs und legt eine Quittung ab. Beauftragen lässt er sich auch auf dem</span>
+					<a href="https://market.near.ai" rel="noopener noreferrer">NEAR AI Agent Market</a>.
 				</p>
+			</section>
+
+			<footer>
+				<nav aria-label="Seiten">
+					<a href="https://github.com/Le-Space/eigenbeleg-agent/blob/main/docs/web-ui.md" rel="noopener noreferrer" data-i18n="navGuide">Anleitung</a>
+					<a href="#agents" data-i18n="navAgents">Für Agenten</a>
+					<a href="https://eigenbeleg.le-space.de/llms.txt" data-i18n="navApi">API (llms.txt)</a>
+					<a href="#sources" data-i18n="navPrivacy">Datenschutz</a>
+					<a href="https://github.com/Le-Space/eigenbeleg-agent" rel="noopener noreferrer" data-i18n="source">Quellcode</a>
+				</nav>
+				<p data-i18n="licence">Le Space UG · AGPL-3.0-or-later</p>
 			</footer>
 		</main>
 		<script type="module" src="/src/main.js"></script>

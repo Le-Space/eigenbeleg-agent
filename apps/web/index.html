@@ -161,13 +161,63 @@ curl https://eigenbeleg.le-space.de/llms.txt</pre>
 				</p>
 			</section>
 
+			<!-- The privacy policy, written for what this page does; German and English in the markup,
+			     src/main.js shows the [data-lang] of the chosen language. The Impressum is the one on
+			     le-space.de (its #impressum / #imprint open it), so there is no second copy to keep current. -->
+			<details id="datenschutz" class="legal">
+				<summary data-i18n="hPrivacy">Datenschutzerklärung</summary>
+				<div data-lang="de">
+					<h3>1. Verantwortlicher</h3>
+					<p>Le Space UG (haftungsbeschränkt); Anschrift und Vertretung im <a href="https://le-space.de/#impressum" rel="noopener noreferrer">Impressum</a>. E-Mail für Fragen zum Datenschutz: datenschutz@le-space.de.</p>
+					<h3>2. Das Wichtigste vorab</h3>
+					<p>Diese Seite hat keine Benutzerkonten, keine Cookies, kein Tracking und keine Analyse-Dienste. Was Sie eintragen (Name, Anschrift, Blockchain-Adressen, Zeitraum), verarbeitet Ihr Browser auf Ihrem Gerät; an einen Server von uns geht davon nichts. Die Dokumente entstehen auf Ihrem Gerät und werden nirgends abgelegt.</p>
+					<h3>3. Bereitstellung der Seite</h3>
+					<p>Die Dateien der Seite liefert unser Server unter eigenbeleg.le-space.de aus. Dabei verarbeitet er technisch bedingt Ihre IP-Adresse, um die Inhalte zu übertragen (Art. 6 Abs. 1 lit. f DSGVO, Bereitstellung der Website). Der Dienst protokolliert je Abruf Zeitpunkt, Methode, Pfad, Statuscode und Dauer; keine IP-Adresse, keine Inhalte.</p>
+					<h3>4. Dienste, die Ihr Browser fragt</h3>
+					<p>Um Zahlungen und Kurse zu lesen, fragt Ihr Browser auf Ihren Klick die unter <a href="#sources">Welche Dienste Ihr Browser dabei fragt</a> genannten Dienste direkt: NearBlocks und FastNEAR (NEAR), PublicNode (Akash), Filfox (Filecoin), Kraken und CoinGecko (Kurse) sowie, wenn eingerichtet, einen von uns betriebenen Proxy bei Cloudflare für den Akash-Indexer, der nichts speichert. Diese Anbieter erhalten Ihre IP-Adresse und, außer die Kursdienste, die Blockchain-Adressen, die Sie eingetragen haben; nie Name oder Anschrift. Blockchain-Adressen und ihre Transaktionen sind öffentlich. Es gilt die Datenschutzerklärung des jeweiligen Anbieters; wir erhalten von diesen Abfragen nichts.</p>
+					<h3>5. Speicherung in Ihrem Browser</h3>
+					<p>Die Seite legt in Ihrem Browser ab: die Sprache (nur wenn Sie den Schalter klicken), Name und Anschrift (nur wenn Sie „auf diesem Gerät merken“ ankreuzen; Abwählen löscht sie) und ihre eigenen Dateien im Cache des Service Workers, damit die App auch ohne Netz startet. Nichts davon verlässt Ihr Gerät (§ 25 Abs. 2 Nr. 2 TDDDG); löschen können Sie es jederzeit über die Website-Daten Ihres Browsers. Cookies setzen wir keine.</p>
+					<h3>6. Die API für Agenten</h3>
+					<p>Wer statt der Seite die API nutzt, sendet Blockchain-Adressen, Zeitraum sowie Name und Anschrift des Ausstellers an unseren Server. Sie werden nur für diese eine Antwort verwendet, nicht gespeichert und nicht protokolliert (Art. 6 Abs. 1 lit. b DSGVO). Die Bezahlung ist eine Transaktion auf der NEAR-Blockchain und dort öffentlich.</p>
+					<h3>7. Kontakt per E-Mail</h3>
+					<p>Wenn Sie uns per E-Mail schreiben, verarbeiten wir Ihre Angaben zur Beantwortung der Anfrage (Art. 6 Abs. 1 lit. b bzw. lit. f DSGVO) und löschen sie, sobald sie dafür nicht mehr erforderlich sind und keine gesetzlichen Aufbewahrungspflichten entgegenstehen.</p>
+					<h3>8. Externe Links</h3>
+					<p>Links zu GitHub, le-space.de, market.near.ai und anderen Angeboten sind reine Verweise; Inhalte von dort werden nicht eingebettet. Ab dem Klick gilt die Datenschutzerklärung des jeweiligen Anbieters.</p>
+					<h3>9. Ihre Rechte</h3>
+					<p>Sie haben das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18), Datenübertragbarkeit (Art. 20) sowie Widerspruch gegen Verarbeitungen auf Grundlage berechtigter Interessen (Art. 21). Außerdem können Sie sich bei einer Datenschutz-Aufsichtsbehörde beschweren (Art. 77 DSGVO), etwa bei der Behörde an Ihrem Wohnort.</p>
+					<p>Stand: November 2026</p>
+				</div>
+				<div data-lang="en" hidden>
+					<h3>1. Controller</h3>
+					<p>Le Space UG (haftungsbeschränkt); address and representative in the <a href="https://le-space.de/#imprint" rel="noopener noreferrer">imprint</a>. E-mail for privacy questions: privacy@le-space.de.</p>
+					<h3>2. The short version</h3>
+					<p>This page has no user accounts, no cookies, no tracking and no analytics. What you enter (name, postal address, blockchain addresses, period) is processed by your browser on your device; none of it goes to a server of ours. The documents are made on your device and stored nowhere.</p>
+					<h3>3. Serving the page</h3>
+					<p>The page's files are served by our server at eigenbeleg.le-space.de. To transfer them it necessarily processes your IP address (Art. 6(1)(f) GDPR, provision of the website). The service logs, per request, the time, method, path, status code and duration; no IP address, no content.</p>
+					<h3>4. Services your browser asks</h3>
+					<p>To read payments and rates, your browser asks, on your click, the services listed under <a href="#sources">Which services your browser asks</a> directly: NearBlocks and FastNEAR (NEAR), PublicNode (Akash), Filfox (Filecoin), Kraken and CoinGecko (rates) and, where set up, a proxy we run at Cloudflare for the Akash indexer, which stores nothing. These providers receive your IP address and, except the rate services, the blockchain addresses you entered; never name or postal address. Blockchain addresses and their transactions are public. Each provider's privacy policy applies; we receive nothing from these requests.</p>
+					<h3>5. Storage in your browser</h3>
+					<p>The page keeps in your browser: the language (only when you click the switch), name and postal address (only when you tick "remember on this device"; unticking deletes them) and its own files in the service worker's cache, so the app starts without a network. None of it leaves your device (Sect. 25(2) no. 2 TDDDG); you can delete it at any time through your browser's site data. We set no cookies.</p>
+					<h3>6. The API for agents</h3>
+					<p>Whoever uses the API instead of the page sends blockchain addresses, the period, and the issuer's name and postal address to our server. They are used for that one answer only, neither stored nor logged (Art. 6(1)(b) GDPR). The payment is a transaction on the NEAR blockchain and public there.</p>
+					<h3>7. Contact by e-mail</h3>
+					<p>If you write to us by e-mail, we process your details to answer your enquiry (Art. 6(1)(b) or (f) GDPR) and delete them once they are no longer needed for that purpose and no statutory retention duties apply.</p>
+					<h3>8. External links</h3>
+					<p>Links to GitHub, le-space.de, market.near.ai and other services are plain references; nothing from those sites is embedded. From the moment you click, the privacy policy of the respective provider applies.</p>
+					<h3>9. Your rights</h3>
+					<p>You have the right of access (Art. 15 GDPR), rectification (Art. 16), erasure (Art. 17), restriction of processing (Art. 18), data portability (Art. 20) and objection to processing based on legitimate interests (Art. 21). You may also lodge a complaint with a data protection supervisory authority (Art. 77 GDPR), for instance the one where you live.</p>
+					<p>Last updated: November 2026</p>
+				</div>
+			</details>
+
 			<footer>
 				<nav aria-label="Seiten">
 					<a href="https://github.com/Le-Space/eigenbeleg-agent/blob/main/docs/web-ui.md" rel="noopener noreferrer" data-i18n="navGuide">Anleitung</a>
 					<a href="#agents" data-i18n="navAgents">Für Agenten</a>
 					<a href="https://eigenbeleg.le-space.de/llms.txt" data-i18n="navApi">API (llms.txt)</a>
-					<a href="#sources" data-i18n="navPrivacy">Datenschutz</a>
 					<a href="https://github.com/Le-Space/eigenbeleg-agent" rel="noopener noreferrer" data-i18n="source">Quellcode</a>
+					<a href="#datenschutz" data-i18n="navPrivacy">Datenschutz</a>
+					<a id="link-imprint" href="https://le-space.de/#impressum" rel="noopener noreferrer" data-i18n="navImprint">Impressum</a>
 				</nav>
 				<p data-i18n="licence">Le Space UG · AGPL-3.0-or-later</p>
 			</footer>

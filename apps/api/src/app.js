@@ -16,12 +16,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 
-import { RequestError, checkBlock, describeBlocks, generate, parseRequest } from '@eigenbeleg/pipeline';
+import { RequestError, blocksFor, checkBlock, describeBlocks, generate, parseRequest } from '@eigenbeleg/pipeline';
 
 /**
  * @param {object} o
  * @param {{ middleware: import('express').RequestHandler | null, info: Record<string, unknown> }} o.paywall
- * @param {Parameters<typeof generate>[1]} [o.deps]
+ * @param {Parameters<typeof generate>[1]} [o.deps] with `alchemyKey` (ALCHEMY_KEY) the API also serves Ethereum and Base;
+ *   the key goes to their reads only, never into an answer or a log
  * @param {(line: string) => void} [o.log]
  * @param {string} [o.source] where the source of this running version is (AGPL-3.0-or-later, section 13)
  * @param {string | null} [o.web] the built web UI (apps/web/dist); null: no UI
@@ -31,13 +32,16 @@ import { RequestError, checkBlock, describeBlocks, generate, parseRequest } from
  */
 export function createApp({
 	paywall,
-	deps = {},
+	deps: given = {},
 	log = (l) => console.log(l),
 	source = 'https://github.com/Le-Space/eigenbeleg-agent',
 	web = WEB_DIST,
 	previewLimit = { max: 10, windowMs: 60_000 },
 	publicUrl
 }) {
+	// The blocks this instance serves: the keyless ones, and Ethereum and Base where an Alchemy key is set.
+	const blocks = blocksFor(given);
+	const deps = { ...given, blocks };
 	const app = express();
 	app.disable('x-powered-by');
 	// The paywalls match the exact path: `/eigenbeleg/` or `/EIGENBELEG` must not
@@ -80,7 +84,7 @@ export function createApp({
 				number: 'EB-2026-001 (optional, from your own range)',
 				includeKinds: ['fee', 'storage']
 			},
-			blocks: describeBlocks(),
+			blocks: describeBlocks(blocks),
 			privacy: 'Nothing is stored beyond the request; logs hold method, path, status and duration only.',
 			data: 'Powered by NearBlocks.io APIs; EUR rates: the price at 00:00 UTC from CoinGecko, else Kraken (@le-space/rates).',
 			license: 'AGPL-3.0-or-later',
@@ -112,7 +116,7 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
 ## Body
 
 {
-  "chain": "near" | "akash" | "filecoin"   (GET ${base}/blocks lists them and their networks),
+  "chain": ${describeBlocks(blocks).map((b) => `"${b.chain}"`).join(' | ')}   (GET ${base}/blocks lists them and their networks),
   "network": "mainnet" | "testnet",           where the payments were made,
   "addresses": ["own-account.near"],          one to ten own addresses,
   "period": { "month": "YYYY-MM" } or { "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }   finished days, at most 92,
@@ -125,18 +129,19 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
 
 ## Notes
 
+${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is paid with) and the gas, read through this server's Alchemy key; the whole history of the address is read, so a busy address takes a while.\n" : ''}- aleph (Aleph Cloud credits, by the Ethereum address): one finished month (\`period.month\`), \`document\` kontoauszug only; it is a Verbrauchsauszug (VA-…), usage per day and resource, valued at the USD price per credit and the ECB rate of the day. No Eigenbeleg: usage from a prepaid balance is no single payment.
 - The documents are in German. An Eigenbeleg counts only once the payer signs it; whether a tax adviser accepts it is theirs to decide.
 - Nothing is stored beyond the request. Source (AGPL-3.0-or-later): ${source}
 `);
 	});
-	app.get('/blocks', (_req, res) => res.json({ blocks: describeBlocks() }));
+	app.get('/blocks', (_req, res) => res.json({ blocks: describeBlocks(blocks) }));
 	app.get('/blocks/:chain/check', async (req, res) => res.json(await checkBlock(req.params.chain, deps)));
 	app.get('/health', (_req, res) => res.json({ ok: true, paywall: paywall.info.mode }));
 
 	/** @type {import('express').RequestHandler} */
 	const validate = (req, res, next) => {
 		try {
-			res.locals.job = parseRequest(req.body);
+			res.locals.job = parseRequest(req.body, { blocks });
 			next();
 		} catch (e) {
 			if (e instanceof RequestError) res.status(400).json({ error: e.message });
@@ -166,7 +171,7 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
 		}
 		let job;
 		try {
-			job = parseRequest(req.body, { preview: true });
+			job = parseRequest(req.body, { preview: true, blocks });
 		} catch (e) {
 			if (e instanceof RequestError) res.status(400).json({ error: e.message });
 			else res.status(500).json({ error: 'internal error' });

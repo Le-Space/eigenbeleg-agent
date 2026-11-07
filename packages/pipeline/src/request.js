@@ -25,22 +25,25 @@ function isDate(d) {
 
 /**
  * @param {any} body
- * @param {{ preview?: boolean, today?: string }} [opts] today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
- *   must not get the payer's name and address (a body with `payer` is refused) and has no format
+ * @param {{ preview?: boolean, today?: string, blocks?: Record<string, import('./blocks.js').Block> }} [opts] today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
+ *   must not get the payer's name and address (a body with `payer` is refused) and has no format; blocks: what this side serves
+ *   (the API with an Alchemy key: `blocksFor(deps)`, keyed.js), the keyless BLOCKS when not given
  * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[] }}
  */
-export function parseRequest(body, { preview = false, today } = {}) {
+export function parseRequest(body, { preview = false, today, blocks = BLOCKS } = {}) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
 	const chain = typeof body.chain === 'string' ? body.chain : '';
-	const block = Object.hasOwn(BLOCKS, chain) ? BLOCKS[chain] : null;
+	const block = Object.hasOwn(blocks, chain) ? blocks[chain] : null;
 	if (!block) throw new RequestError(`no building block for chain "${chain}" yet; see GET /blocks`);
 	const network = body.network ?? 'mainnet';
 	if (!block.networks.includes(network)) throw new RequestError(`network must be one of ${block.networks.join(', ')}`);
 	if (!Array.isArray(body.addresses) || body.addresses.length < 1 || body.addresses.length > 10) throw new RequestError('addresses: one to ten own addresses');
 	// Trimmed before they are checked and compared: the same address twice
 	// would be read twice, and a transfer between own addresses look like a payment.
-	const addresses = [...new Set(body.addresses.map((/** @type {unknown} */ a) => (typeof a === 'string' ? a.trim() : '')))];
-	for (const a of addresses) if (!block.isAddress(a)) throw new RequestError(`not a ${chain} address: ${String(a).slice(0, 80)}`);
+	const trimmed = [...new Set(body.addresses.map((/** @type {unknown} */ a) => (typeof a === 'string' ? a.trim() : '')))];
+	for (const a of trimmed) if (!block.isAddress(a)) throw new RequestError(`not a ${chain} address: ${String(a).slice(0, 80)}`);
+	// One spelling per account where the source has one (Aleph: the EIP-55 checksum).
+	const addresses = block.canonical ? [...new Set(trimmed.map(block.canonical))] : trimmed;
 
 	let period;
 	const p = body.period ?? {};
@@ -58,17 +61,22 @@ export function parseRequest(body, { preview = false, today } = {}) {
 	// and the Eigenbeleg says so.
 	const yesterday = new Date((today ? Date.parse(`${today}T00:00:00Z`) : Date.now()) - 86400000).toISOString().slice(0, 10);
 	if (period.from > yesterday) throw new RequestError('period has no finished day yet');
+	// A block that reads whole months (Aleph's statement) takes one finished month.
+	if (block.period === 'month' && (typeof p.month !== 'string' || period.to > yesterday)) throw new RequestError(`${chain}: one whole finished month, as period: { month: "YYYY-MM" }`);
 	if (period.to > yesterday) period = { from: period.from, to: yesterday };
 
 	const format = preview ? 'json' : body.format ?? 'pdf';
 	if (!FORMATS.has(format)) throw new RequestError('format: pdf, csv or json (every file)');
 	// What is delivered: the Eigenbelege (one per transaction, the default), the
 	// Kontoauszug per address, or both when asked for. Never both unasked.
-	const document = body.document ?? 'eigenbelege';
+	// A block may give only some of them (Aleph: the statement); its first is the default.
+	const offered = block.documents ?? ['eigenbelege', 'kontoauszug', 'beide'];
+	const document = body.document ?? offered[0];
 	if (!DOCUMENTS.has(document)) throw new RequestError('document: eigenbelege, kontoauszug or beide');
+	if (!offered.includes(document)) throw new RequestError(`document: ${chain} gives ${offered.join(', ')} only`);
 	if (format === 'pdf' && document === 'beide') throw new RequestError('a PDF is one document; ask for format json to get both');
 	if (format === 'pdf' && document === 'kontoauszug' && body.addresses.length > 1) throw new RequestError('a Kontoauszug as PDF is for one address; ask for format json to get one per address');
-	const statementNumber = body.statementNumber ?? `KA-${period.from}`;
+	const statementNumber = body.statementNumber ?? `${block.statementPrefix ?? 'KA'}-${period.from}`;
 	if (!NUMBER.test(String(statementNumber))) throw new RequestError('statementNumber: up to 40 letters, digits and . _ / -');
 
 	if (preview && body.payer !== undefined) throw new RequestError('the preview takes no payer: name and address go only to the paid POST /eigenbeleg');

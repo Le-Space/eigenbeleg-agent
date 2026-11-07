@@ -5,4 +5,6 @@
 export { RequestError, parseRequest } from './request.js';
 export { generate } from './generate.js';
 export { BLOCKS, checkBlock, describeBlocks } from './blocks.js';
+// Ethereum and Base, only where the server has an Alchemy key: never imported by the web UI.
+export { KEYED_BLOCKS, blocksFor, keyedSources } from './keyed.js';
 export { dataSources } from './sources.js';

@@ -11,15 +11,19 @@ import { BLOCKS } from './blocks.js';
 
 /**
  * @param {ReturnType<typeof import('./request.js').parseRequest>} req
- * @param {{ fetch?: typeof fetch, rates?: import('@eigenbeleg/eigenbeleg').Rates, nearblocksKey?: string, now?: () => Date, probeDay?: string, endpoints?: Record<string, Record<string, string>> }} [deps]
+ * @param {{ fetch?: typeof fetch, rates?: import('@eigenbeleg/eigenbeleg').Rates, nearblocksKey?: string, alchemyKey?: string, blocks?: Record<string, import('./blocks.js').Block>, now?: () => Date, probeDay?: string, endpoints?: Record<string, Record<string, string>> }} [deps]
+ *   blocks: what this side serves (BLOCKS when not given; the API with an Alchemy key: `blocksFor(deps)`, keyed.js)
+ *   alchemyKey: the server's, for the EVM blocks; it goes to their reads only
  *   endpoints: per chain, endpoints to use instead of the reader's own, e.g. `{ akash: { indexer: 'https://…' } }` for a CORS proxy
  * @param {{ preview?: boolean }} [opts] preview: the summary only, no files
  */
 export async function generate(req, deps = {}, { preview = false } = {}) {
-	const block = BLOCKS[req.chain];
+	const blocks = deps.blocks ?? BLOCKS;
+	const block = Object.hasOwn(blocks, req.chain) ? blocks[req.chain] : null;
+	if (!block) throw new Error(`no building block for chain ${req.chain} here`);
 	const wantBelege = req.document !== 'kontoauszug';
 	const wantStatement = req.document !== 'eigenbelege';
-	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey, endpoints: deps.endpoints?.[req.chain] };
+	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey, endpoints: deps.endpoints?.[req.chain], ...(block.needs === 'alchemyKey' ? { alchemyKey: deps.alchemyKey } : {}) };
 	/** @type {import('@le-space/ledger').LedgerEntry[]} */
 	const entries = [];
 	/** @type {{ account: string, opening: Record<string, string>, closing: Record<string, string>, method: 'archive' | 'derived', at: any }[]} */

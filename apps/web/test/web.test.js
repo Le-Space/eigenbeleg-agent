@@ -56,6 +56,16 @@ test('chain, network and addresses are kept only while their "remember" is ticke
 test('the page has no wallet, no payment and no call to an API of ours', async () => {
 	const src = (await Promise.all(['../src/main.js', '../src/request.js', '../src/pwa.js', '../index.html'].map((f) => readFile(new URL(f, import.meta.url), 'utf8')))).join('\n');
 	assert.doesNotMatch(src, /near-connect|@x402|PAYMENT-|\/eigenbeleg\/preview|fetch\(['"`]\//);
+	// No key ever reaches the page: the EVM blocks (Alchemy) are the API's only. The page offers
+	// only keyless blocks, and the pipeline modules it loads never import the keyed ones.
+	const config = await readFile(new URL('../vite.config.js', import.meta.url), 'utf8');
+	assert.doesNotMatch(src + config, /alchemy/i);
+	const { describeBlocks } = await import('@eigenbeleg/pipeline/blocks');
+	assert.ok(describeBlocks().length > 0 && !describeBlocks().some((b) => b.needs), 'the page offers only blocks without a key');
+	for (const m of ['blocks', 'request', 'generate', 'sources', 'rates']) {
+		const code = await readFile(new URL(`../../../packages/pipeline/src/${m}.js`, import.meta.url), 'utf8');
+		assert.doesNotMatch(code, /^import .*(keyed\.js|readers\/evm\.js|chains\/alchemy)/m, `pipeline/src/${m}.js`);
+	}
 	const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 	assert.deepEqual(Object.keys(pkg.dependencies).sort(), ['@eigenbeleg/pipeline', '@fontsource-variable/sora', '@fontsource/ibm-plex-mono']);
 });

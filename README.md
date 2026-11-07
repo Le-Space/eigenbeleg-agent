@@ -33,7 +33,7 @@ npm run demo
 
 What you should see:
 
-1. `npm test`: about 50 tests pass (the booking format, the NEAR, Akash and Filecoin readers, rates, the PDF/CSV, the API with its x402 paywall and the free preview, the agent, the web UI's wallet signer).
+1. `npm test`: about 55 tests pass (the booking format, the NEAR, Akash, Filecoin and Aleph blocks, rates, the PDF/CSV, the API with its x402 paywall and the free preview, the agent, the web UI's wallet signer).
 2. `npm run demo`: the agent runs two jobs against the API in the same process (the first asks for both documents, `document: beide`), without a paywall (the API says so on every response). The NEAR data comes from a recorded fixture of a **public** account, Aurora's relayer on 1 Nov 2026, which pays only network fees, so the demo works offline.
    - **Job 1** ends with `Got 25 Eigenbeleg(e) EB-2026-001 – EB-2026-025 … check passed.` and `Kontoauszug: KA-2026-11-01 (NEAR 25 → 24.98…, reconciled)`. Open:
      - `out/demo/EB-2026-001.pdf`: 25 Eigenbelege, one page per transaction (a network fee each), with hash, Von/An, movements, QR code, amount and a signature line;
@@ -133,7 +133,7 @@ For people, free: the page does **everything in your browser**. It reads the cha
 3. Click **Lesen und erstellen**. The first time, the page loads its PDF code and fonts (about 1.6 MB, then cached). You see how many Eigenbelege it made and their numbers, the positions, the EUR total, the quantities and, per address, the Kontoauszug's opening and closing balance (✓ when reconciled with the chain).
 4. Download **Eigenbelege (PDF/A, n)**, **Kontoauszug <address> (PDF/A)** per address, and **Alle Bewegungen (CSV)**.
 
-Your browser asks NearBlocks and the FastNEAR archival RPC (NEAR), PublicNode and, through our [Akash CORS proxy](deploy/akash-proxy) when it is set up, the Akash Console indexer (Akash), Filfox (Filecoin), and Kraken and CoinGecko (rates). They see your IP address and, except the rate services, the addresses you enter. Very busy NEAR accounts can hit NearBlocks' free rate limit; the page then says so and you try a shorter period or later.
+Your browser asks NearBlocks and the FastNEAR archival RPC (NEAR), PublicNode and, through our [Akash CORS proxy](deploy/akash-proxy) when it is set up, the Akash Console indexer (Akash), Filfox (Filecoin), the Aleph API (Aleph Cloud), and Kraken, CoinGecko and the ECB (rates). They see your IP address and, except the rate services, the addresses you enter. Very busy NEAR accounts can hit NearBlocks' free rate limit; the page then says so and you try a shorter period or later.
 
 For development, `npm run web:dev` serves the page with hot reload. Build settings: `VITE_AKASH_INDEXER` (the Akash proxy's URL), `VITE_PUBLIC_URL` (for the share cards on a static host).
 
@@ -162,6 +162,8 @@ One statement per own account and period (`KA-2026-11-01`), like a bank's: the h
 - outgoing, incoming and network fees (expense) in EUR.
 
 It says plainly that it was made by the account holder from public chain data and is **no document of a bank**.
+
+**Aleph Cloud credits** get the same layout as a **Verbrauchsauszug** (`VA-2026-08-01`, one per Ethereum address and whole finished month): opening balance, purchases and transfers of credits, the consumption per day and resource (storage in one line, each instance or program in its own, named from its message), closing balance. The balances are Aleph's balance now less its summary since (derived). Credits have no market rate: each day's consumption is valued at the USD price per credit of the last purchase on or before that day (else Aleph's list price, 1 USD per 1,000,000 credits) and the ECB's USD rate of the day (`@le-space/rates/aleph-credits`); the statement says so. Consumption from a prepaid balance is no single payment, so there is no Eigenbeleg for it; the CSV lists every line with that reason.
 
 Both files are **PDF/A-2b** (fonts embedded, sRGB output intent, XMP metadata) for archiving. [veraPDF](https://verapdf.org) checks them with `PASS … 2b`:
 
@@ -270,6 +272,7 @@ eigenbeleg.example.com {
 | `PING_API_KEY` | PingPay key (`PAYWALL=ping`); the NEAR recipient is set in the Ping dashboard | **yes** |
 | `PING_FACILITATOR_URL`, `PING_AMOUNT_OUT` | PingPay facilitator, destination amount in USDC base units (≥ 200000) | no |
 | `NEARBLOCKS_API_KEY` | optional, for NearBlocks' higher rate limits | **yes** |
+| `ALCHEMY_KEY` | optional: with it the API also serves Ethereum and Base (ETH, USDC, ALEPH and the gas) through Alchemy; without it, it does not offer them. The key goes to Alchemy only, never into an answer, a document or a log; the web UI never gets it and never offers them | **yes** |
 | `SOURCE_URL` | where users of this instance get its source (AGPL-3.0-or-later section 13); your fork if you changed it | no |
 | `PUBLIC_URL` | this instance's public origin, e.g. `https://eigenbeleg.le-space.de`, for the share cards (Open Graph, X) on `/ui/`; unset: taken from the request's Host and `X-Forwarded-Proto` | no |
 | `TRUST_PROXY` | behind a proxy: whose `X-Forwarded-*` to trust (Express syntax, e.g. `uniquelocal`), so the x402 resource URL is https | no |
@@ -287,6 +290,9 @@ Testnet vs mainnet: `PAY_NETWORK` decides where customers pay; the chain data re
 | `api.kraken.com`, `api.coingecko.com` | EUR day rates |
 | `akash-rpc.publicnode.com`, `akash-rest.publicnode.com`, `console-api.akash.network` | Akash history and balance (`@le-space/chains/cosmos`) |
 | `filfox.info` | Filecoin history and balance (`@le-space/chains/filecoin`) |
+| `api2.aleph.im` | Aleph Cloud credit history and balance (`@le-space/chains/aleph`) |
+| `data-api.ecb.europa.eu` | EUR per USD, for Aleph credits |
+| `eth-mainnet.g.alchemy.com`, `base-mainnet.g.alchemy.com` | only with `ALCHEMY_KEY`: Ethereum and Base history and balances (`@le-space/chains/evm`) |
 | `pay.pingpay.io` | only with `PAYWALL=ping` |
 
 The addresses of a request go to the data sources of its chain, and nowhere else. The payer's name and postal address never leave the server: they appear only in the documents sent back. Links in the documents (`nearblocks.io`, `testnet.nearblocks.io`, `mintscan.io`, `filfox.info`, the source repository) are never called by the server.
@@ -309,10 +315,10 @@ The payer's name and address live only for the request. Nothing is stored, and l
 | Package | What |
 | --- | --- |
 | [`@le-space/ledger`](https://github.com/Le-Space/belege/tree/main/packages/ledger) (npm) | The booking format `le-space.ledger/1` (one entry per movement, from one own address), decimal arithmetic on strings, bytes without `Buffer`. Shared with Le Space Belege (#6) |
-| [`@le-space/chains`](https://github.com/Le-Space/belege/tree/main/packages/chains) (npm) | The readers: NEAR via NearBlocks API v3 and the FastNEAR archival RPC; Akash via the node's `tx_search` plus the Akash Console indexer; Filecoin via Filfox (FIL, USDFC). Also EVM, Bitcoin, Nym and Aleph for Belege |
-| [`@le-space/rates`](https://github.com/Le-Space/belege/tree/main/packages/rates) (npm) | EUR per asset and UTC day: the price at 00:00 UTC (CoinGecko, else Kraken's daily open) |
+| [`@le-space/chains`](https://github.com/Le-Space/belege/tree/main/packages/chains) (npm) | The readers: NEAR via NearBlocks API v3 and the FastNEAR archival RPC; Akash via the node's `tx_search` plus the Akash Console indexer; Filecoin via Filfox (FIL, USDFC); Aleph Cloud credits via the Aleph API; Ethereum and Base via Alchemy. Also Bitcoin and Nym for Belege |
+| [`@le-space/rates`](https://github.com/Le-Space/belege/tree/main/packages/rates) (npm) | EUR per asset and UTC day: the price at 00:00 UTC (CoinGecko, else Kraken's daily open); the ECB reference rate for USD and the rule for Aleph credits (`aleph-credits`) |
 | `packages/eigenbeleg` | The document, the PDF/A-2b and the CSV (fonts and colour profile from files in Node, fetched in a browser); the euro valuation of entries |
-| `packages/pipeline` | One request start to end (check, read, value, draw), the blocks (what the Eigenbeleg makes of each chain: the fee to the network, an Akash escrow its own kind, which assets are priced), the rate's name on the document, and the list of data sources: the same code in the API and in the web UI; tested in Node and Chromium |
+| `packages/pipeline` | One request start to end (check, read, value, draw), the blocks (what the Eigenbeleg makes of each chain: the fee to the network, an Akash escrow its own kind, which assets are priced; Aleph Cloud credits as a monthly Verbrauchsauszug, `readers/aleph.js`; Ethereum and Base with ETH, USDC and ALEPH, the token Aleph Cloud is paid with, only in the API with `ALCHEMY_KEY`, `keyed.js` and `readers/evm.js`), the rate's name on the document, and the list of data sources: the same code in the API and in the web UI; tested in Node and Chromium |
 | `apps/api` | The HTTP API and the paywall (`near` / `ping` / `none`) |
 | `apps/agent` | The agent, its x402 payer, the PR drafts |
 | `apps/web` | The web UI, a PWA (Vite): runs the pipeline in the browser; no wallet, no payment, nothing sent to the API |

@@ -9,6 +9,7 @@
 import * as near from '@le-space/chains/near';
 import * as akash from './readers/akash.js';
 import * as filecoin from './readers/filecoin.js';
+import * as aleph from './readers/aleph.js';
 
 /** The version of @le-space/chains the blocks are built on (a test holds it against the installed package). */
 export const CHAINS_VERSION = '0.2.0';
@@ -25,6 +26,11 @@ export const CHAINS_VERSION = '0.2.0';
  * @property {(p: any) => Promise<any>} [statement] the entries and the balances before and after the period
  * @property {(o?: any) => Promise<{ sample: string, entries: number }>} probe a live check against public data
  * @property {(a: string) => boolean} isAddress before anything is fetched
+ * @property {(a: string) => string} [canonical] one spelling per account, where the source has one
+ * @property {string[]} [documents] the documents it gives, when not all (Aleph: the statement only)
+ * @property {'month'} [period] reads whole finished months only
+ * @property {string} [statementPrefix] the statement's number prefix, when not KA
+ * @property {'alchemyKey'} [needs] a key only the server has (keyed.js); such a block is never in BLOCKS
  */
 
 /** @type {Record<string, Block>} */
@@ -64,12 +70,33 @@ export const BLOCKS = {
 		statement: filecoin.statementFilecoin,
 		probe: filecoin.probe,
 		isAddress: filecoin.isAddress
+	},
+	aleph: {
+		name: '@le-space/chains/aleph',
+		chain: 'aleph',
+		networks: ['mainnet'],
+		assets: ['ALEPH-CREDIT (Aleph Cloud credits, by the Ethereum address)'],
+		source: 'Aleph API, no key; EUR per USD from the ECB',
+		version: CHAINS_VERSION,
+		// A Verbrauchsauszug (VA-…) of one whole finished month; no Eigenbeleg for usage.
+		documents: ['kontoauszug'],
+		period: 'month',
+		statementPrefix: 'VA',
+		read: aleph.readAleph,
+		statement: aleph.statementAleph,
+		probe: aleph.probe,
+		isAddress: aleph.isAddress,
+		canonical: aleph.canonical
 	}
 };
 
-/** What GET /blocks says about each block (no functions). */
-export function describeBlocks() {
-	return Object.values(BLOCKS).map(({ read: _read, isAddress: _is, probe: _probe, statement: _st, ...rest }) => rest);
+/**
+ * What GET /blocks says about each block (no functions).
+ *
+ * @param {Record<string, Block>} [blocks] what this side serves: BLOCKS, or on the API `blocksFor(deps)` (keyed.js)
+ */
+export function describeBlocks(blocks = BLOCKS) {
+	return Object.values(blocks).map((b) => Object.fromEntries(Object.entries(b).filter(([, v]) => typeof v !== 'function')));
 }
 
 /** @type {Map<string, { at: number, ttl: number, result: Promise<Record<string, unknown>> }>} */
@@ -81,17 +108,19 @@ const checks = new Map();
  * while a check runs share it, so the data source is asked once.
  *
  * @param {string} chain
- * @param {{ fetch?: typeof fetch, nearblocksKey?: string, probeDay?: string }} [deps]
+ * @param {{ fetch?: typeof fetch, nearblocksKey?: string, probeDay?: string, blocks?: Record<string, Block>, alchemyKey?: string }} [deps]
+ *   blocks: what this side serves (BLOCKS when not given); alchemyKey: the server's, only for a block that needs it
  */
 export function checkBlock(chain, deps = {}) {
-	const block = Object.hasOwn(BLOCKS, chain) ? BLOCKS[chain] : null;
+	const blocks = deps.blocks ?? BLOCKS;
+	const block = Object.hasOwn(blocks, chain) ? blocks[chain] : null;
 	if (!block) return Promise.resolve({ ok: false, chain, error: 'no building block for this chain' });
 	const cached = checks.get(chain);
 	if (cached && Date.now() - cached.at < cached.ttl) return cached.result;
 	const entry = { at: Date.now(), ttl: Infinity, result: Promise.resolve(/** @type {Record<string, unknown>} */ ({})) };
 	entry.result = (async () => {
 		try {
-			const r = await block.probe({ fetch: deps.fetch, apiKey: deps.nearblocksKey, day: deps.probeDay });
+			const r = await block.probe({ fetch: deps.fetch, apiKey: deps.nearblocksKey, day: deps.probeDay, ...(block.needs === 'alchemyKey' ? { alchemyKey: deps.alchemyKey } : {}) });
 			entry.at = Date.now();
 			entry.ttl = 600_000;
 			return { ok: true, chain, version: block.version, ...r, checkedAt: new Date().toISOString() };

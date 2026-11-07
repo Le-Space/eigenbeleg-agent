@@ -44,10 +44,11 @@ export const KIND_TEXT = {
 	unstake: 'Unstaking',
 	reward: 'Staking-Ertrag',
 	swap: 'Tausch',
-	escrow: 'Hinterlegung für ein Deployment (Escrow)'
+	escrow: 'Hinterlegung für ein Deployment (Escrow)',
+	usage: 'Verbrauch (aus Guthaben abgerechnet)'
 };
 
-export const CHAIN_NAMES = { near: 'NEAR Protocol', akash: 'Akash', filecoin: 'Filecoin' };
+export const CHAIN_NAMES = { near: 'NEAR Protocol', akash: 'Akash', filecoin: 'Filecoin', aleph: 'Aleph Cloud (Credits)' };
 
 /**
  * @typedef {object} Payer who pays and issues the Eigenbeleg
@@ -119,7 +120,9 @@ export function buildDocument({ payer, chain, network, period, entries, number, 
 								? 'Zahlung an ein Konto: Fremdbeleg anfordern oder bewusst einbeziehen'
 								: e.kind === 'escrow'
 									? 'Hinterlegung (Escrow), noch kein Endbetrag'
-									: 'keine Zahlung an das Netzwerk'
+									: e.kind === 'usage'
+										? 'Verbrauch aus Guthaben: steht im Verbrauchsauszug'
+										: 'keine Zahlung an das Netzwerk'
 							: !e.eur
 								? 'kein verlässlicher Kurs (unbekannter Token)'
 								: '';

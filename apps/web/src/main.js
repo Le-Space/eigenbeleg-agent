@@ -207,6 +207,9 @@ function applyLang() {
 		if (key) el.textContent = t(/** @type {any} */ (key));
 	}
 	$('btn-lang').lang = l === 'de' ? 'en' : 'de';
+	// Texts written in both languages in the markup (the privacy policy), and the Impressum on le-space.de.
+	for (const el of document.querySelectorAll('[data-lang]')) /** @type {HTMLElement} */ (el).hidden = /** @type {HTMLElement} */ (el).dataset.lang !== l;
+	/** @type {HTMLAnchorElement} */ ($('link-imprint')).href = l === 'de' ? 'https://le-space.de/#impressum' : 'https://le-space.de/#imprint';
 	/** @type {HTMLTextAreaElement} */ ($('postal')).placeholder = t('postalPlaceholder');
 	showSources();
 	showResult();
@@ -228,6 +231,12 @@ if (saved) {
 remember.addEventListener('change', () => {
 	if (!remember.checked) rememberPayer(null);
 });
+// A link to #datenschutz opens the folded policy.
+const openLegal = () => {
+	if (location.hash === '#datenschutz') /** @type {HTMLDetailsElement} */ ($('datenschutz')).open = true;
+};
+openLegal();
+window.addEventListener('hashchange', openLegal);
 fillChains();
 chainSel.addEventListener('change', fillNetworks);
 form.addEventListener('submit', onCreate);

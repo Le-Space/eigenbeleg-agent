@@ -117,6 +117,10 @@ pre { overflow-x: auto; background: var(--bg); border: 1px solid var(--line); bo
 a { color: var(--link); overflow-wrap: anywhere; }
 footer { margin-top: 2rem; color: var(--muted); font-size: 0.85rem; }
 footer nav { display: flex; gap: 0.4rem 1.1rem; flex-wrap: wrap; }
+.legal { margin-top: 1.5rem; color: var(--muted); font-size: 0.9rem; }
+.legal summary { cursor: pointer; font-weight: 500; color: var(--fg); }
+.legal h3 { font-size: 0.95rem; font-weight: 600; color: var(--fg); margin: 1rem 0 0.25rem; }
+.legal p { margin: 0 0 0.5rem; }
 footer p { margin: 0.5rem 0 0; }
 [hidden] { display: none !important; }
 @media (max-width: 30rem) { .summary { grid-template-columns: 1fr; } .summary dd { margin-bottom: 0.4rem; } }

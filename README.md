@@ -119,7 +119,7 @@ A run like this on 6 Nov 2026: [`Aqxuj1QQ…ynUX`](https://testnet.nearblocks.io
 
 For people, free: the page does **everything in your browser**. It reads the chain from the public data sources itself, fetches the EUR rates, and draws the Eigenbelege, the Kontoauszug and the CSV on your device, with the same code the API runs ([`@eigenbeleg/pipeline`](packages/pipeline)). Nothing goes to a server of ours: not your name, not your address, not your blockchain addresses. It installs as an app (PWA) and runs from any static host. Plan: [#5](https://github.com/Le-Space/eigenbeleg-agent/issues/5); concept: [docs/web-ui.md](docs/web-ui.md).
 
-1. Open **https://eigenbeleg.le-space.de/ui/**. You see the form in German, or in English if your browser is set to another language; **English** / **Deutsch** at the top right switches (the PDFs stay German). *Welche Dienste Ihr Browser dabei fragt* lists every host the page will ask and what each learns.
+1. Open **https://eigenbeleg.le-space.de/ui/**. You see what the page makes (an example Eigenbeleg), the form, and below it *Für Agenten* with the price and a prompt to brief an agent; the footer links the guide, `/llms.txt`, the data sources and the source code. German, or English if your browser is set to another language; **English** / **Deutsch** at the top right switches (the PDFs stay German). *Welche Dienste Ihr Browser dabei fragt* lists every host the page will ask and what each learns.
 
    Locally instead:
    ```bash

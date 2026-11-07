@@ -65,8 +65,11 @@ function lastMonth() {
 	return d.toISOString().slice(0, 7);
 }
 
+/** How the chains are written for people; the value stays the block's id. */
+const CHAIN_NAMES = /** @type {Record<string, string>} */ ({ near: 'NEAR', akash: 'Akash (AKT)', filecoin: 'Filecoin (FIL, USDFC)' });
+
 function fillChains() {
-	chainSel.replaceChildren(...blocks.map((b) => new Option(b.chain, b.chain)));
+	chainSel.replaceChildren(...blocks.map((b) => new Option(CHAIN_NAMES[b.chain] ?? b.chain, b.chain)));
 	fillNetworks();
 }
 

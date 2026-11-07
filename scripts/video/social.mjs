@@ -9,8 +9,8 @@ import { chromium } from 'playwright';
 const TEXTS = {
 	de: {
 		title: 'Eigenbelege für <em>Blockchain-Zahlungen.</em>',
-		sub: 'Netzwerkgebühren, Storage-Deposits: als PDF/A und CSV, mit Euro-Kurs des Tages. Bezahlt per x402.',
-		facts: ['0,10 USDC je Abruf', 'AGPL-3.0', 'nichts gespeichert'],
+		sub: 'Netzwerkgebühren, Storage-Deposits: als PDF/A und CSV, mit Euro-Kurs des Tages. Kostenlos, in Ihrem Browser.',
+		facts: ['nichts auf unseren Servern', 'Agenten: API per x402', 'AGPL-3.0'],
 		doc: 'Eigenbeleg',
 		fee: 'Netzwerkgebühr',
 		storage: 'Storage-Deposit',
@@ -18,8 +18,8 @@ const TEXTS = {
 	},
 	en: {
 		title: 'Self-issued receipts for <em>blockchain payments.</em>',
-		sub: 'Network fees, storage deposits: as PDF/A and CSV, with the day’s euro rate. Paid with x402.',
-		facts: ['0.10 USDC a request', 'AGPL-3.0', 'nothing stored'],
+		sub: 'Network fees, storage deposits: as PDF/A and CSV, with the day’s euro rate. Free, in your browser.',
+		facts: ['nothing on our servers', 'agents: API via x402', 'AGPL-3.0'],
 		doc: 'Eigenbeleg',
 		fee: 'Network fee',
 		storage: 'Storage deposit',

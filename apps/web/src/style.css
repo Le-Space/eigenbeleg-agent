@@ -52,6 +52,20 @@ main { max-width: 46rem; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
 h1 { font-size: 1.9rem; line-height: 1.15; font-weight: 700; letter-spacing: -0.015em; margin: 1.5rem 0 0.75rem; }
 h2 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; margin: 1.25rem 0 0.75rem; }
 .lead { margin: 0 0 0.5rem; }
+.tagline { font-weight: 600; font-size: 1.1rem; margin: 0 0 0.75rem; }
+
+/* The example Eigenbeleg next to what the page makes (the share card's style). */
+.sample { display: flex; gap: 1.25rem; align-items: flex-start; flex-wrap: wrap; margin: 1rem 0; }
+.sample .card {
+	flex: none; width: 16.5rem; max-width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+	padding: 0.9rem; font-family: var(--mono); font-size: 0.78rem; box-shadow: var(--shadow);
+}
+.sample .doc { font-family: var(--font); font-weight: 700; font-size: 0.95rem; }
+.sample .no { color: var(--muted); margin-bottom: 0.6rem; }
+.sample .line { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.4rem 0.6rem; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 0.35rem; }
+.sample .line.dash { background: transparent; border-style: dashed; color: var(--muted); }
+.sample .badge { float: right; margin-top: 0.3rem; background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 0.15rem 0.7rem; font-weight: 500; }
+.sample figcaption { flex: 1 1 14rem; display: flex; flex-direction: column; gap: 0.35rem; }
 .note { color: var(--muted); font-size: 0.9rem; }
 
 .top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
@@ -102,5 +116,7 @@ code, pre { font-family: var(--mono); }
 pre { overflow-x: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 0.75rem; font-size: 0.85rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 a { color: var(--link); overflow-wrap: anywhere; }
 footer { margin-top: 2rem; color: var(--muted); font-size: 0.85rem; }
+footer nav { display: flex; gap: 0.4rem 1.1rem; flex-wrap: wrap; }
+footer p { margin: 0.5rem 0 0; }
 [hidden] { display: none !important; }
 @media (max-width: 30rem) { .summary { grid-template-columns: 1fr; } .summary dd { margin-bottom: 0.4rem; } }

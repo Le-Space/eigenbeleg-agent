@@ -236,6 +236,7 @@ function applyLang() {
 	}
 	$('btn-lang').lang = l === 'de' ? 'en' : 'de';
 	for (const btn of document.querySelectorAll('button[data-copy]')) btn.setAttribute('aria-label', t('copy'));
+	$('hackathon-close').setAttribute('aria-label', t('hackClose'));
 	// Texts written in both languages in the markup (the privacy policy), and the Impressum on le-space.de.
 	for (const el of document.querySelectorAll('[data-lang]')) /** @type {HTMLElement} */ (el).hidden = /** @type {HTMLElement} */ (el).dataset.lang !== l;
 	/** @type {HTMLAnchorElement} */ ($('link-imprint')).href = l === 'de' ? 'https://le-space.de/#impressum' : 'https://le-space.de/#imprint';
@@ -282,6 +283,23 @@ const openLegal = () => {
 };
 openLegal();
 window.addEventListener('hashchange', openLegal);
+// The hackathon wristband: shown until closed once; the browser remembers that.
+const band = $('hackathon');
+let bandSeen = false;
+try {
+	bandSeen = localStorage.getItem('hackathon') === 'closed';
+} catch {
+	// no storage: show it every time
+}
+band.hidden = bandSeen;
+$('hackathon-close').addEventListener('click', () => {
+	band.hidden = true;
+	try {
+		localStorage.setItem('hackathon', 'closed');
+	} catch {
+		// then it comes back next time
+	}
+});
 fillChains();
 chainSel.addEventListener('change', fillNetworks);
 const savedAccounts = rememberedAccounts();

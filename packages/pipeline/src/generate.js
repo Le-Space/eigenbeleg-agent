@@ -5,9 +5,14 @@
 // browser (the web UI) alike.
 
 import { sortEntries } from '@le-space/ledger';
-import { buildDocument, buildStatement, eigenbelegCsv, eigenbelegPdf, statementPdf, valueEntries } from '@eigenbeleg/eigenbeleg';
+import { buildDocument, buildStatement, eigenbelegCsv, eigenbelegPdf, reconciled, statementPdf, valueEntries } from '@eigenbeleg/eigenbeleg';
 import { dayRates } from './rates.js';
 import { BLOCKS } from './blocks.js';
+
+/**
+ * @typedef {{ step: 'read', account: string, index: number, count: number } | { step: 'rates' } | { step: 'draw' }} Progress
+ *   read: one account's chain history is being read (index of count); rates: the EUR rates of the days; draw: the PDFs
+ */
 
 /**
  * @param {ReturnType<typeof import('./request.js').parseRequest>} req
@@ -15,9 +20,10 @@ import { BLOCKS } from './blocks.js';
  *   blocks: what this side serves (BLOCKS when not given; the API with an Alchemy key: `blocksFor(deps)`, keyed.js)
  *   alchemyKey: the server's, for the EVM blocks; it goes to their reads only
  *   endpoints: per chain, endpoints to use instead of the reader's own, e.g. `{ akash: { indexer: 'https://…' } }` for a CORS proxy
- * @param {{ preview?: boolean }} [opts] preview: the summary only, no files
+ * @param {{ preview?: boolean, onProgress?: (p: Progress) => void }} [opts] preview: the summary only, no files;
+ *   onProgress: told before each step (the web UI shows it on the button)
  */
-export async function generate(req, deps = {}, { preview = false } = {}) {
+export async function generate(req, deps = {}, { preview = false, onProgress } = {}) {
 	const blocks = deps.blocks ?? BLOCKS;
 	const block = Object.hasOwn(blocks, req.chain) ? blocks[req.chain] : null;
 	if (!block) throw new Error(`no building block for chain ${req.chain} here`);
@@ -28,13 +34,15 @@ export async function generate(req, deps = {}, { preview = false } = {}) {
 	const entries = [];
 	/** @type {{ account: string, opening: Record<string, string>, closing: Record<string, string>, method: 'archive' | 'derived', at: any }[]} */
 	const balances = [];
-	for (const account of req.addresses) {
+	for (const [index, account] of req.addresses.entries()) {
+		onProgress?.({ step: 'read', account, index, count: req.addresses.length });
 		if (wantStatement && block.statement) {
 			const st = await block.statement({ ...read, account });
 			entries.push(...st.entries);
 			balances.push({ account, opening: st.opening, closing: st.closing, method: st.method, at: st.at });
 		} else entries.push(...(await block.read({ ...read, account })));
 	}
+	onProgress?.({ step: 'rates' });
 	const rates = deps.rates ?? dayRates({ fetch: deps.fetch });
 	const valued = await valueEntries(sortEntries(entries), rates);
 	const issuedAt = (deps.now?.() ?? new Date()).toISOString();
@@ -72,13 +80,14 @@ export async function generate(req, deps = {}, { preview = false } = {}) {
 			number: s.number,
 			account: s.account,
 			method: s.method,
-			assets: s.sections.map((x) => ({ asset: x.asset, opening: x.opening, closing: x.closing, reconciled: x.difference === null ? null : /^-?0(\.0+)?$/.test(x.difference) }))
+			assets: s.sections.map((x) => ({ asset: x.asset, opening: x.opening, closing: x.closing, reconciled: reconciled(x.difference) }))
 		}))
 	};
 	if (preview) return { summary, pdf: null, statements: [], csv: null };
-	const pdf = req.format !== 'csv' && wantBelege ? await eigenbelegPdf(doc) : null;
+	onProgress?.({ step: 'draw' });
+	const pdf = req.format !== 'csv' && wantBelege ? await eigenbelegPdf(doc, { logo: req.logo }) : null;
 	const statementPdfs = [];
-	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s) });
+	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s, { logo: req.logo }) });
 	const csv = req.format === 'pdf' ? null : eigenbelegCsv(doc);
 	return { summary, pdf, statements: statementPdfs, csv };
 }

@@ -20,3 +20,6 @@ export function asset(name) {
 }
 
 export const FONTS = /** @type {const} */ (['DejaVuSansCondensed.ttf', 'DejaVuSansCondensed-Bold.ttf', 'DejaVuSansMono.ttf']);
+
+/** The chains' marks (assets/logos, see assets/README.md): PNG on white, drawn only when a request asks for the logo. */
+export const LOGOS = /** @type {Record<string, string>} */ ({ near: 'logos/near.png', akash: 'logos/akash.png', filecoin: 'logos/filecoin.png', aleph: 'logos/aleph.png' });

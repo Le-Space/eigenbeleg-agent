@@ -198,11 +198,12 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
   "payer": { "name": "Wolkenfabrik Hosting GmbH", "address": "Musterstraße 1\n12345 Beispielstadt" },
   "number": "EB-2026-007",
   "statementNumber": "KA-2026-11",
-  "includeKinds": ["fee", "storage"]
+  "includeKinds": ["fee", "storage"],
+  "logo": false
 }
 ```
 
-`document` says what you get, and you get only that: `eigenbelege` (the default; one page per transaction), `kontoauszug` (one per address), or `beide` when you ask for both. `format`: `pdf` gives one document as the file (a Kontoauszug as PDF for one address); `json` gives what `document` names – the Eigenbelege as `pdf` (base64), the statements as `kontoauszuegePdf` – plus the CSV and a summary (Eigenbeleg numbers, totals, each statement's balances and whether they reconciled); `csv` gives the CSV. `period` is `{ month }` or `{ from, to }`, at most 92 days, finished days only (a period reaching today ends yesterday). The request is checked **before** a price is named: a wrong chain, address or period gets a `400`, not a `402`.
+`document` says what you get, and you get only that: `eigenbelege` (the default; one page per transaction), `kontoauszug` (one per address), or `beide` when you ask for both. `format`: `pdf` gives one document as the file (a Kontoauszug as PDF for one address); `json` gives what `document` names – the Eigenbelege as `pdf` (base64), the statements as `kontoauszuegePdf` – plus the CSV and a summary (Eigenbeleg numbers, totals, each statement's balances and whether they reconciled); `csv` gives the CSV. `period` is `{ month }` or `{ from, to }`, at most 92 days, finished days only (a period reaching today ends yesterday). `logo: true` puts the chain's mark, small, beside the title of each document (off by default; the marks and their terms are in `packages/eigenbeleg/assets/README.md`). The request is checked **before** a price is named: a wrong chain, address or period gets a `400`, not a `402`.
 
 ## The agent
 

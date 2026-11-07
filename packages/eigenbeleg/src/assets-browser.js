@@ -7,9 +7,22 @@ import condensed from 'dejavu-fonts-ttf/ttf/DejaVuSansCondensed.ttf?url';
 import condensedBold from 'dejavu-fonts-ttf/ttf/DejaVuSansCondensed-Bold.ttf?url';
 import mono from 'dejavu-fonts-ttf/ttf/DejaVuSansMono.ttf?url';
 import icc from '../assets/sRGB-v2-micro.icc?url';
+import nearPng from '../assets/logos/near.png?url';
+import akashPng from '../assets/logos/akash.png?url';
+import filecoinPng from '../assets/logos/filecoin.png?url';
+import alephPng from '../assets/logos/aleph.png?url';
 
 /** @type {Record<string, string>} */
-const URLS = { 'DejaVuSansCondensed.ttf': condensed, 'DejaVuSansCondensed-Bold.ttf': condensedBold, 'DejaVuSansMono.ttf': mono, 'sRGB-v2-micro.icc': icc };
+const URLS = {
+	'DejaVuSansCondensed.ttf': condensed,
+	'DejaVuSansCondensed-Bold.ttf': condensedBold,
+	'DejaVuSansMono.ttf': mono,
+	'sRGB-v2-micro.icc': icc,
+	'logos/near.png': nearPng,
+	'logos/akash.png': akashPng,
+	'logos/filecoin.png': filecoinPng,
+	'logos/aleph.png': alephPng
+};
 
 /** @param {string} name @returns {Promise<Uint8Array>} */
 export async function loadAsset(name) {

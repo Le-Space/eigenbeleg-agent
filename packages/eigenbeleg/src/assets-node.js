@@ -13,7 +13,11 @@ const PATHS = {
 	'DejaVuSansCondensed.ttf': () => require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansCondensed.ttf'),
 	'DejaVuSansCondensed-Bold.ttf': () => require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansCondensed-Bold.ttf'),
 	'DejaVuSansMono.ttf': () => require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansMono.ttf'),
-	'sRGB-v2-micro.icc': () => new URL('../assets/sRGB-v2-micro.icc', import.meta.url).pathname
+	'sRGB-v2-micro.icc': () => new URL('../assets/sRGB-v2-micro.icc', import.meta.url).pathname,
+	'logos/near.png': () => new URL('../assets/logos/near.png', import.meta.url).pathname,
+	'logos/akash.png': () => new URL('../assets/logos/akash.png', import.meta.url).pathname,
+	'logos/filecoin.png': () => new URL('../assets/logos/filecoin.png', import.meta.url).pathname,
+	'logos/aleph.png': () => new URL('../assets/logos/aleph.png', import.meta.url).pathname
 };
 
 /** @param {string} name @returns {Promise<Uint8Array>} */

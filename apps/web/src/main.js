@@ -50,6 +50,7 @@ function values() {
 		number: s('number'),
 		statementNumber: s('statementNumber'),
 		includeKinds: fd.getAll('includeKinds').map(String),
+		logo: fd.get('logo') === 'on',
 		document: /** @type {'eigenbelege' | 'kontoauszug' | 'beide'} */ (s('document') || 'eigenbelege')
 	};
 }
@@ -138,7 +139,13 @@ async function onCreate(e) {
 	try {
 		// The readers, rates and PDF code (and its fonts) load only now, on the first run.
 		const { generate } = await import('@eigenbeleg/pipeline/generate');
-		const out = await generate(req, { endpoints });
+		/** @param {string} a a long address, shortened for the button */
+		const short = (a) => (a.length > 20 ? `${a.slice(0, 10)}…${a.slice(-6)}` : a);
+		const out = await generate(req, { endpoints }, {
+			onProgress: (p) => {
+				btn.textContent = p.step === 'read' ? t('progressRead', { account: short(p.account), n: String(p.index + 1), of: String(p.count) }) : p.step === 'rates' ? t('progressRates') : t('progressDraw');
+			}
+		});
 		shown = { out, which: f.document };
 		showResult();
 	} catch (err) {

@@ -13,7 +13,8 @@ import fontkit from '@pdf-lib/fontkit';
 import { round } from '@le-space/ledger';
 import { deDate, deEuro, deNumber } from './document.js';
 import { makePdfA } from './pdf.js';
-import { asset, FONTS } from './assets.js';
+import { isDust, reconciled } from './statement.js';
+import { asset, FONTS, LOGOS } from './assets.js';
 
 const A4 = /** @type {[number, number]} */ ([595.28, 841.89]);
 const M = 44;
@@ -39,7 +40,7 @@ const qty = (q) => (q ? deNumber(round(q, 12)) : '');
  * @param {import('./statement.js').Statement} st
  * @returns {Promise<Uint8Array>}
  */
-export async function statementPdf(st) {
+export async function statementPdf(st, { logo = false } = {}) {
 	const created = new Date(st.issuedAt);
 	// Aleph credits: a Verbrauchsauszug in the same layout, valued by its own rule.
 	const aleph = st.chain === 'aleph';
@@ -60,6 +61,7 @@ export async function statementPdf(st) {
 	const fontBytes = await Promise.all(FONTS.map((f) => asset(f)));
 	const regular = await pdf.embedFont(fontBytes[0], { subset: true });
 	const bold = await pdf.embedFont(fontBytes[1], { subset: true });
+	const mark = logo && LOGOS[st.chain] ? await pdf.embedPng(await asset(LOGOS[st.chain])) : null;
 	const mono = await pdf.embedFont(fontBytes[2], { subset: true });
 	const charsets = new Map([regular, bold, mono].map((f) => [f, new Set(f.getCharacterSet())]));
 	const width = A4[0] - 2 * M;
@@ -155,7 +157,9 @@ export async function statementPdf(st) {
 		y -= 12;
 	}
 	y = Math.min(y, leftEnd) - 14;
+	const titleTop = y;
 	text(st.title, { font: bold, size: 18 });
+	if (mark) page.drawImage(mark, { x: M + bold.widthOfTextAtSize(st.title, 18) + 10, y: titleTop - 20, width: 20, height: 20 });
 	text('Konto', { font: bold, size: 7.5, color: GREY });
 	text(st.account, { font: mono, size: 9 });
 	y -= 6;
@@ -222,12 +226,14 @@ export async function statementPdf(st) {
 		y -= 15;
 		// the check
 		if (st.method === 'archive' && s.reported !== null) {
-			const ok = s.difference !== null && /^-?0(\.0+)?$/.test(s.difference);
+			const ok = reconciled(s.difference) === true;
 			const when = st.at ? ` (Block ${st.at.closing.height}, ${st.at.closing.time.slice(0, 19).replace('T', ' ')} UTC)` : '';
 			text(
-				ok
-					? `Abgestimmt: Der Kontostand laut Chain nach dem Zeitraum${when} ist ${qty(s.reported)} ${s.asset} und stimmt mit Anfangsstand plus Buchungen überein.`
-					: `Nicht abgestimmt: Der Kontostand laut Chain${when} ist ${qty(s.reported)} ${s.asset}; Differenz ${deNumber(/** @type {string} */ (s.difference))} ${s.asset} (Bewegungen, die der Leser nicht sieht, etwa Auszahlungen eines Staking-Pools).`,
+				ok && isDust(/** @type {string} */ (s.difference))
+					? `Abgestimmt: Der Kontostand laut Chain nach dem Zeitraum${when} ist ${qty(s.reported)} ${s.asset}; die Differenz von ${deNumber(/** @type {string} */ (s.difference))} ${s.asset} liegt unter der dargestellten Genauigkeit (das 1 yoctoNEAR, das ein Token-Transfer als Sicherheit mitgibt, zählt nicht als Zahlung).`
+					: ok
+						? `Abgestimmt: Der Kontostand laut Chain nach dem Zeitraum${when} ist ${qty(s.reported)} ${s.asset} und stimmt mit Anfangsstand plus Buchungen überein.`
+						: `Nicht abgestimmt: Der Kontostand laut Chain${when} ist ${qty(s.reported)} ${s.asset}; Differenz ${deNumber(/** @type {string} */ (s.difference))} ${s.asset} (Bewegungen, die der Leser nicht sieht, etwa Auszahlungen eines Staking-Pools).`,
 				{ size: 7.5, color: ok ? OK : WARN }
 			);
 		} else {

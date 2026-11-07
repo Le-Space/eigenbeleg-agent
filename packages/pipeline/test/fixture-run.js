@@ -23,6 +23,7 @@ export async function fixtureRun(raw) {
 			format: 'json',
 			document: 'beide',
 			number: 'EB-2026-042',
+			logo: true,
 			// Made-up payer, as everywhere in this repository; in the web UI it never leaves the page.
 			payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' }
 		},

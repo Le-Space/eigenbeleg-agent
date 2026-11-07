@@ -28,7 +28,7 @@ function isDate(d) {
  * @param {{ preview?: boolean, today?: string, blocks?: Record<string, import('./blocks.js').Block> }} [opts] today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
  *   must not get the payer's name and address (a body with `payer` is refused) and has no format; blocks: what this side serves
  *   (the API with an Alchemy key: `blocksFor(deps)`, keyed.js), the keyless BLOCKS when not given
- * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[] }}
+ * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean }}
  */
 export function parseRequest(body, { preview = false, today, blocks = BLOCKS } = {}) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
@@ -88,6 +88,9 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	const number = body.number ?? `EB-${period.to.slice(0, 4)}-001`;
 	if (!NUMBER.test(String(number))) throw new RequestError('number: up to 40 letters, digits and . _ / -');
 
+	// The chain's mark on the documents, small, beside the title: off unless asked for.
+	const logo = body.logo ?? false;
+	if (typeof logo !== 'boolean') throw new RequestError('logo: true or false');
 	const includeKinds = body.includeKinds ?? DEFAULT_KINDS;
 	if (!Array.isArray(includeKinds) || includeKinds.some((k) => !KINDS.has(k))) throw new RequestError(`includeKinds: some of ${[...KINDS].join(', ')}`);
 
@@ -101,6 +104,7 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 		statementNumber: String(statementNumber),
 		payer: { name: payer.name, address: payer.address, addresses },
 		number: String(number),
-		includeKinds
+		includeKinds,
+		logo
 	};
 }

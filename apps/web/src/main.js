@@ -14,7 +14,7 @@ import { RequestError, parseRequest } from '@eigenbeleg/pipeline/request';
 import { describeBlocks } from '@eigenbeleg/pipeline/blocks';
 import { dataSources } from '@eigenbeleg/pipeline/sources';
 import { detectLang, lang, locale, setLang, t } from './i18n.js';
-import { fileName, rememberPayer, rememberedPayer, requestBody } from './request.js';
+import { fileName, rememberAccounts, rememberPayer, rememberedAccounts, rememberedPayer, requestBody } from './request.js';
 import { AKASH_INDEXER } from './config.js';
 import { registerServiceWorker } from './pwa.js';
 
@@ -23,6 +23,7 @@ const form = /** @type {HTMLFormElement} */ ($('form'));
 const chainSel = /** @type {HTMLSelectElement} */ ($('chain'));
 const networkSel = /** @type {HTMLSelectElement} */ ($('network'));
 const remember = /** @type {HTMLInputElement} */ ($('remember'));
+const rememberAcc = /** @type {HTMLInputElement} */ ($('remember-accounts'));
 
 const blocks = describeBlocks();
 // Akash's older history comes through the CORS proxy; without one, only what the public node keeps.
@@ -105,6 +106,7 @@ async function onCreate(e) {
 	if (f.includeKinds.length === 0) return say('form-error', t('pickKind'));
 	if (f.name.trim().length < 2 || f.postal.trim().length < 5) return say('form-error', t('needPayer'));
 	rememberPayer(remember.checked ? { name: f.name.trim(), postal: f.postal.trim() } : null);
+	rememberAccounts(rememberAcc.checked ? { chain: f.chain, network: f.network, addresses: f.addresses.trim() } : null);
 	let req;
 	try {
 		req = parseRequest(requestBody(f));
@@ -256,6 +258,18 @@ openLegal();
 window.addEventListener('hashchange', openLegal);
 fillChains();
 chainSel.addEventListener('change', fillNetworks);
+const savedAccounts = rememberedAccounts();
+if (savedAccounts) {
+	if ([...chainSel.options].some((o) => o.value === savedAccounts.chain)) chainSel.value = savedAccounts.chain;
+	fillNetworks();
+	if ([...networkSel.options].some((o) => o.value === savedAccounts.network)) networkSel.value = savedAccounts.network;
+	/** @type {HTMLTextAreaElement} */ ($('addresses')).value = savedAccounts.addresses;
+	rememberAcc.checked = true;
+}
+rememberAcc.addEventListener('change', () => {
+	const f = values();
+	rememberAccounts(rememberAcc.checked ? { chain: f.chain, network: f.network, addresses: f.addresses.trim() } : null);
+});
 form.addEventListener('submit', onCreate);
 form.addEventListener('change', syncPeriod);
 registerServiceWorker();

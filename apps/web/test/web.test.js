@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import { parseRequest } from '@eigenbeleg/pipeline';
-import { fileName, requestBody, splitAddresses } from '../src/request.js';
+import { fileName, rememberAccounts, rememberedAccounts, requestBody, splitAddresses } from '../src/request.js';
 
 /** @type {import('../src/request.js').FormValues} */
 const form = {
@@ -35,6 +35,22 @@ test('the form becomes the request the pipeline checks, as the API would', () =>
 	assert.deepEqual(req.addresses, ['wolkenfabrik.testnet', 'lager.testnet']);
 	assert.equal(req.number, 'EB-2026-007');
 	assert.equal(fileName('EB-2026/007 ä'), 'EB-2026_007__');
+});
+
+test('chain, network and addresses are kept only while their "remember" is ticked', () => {
+	const store = new Map();
+	globalThis.localStorage = /** @type {any} */ ({ getItem: (/** @type {string} */ k) => store.get(k) ?? null, setItem: (/** @type {string} */ k, /** @type {string} */ v) => store.set(k, v), removeItem: (/** @type {string} */ k) => store.delete(k) });
+	try {
+		assert.equal(rememberedAccounts(), null);
+		rememberAccounts({ chain: 'near', network: 'testnet', addresses: 'wolkenfabrik.testnet' });
+		assert.deepEqual(rememberedAccounts(), { chain: 'near', network: 'testnet', addresses: 'wolkenfabrik.testnet' });
+		assert.deepEqual([...store.keys()], ['accounts']);
+		rememberAccounts(null);
+		assert.equal(rememberedAccounts(), null);
+		assert.equal(store.size, 0);
+	} finally {
+		delete (/** @type {any} */ (globalThis)).localStorage;
+	}
 });
 
 test('the page has no wallet, no payment and no call to an API of ours', async () => {

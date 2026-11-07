@@ -207,6 +207,7 @@ function applyLang() {
 		if (key) el.textContent = t(/** @type {any} */ (key));
 	}
 	$('btn-lang').lang = l === 'de' ? 'en' : 'de';
+	for (const btn of document.querySelectorAll('button[data-copy]')) btn.setAttribute('aria-label', t('copy'));
 	/** @type {HTMLTextAreaElement} */ ($('postal')).placeholder = t('postalPlaceholder');
 	showSources();
 	showResult();
@@ -228,6 +229,22 @@ if (saved) {
 remember.addEventListener('change', () => {
 	if (!remember.checked) rememberPayer(null);
 });
+// The prompt and the curl lines: a button copies the block next to it.
+for (const btn of document.querySelectorAll('button[data-copy]')) {
+	btn.addEventListener('click', async () => {
+		const pre = btn.parentElement?.querySelector('pre');
+		const label = /** @type {HTMLElement} */ (btn.querySelector('span'));
+		try {
+			await navigator.clipboard.writeText(pre?.textContent ?? '');
+			label.textContent = t('copied');
+		} catch {
+			// no clipboard (insecure context, denied): select the text so the person copies it
+			if (pre) getSelection()?.selectAllChildren(pre);
+			label.textContent = '';
+		}
+		setTimeout(() => (label.textContent = ''), 1500);
+	});
+}
 fillChains();
 chainSel.addEventListener('change', fillNetworks);
 form.addEventListener('submit', onCreate);

@@ -148,6 +148,8 @@ async function onCreate(e) {
 		});
 		shown = { out, which: f.document };
 		showResult();
+		setStep('4');
+		$('step-result').scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 	} catch (err) {
 		const message = String(/** @type {Error} */ (err)?.message ?? err).slice(0, 200);
 		say('form-error', err instanceof RequestError ? t('refused', { error: message }) : t('unreadable', { error: message }));
@@ -283,6 +285,40 @@ const openLegal = () => {
 };
 openLegal();
 window.addEventListener('hashchange', openLegal);
+// The stepper above the form follows the focus; the result is step 4.
+/** @param {string} step */
+function setStep(step) {
+	for (const li of document.querySelectorAll('.steps li')) {
+		if (li.getAttribute('data-step') === step) li.setAttribute('aria-current', 'step');
+		else li.removeAttribute('aria-current');
+	}
+}
+form.addEventListener('focusin', (e) => {
+	const step = /** @type {HTMLElement | null} */ (/** @type {Element} */ (e.target).closest('[data-step]'))?.dataset.step;
+	if (step) setStep(step);
+});
+// The jump bar marks the section in view.
+const jumpLinks = [...document.querySelectorAll('.jump a')];
+const spied = jumpLinks.map((a) => document.getElementById(a.getAttribute('href')?.slice(1) ?? '')).filter(Boolean);
+let spying = false;
+function spy() {
+	spying = false;
+	const line = window.scrollY + 120;
+	let current = spied[0];
+	for (const el of spied) if (el && el.offsetTop <= line) current = el;
+	for (const a of jumpLinks) {
+		if (current && a.getAttribute('href') === `#${current.id}`) a.setAttribute('aria-current', 'true');
+		else a.removeAttribute('aria-current');
+	}
+}
+window.addEventListener('scroll', () => {
+	if (!spying) {
+		spying = true;
+		requestAnimationFrame(spy);
+	}
+}, { passive: true });
+window.addEventListener('hashchange', () => setTimeout(spy, 50));
+spy();
 // The hackathon wristband: shown until closed once; the browser remembers that.
 const band = $('hackathon');
 let bandSeen = false;

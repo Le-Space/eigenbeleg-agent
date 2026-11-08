@@ -96,6 +96,16 @@ function syncChain() {
 		if (monthly) r.checked = r.value === 'month';
 	}
 	$('chain-note').hidden = !monthly;
+	// Only the kinds this chain has; a box that comes back gets its default again.
+	const kinds = b?.kinds ?? [];
+	for (const c of /** @type {NodeListOf<HTMLInputElement>} */ (form.querySelectorAll('input[name="includeKinds"]'))) {
+		const label = /** @type {HTMLElement} */ (c.closest('label'));
+		const on = kinds.includes(c.value);
+		if (!on) c.checked = false;
+		else if (label.hidden) c.checked = c.defaultChecked;
+		label.hidden = !on;
+	}
+	$('kinds').hidden = kinds.length === 0;
 	syncPeriod();
 }
 
@@ -123,7 +133,7 @@ async function onCreate(e) {
 	say('form-error', '');
 	clearResult();
 	const f = values();
-	if (f.includeKinds.length === 0) return say('form-error', t('pickKind'));
+	if (f.includeKinds.length === 0 && (blocks.find((x) => x.chain === f.chain)?.kinds ?? []).length > 0) return say('form-error', t('pickKind'));
 	if (f.name.trim().length < 2 || f.postal.trim().length < 5) return say('form-error', t('needPayer'));
 	rememberPayer(remember.checked ? { name: f.name.trim(), postal: f.postal.trim() } : null);
 	rememberAccounts(rememberAcc.checked ? { chain: f.chain, network: f.network, addresses: f.addresses.trim() } : null);

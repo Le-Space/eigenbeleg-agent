@@ -8,15 +8,17 @@
 //   POST /eigenbeleg/preview  free: positions and total, never the payer
 //   GET  /ui/          the web UI (apps/web/dist), when it is built
 //
-// No storage beyond the request: the body (payer's name and address) lives
-// in memory until the response is sent. Logs carry method, path, status and
-// duration only.
+// No storage beyond the request: the body (payer's name and address, and an
+// e-mail address when the files are wanted by mail) lives in memory until the
+// response is sent and the mail, if any, is out. Logs carry method, path,
+// status and duration only.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 
 import { RequestError, blocksFor, checkBlock, describeBlocks, generate, parseRequest } from '@eigenbeleg/pipeline';
+import { composeMail } from './mail.js';
 
 /**
  * @param {object} o
@@ -27,6 +29,7 @@ import { RequestError, blocksFor, checkBlock, describeBlocks, generate, parseReq
  * @param {string} [o.source] where the source of this running version is (AGPL-3.0-or-later, section 13)
  * @param {string | null} [o.web] the built web UI (apps/web/dist); null: no UI
  * @param {{ max: number, windowMs: number }} [o.previewLimit] free previews per IP
+ * @param {import('./mail.js').Mailer | null} [o.mailer] sends the files by mail when a request asks (`email`); null: not offered here
  * @param {string} [o.publicUrl] this instance's public origin, e.g. https://eigenbeleg.le-space.de, for the share
  *   cards' absolute URLs; unset: taken from the request's Host (and X-Forwarded-Proto)
  */
@@ -37,6 +40,7 @@ export function createApp({
 	source = 'https://github.com/Le-Space/eigenbeleg-agent',
 	web = WEB_DIST,
 	previewLimit = { max: 10, windowMs: 60_000 },
+	mailer = null,
 	publicUrl
 }) {
 	// The blocks this instance serves: the keyless ones, and Ethereum and Base where an Alchemy key is set.
@@ -83,10 +87,12 @@ export function createApp({
 				payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' },
 				number: 'EB-2026-001 (optional, from your own range)',
 				includeKinds: ['fee', 'storage'],
-				logo: 'true | false (optional: the chain\'s mark, small, beside the title)'
+				logo: 'true | false (optional: the chain\'s mark, small, beside the title)',
+				email: mailer ? 'belege@example.org (optional: the files also by mail, for a document management system\'s inbox)' : null
 			},
+			mail: mailer ? 'the files by mail to the request\'s email, once the payment is settled; the address is used for that one mail' : 'not offered by this instance',
 			blocks: describeBlocks(blocks),
-			privacy: 'Nothing is stored beyond the request; logs hold method, path, status and duration only.',
+			privacy: 'Nothing is stored beyond the request; logs hold method, path, status and duration only. An e-mail address goes into that one mail and nowhere else.',
 			data: 'Powered by NearBlocks.io APIs; EUR rates: the price at 00:00 UTC from CoinGecko, else Kraken (@le-space/rates).',
 			license: 'AGPL-3.0-or-later',
 			source
@@ -126,13 +132,15 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
   "payer": { "name": "…", "address": "street, postcode town" }   printed on the documents; used for this response only, never stored or logged,
   "number": "EB-2026-001",                    optional, first number of the payer's own range,
   "includeKinds": ["fee", "storage"],         optional: of the chain's kinds in GET /blocks (fee, storage, transfer, call; storage is NEAR's)
-  "logo": false                               optional: the chain's mark, small, beside the title
+  "logo": false,                              optional: the chain's mark, small, beside the title
+  "email": "belege@example.org"               optional${mailer ? '' : ' (not offered by this instance)'}: the files also by mail, once the payment is settled
 }
 
 ## Notes
 
 ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is paid with) and the gas, read through this server's Alchemy key; the whole history of the address is read, so a busy address takes a while.\n" : ''}- aleph (Aleph Cloud credits, by the Ethereum address): one finished month (\`period.month\`), \`document\` kontoauszug only; it is a Verbrauchsauszug (VA-…), usage per day and resource, valued at the USD price per credit and the ECB rate of the day. No Eigenbeleg: usage from a prepaid balance is no single payment.
 - The documents are in German. An Eigenbeleg counts only once the payer signs it; whether a tax adviser accepts it is theirs to decide.
+- email: the files go as attachments (stable names: EB-….pdf, KA-….pdf, EB-….csv; subject "Eigenbeleg EB-… · chain network · period"), so a document management system's inbox can sort them. The answer says \`mail: queued\` (format json) or carries X-Eigenbeleg-Mail: queued. The address is used for that one mail only.
 - Nothing is stored beyond the request. Source (AGPL-3.0-or-later): ${source}
 `);
 	});
@@ -144,6 +152,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 	const validate = (req, res, next) => {
 		try {
 			res.locals.job = parseRequest(req.body, { blocks });
+			if (res.locals.job.email && !mailer) throw new RequestError('email: this instance sends no mail; leave it out and take the files from the response');
 			next();
 		} catch (e) {
 			if (e instanceof RequestError) res.status(400).json({ error: e.message });
@@ -222,6 +231,17 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 			}
 		}
 		if (paywall.info.mode === 'none') res.setHeader('X-Eigenbeleg-Paywall', 'none (development)');
+		// The mail goes out once the response is settled (the x402 middleware turns an
+		// unsettled 200 into a 402 after this handler), so it cannot be awaited here:
+		// the answer says `queued`. A failure is logged without the address.
+		if (job.email && mailer) {
+			const mail = composeMail(job, out);
+			res.on('finish', () => {
+				if (res.statusCode >= 400) return;
+				mailer.send(mail).catch((e) => log(`${new Date().toISOString()} mail failed: ${String(e?.message ?? e).slice(0, 200)}`));
+			});
+			res.setHeader('X-Eigenbeleg-Mail', 'queued');
+		}
 		// No summary in a header: headers set here would stay on the 402 that a
 		// failed settlement sends. The JSON format carries the summary.
 		const name = (/** @type {string} */ n) => n.replace(/[^A-Za-z0-9._-]/g, '_');
@@ -240,7 +260,8 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 				...out.summary,
 				...(out.pdf ? { pdf: Buffer.from(out.pdf).toString('base64') } : {}),
 				...(out.statements.length ? { kontoauszuegePdf: out.statements.map((s) => ({ account: s.account, number: s.number, pdf: Buffer.from(s.pdf).toString('base64') })) } : {}),
-				csv: out.csv
+				csv: out.csv,
+				...(job.email ? { mail: 'queued' } : {})
 			});
 		}
 	});

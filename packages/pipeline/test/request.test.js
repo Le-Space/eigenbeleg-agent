@@ -51,3 +51,12 @@ test('a chain offers only its own kinds; the default is what it has of fee and s
 	refused({ ...akash, includeKinds: ['fee', 'storage'] });
 	assert.deepEqual(parseRequest({ ...ok, chain: 'aleph', addresses: ['0x4EA28E630990a9e7A5De367107C2b804498238E2'], period: { month: '2026-09' }, document: 'kontoauszug' }).includeKinds, []);
 });
+
+test('email: one mailbox, optional, never in the preview', () => {
+	assert.equal(parseRequest(ok).email, null);
+	assert.equal(parseRequest({ ...ok, email: 'belege@example.org' }).email, 'belege@example.org');
+	refused({ email: 'Belege <belege@example.org>' });
+	refused({ email: 'belege@localhost' });
+	refused({ email: ['belege@example.org'] });
+	assert.throws(() => parseRequest({ ...ok, payer: undefined, email: 'belege@example.org' }, { preview: true }), /preview takes no email/);
+});

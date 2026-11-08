@@ -35,6 +35,7 @@ const HELP = `The Eigenbeleg agent: buys Eigenbelege and Kontoauszüge from the 
 Options: --chain, --network, --address (repeatable), --month YYYY-MM or --from/--to YYYY-MM-DD,
   --name and --postal (the payer, printed on the documents), --number, --statement,
   --include fee,storage,transfer,call, --document eigenbelege|kontoauszug|beide,
+  --email belege@example.org (the API also mails the files, e.g. to a document management system),
   --api URL (else API_URL), --out DIR (else OUT_DIR, default ./out).
 Environment (.env): API_URL, AGENT_ACCOUNT_ID and AGENT_SECRET_KEY (or the near-cli keychain),
   PAY_NETWORK (near:testnet), AGENT_BUDGET per payment (default $0.25).`;
@@ -56,6 +57,7 @@ const { values: v } = parseArgs({
 		statement: { type: 'string' },
 		include: { type: 'string' },
 		document: { type: 'string' },
+		email: { type: 'string' },
 		api: { type: 'string' },
 		out: { type: 'string' }
 	}
@@ -77,7 +79,8 @@ const job = v.market ? null : v.job
 			...(v.number ? { number: v.number } : {}),
 			...(v.statement ? { statementNumber: v.statement } : {}),
 			...(v.include ? { includeKinds: v.include.split(',') } : {}),
-			...(v.document ? { document: v.document } : {})
+			...(v.document ? { document: v.document } : {}),
+			...(v.email ? { email: v.email } : {})
 		};
 
 const env = process.env;

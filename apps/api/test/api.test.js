@@ -145,7 +145,9 @@ test('the paid route has one spelling; a failed settlement leaks nothing of the 
 	};
 	const server = new x402ResourceServer(/** @type {any} */ (facilitator)).register('near:testnet', new ExactNearScheme());
 	const middleware = paymentMiddleware(/** @type {any} */ ({ 'POST /eigenbeleg': { accepts: [{ scheme: 'exact', price: '$0.10', network: 'near:testnet', payTo: 'eigenbeleg.testnet' }] } }), server);
-	const { base, close } = await serve(createApp({ paywall: { middleware, info: { mode: 'near' } }, deps, log: () => {} }));
+	const sent = [];
+	const mailer = { send: async (m) => void sent.push(m) };
+	const { base, close } = await serve(createApp({ paywall: { middleware, info: { mode: 'near' } }, deps, log: () => {}, mailer }));
 	try {
 		for (const path of ['/eigenbeleg/', '/EIGENBELEG', '/Eigenbeleg']) {
 			const r = await globalThis.fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(job) });
@@ -153,11 +155,13 @@ test('the paid route has one spelling; a failed settlement leaks nothing of the 
 		}
 		const required = JSON.parse(Buffer.from((await post(base, { ...job, format: 'json' })).headers.get('payment-required') ?? '', 'base64').toString());
 		const payload = { x402Version: 2, resource: required.resource, accepted: required.accepts[0], payload: { signedDelegateAction: 'AAAA' } };
-		const r = await post(base, { ...job, format: 'json' }, { 'PAYMENT-SIGNATURE': Buffer.from(JSON.stringify(payload)).toString('base64') });
+		const r = await post(base, { ...job, format: 'json', email: 'belege@example.org' }, { 'PAYMENT-SIGNATURE': Buffer.from(JSON.stringify(payload)).toString('base64') });
 		assert.equal(r.status, 402);
 		const text = await r.text();
 		assert.doesNotMatch(text, /totalEur|positions|Belegnummer/);
 		for (const [k, v] of r.headers) assert.doesNotMatch(`${k}: ${v}`, /totalEur|positions|filename/i, k);
+		await new Promise((res) => setTimeout(res, 20));
+		assert.equal(sent.length, 0, 'an unsettled payment gets no mail');
 	} finally {
 		close();
 	}
@@ -378,5 +382,63 @@ test('Ethereum and Base only with ALCHEMY_KEY; the key is in no answer and no lo
 		assert.ok(!(answers.join('\n') + lines.join('\n')).includes(key), 'the key is in no answer and no log line');
 	} finally {
 		withKey.close();
+	}
+});
+
+test('the files by mail: queued once the answer is out, stable subject and file names, the address in no log line', async () => {
+	const lines = [];
+	const sent = [];
+	let done;
+	const delivered = new Promise((r) => (done = r));
+	const mailer = { send: async (m) => void (sent.push(m), done()) };
+	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: (l) => lines.push(l), mailer, publicUrl: 'https://eigenbeleg.example.org' }));
+	try {
+		const home = await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json();
+		assert.match(home.mail, /^the files by mail/);
+		assert.match(home.request.email, /^belege@example\.org/);
+		assert.match(await (await globalThis.fetch(base + '/llms.txt')).text(), /"email": "belege@example\.org"\s+optional: the files also by mail/);
+
+		const r = await post(base, { ...job, format: 'json', document: 'beide', email: 'belege@example.org' });
+		assert.equal(r.status, 200);
+		assert.equal(r.headers.get('x-eigenbeleg-mail'), 'queued');
+		const body = await r.json();
+		assert.equal(body.mail, 'queued');
+		assert.ok(body.pdf, 'the files are in the answer as well');
+		await delivered;
+		assert.equal(sent.length, 1);
+		const [m] = sent;
+		assert.equal(m.to, 'belege@example.org');
+		assert.equal(m.subject, 'Eigenbelege EB-2026-042 – EB-2026-066 · near mainnet · 2026-11-01');
+		assert.deepEqual(m.attachments.map((a) => a.filename), ['EB-2026-042.pdf', 'KA-2026-11-01.pdf', 'EB-2026-042.csv']);
+		assert.equal(m.attachments[0].content.subarray(0, 8).toString(), '%PDF-1.7');
+		assert.match(m.text, /Eigenbelege: \d+ \(\d+ Positionen, [\d.]+ EUR\)/);
+		assert.match(m.text, /NEAR: Anfangsbestand .*, Endbestand .*, abgestimmt/);
+		assert.doesNotMatch(m.text, /Musterstraße/, 'the postal address is on the documents, not in the mail');
+
+		const pdf = await post(base, { ...job, email: 'belege@example.org' });
+		assert.equal(pdf.status, 200);
+		assert.equal(pdf.headers.get('x-eigenbeleg-mail'), 'queued');
+		await pdf.arrayBuffer();
+
+		assert.equal((await post(base, { ...job, email: 'nobody' })).status, 400);
+		assert.equal((await globalThis.fetch(`${base}/eigenbeleg/preview`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...job, payer: undefined, email: 'belege@example.org' }) })).status, 400);
+		assert.ok(lines.every((l) => !/belege@|example\.org/.test(l)), 'the address is in no log line');
+	} finally {
+		close();
+	}
+});
+
+test('without SMTP the API offers no mail: email is refused before any payment, GET / says so', async () => {
+	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {} }));
+	try {
+		const r = await post(base, { ...job, email: 'belege@example.org' });
+		assert.equal(r.status, 400);
+		assert.match((await r.json()).error, /sends no mail/);
+		const home = await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json();
+		assert.equal(home.mail, 'not offered by this instance');
+		assert.equal(home.request.email, null);
+		assert.match(await (await globalThis.fetch(base + '/llms.txt')).text(), /optional \(not offered by this instance\)/);
+	} finally {
+		close();
 	}
 });

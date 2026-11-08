@@ -184,7 +184,7 @@
 
 			<section id="agents" aria-labelledby="h-agents">
 				<h2 id="h-agents" data-i18n="hAgents">Für Agenten: dieselben Dokumente per API, bezahlt per x402</h2>
-				<p data-i18n="agentsText">Wer einen Agenten für sich arbeiten lässt, nutzt die API. Sie prüft die Anfrage, liest, bewertet und zeichnet mit demselben Code wie diese Seite. Der Agent zahlt je Anfrage 0,10 USDC per x402, ohne Gas (derzeit auf dem NEAR-Testnet). Die Vorschau ist kostenlos, und abgebucht wird nur, wenn die Chain gelesen werden konnte.</p>
+				<p data-i18n="agentsText">Wer einen Agenten für sich arbeiten lässt, nutzt die API. Sie prüft die Anfrage, liest, bewertet und zeichnet mit demselben Code wie diese Seite. Der Agent zahlt je Anfrage 0,10 USDC per x402, ohne Gas (derzeit auf dem NEAR-Testnet). Die Vorschau ist kostenlos, und abgebucht wird nur, wenn die Chain gelesen werden konnte. Auf Wunsch schickt die API die Dateien zusätzlich per E-Mail, etwa an das Postfach eines Dokumentenmanagementsystems.</p>
 				<p class="note" data-i18n="agentsPrompt">So beauftragen Sie zum Beispiel Claude oder einen anderen Agenten, der x402 kann (die Adresse ist unser eigener Testnet-Agent, mit echten Zahlungen):</p>
 				<div class="copy">
 					<pre data-i18n="prompt">Besorge mir die Eigenbelege und den Kontoauszug für den 1. bis 6. November 2026 für meine NEAR-Testnet-Adresse eigenbeleg-agent.testnet von https://eigenbeleg.le-space.de. Lies zuerst https://eigenbeleg.le-space.de/llms.txt. Aussteller: Wolkenfabrik Hosting GmbH, Musterstraße 1, 12345 Beispielstadt. Zahle höchstens 0,10 USDC.</pre>
@@ -219,7 +219,7 @@ curl https://eigenbeleg.le-space.de/llms.txt</pre>
 					<h3>5. Speicherung in Ihrem Browser</h3>
 					<p>Die Seite legt in Ihrem Browser ab: die Sprache (nur wenn Sie den Schalter klicken), Name und Anschrift sowie Blockchain, Netz und Adressen (jeweils nur, wenn Sie das zugehörige „auf diesem Gerät merken“ ankreuzen; Abwählen löscht sie) und ihre eigenen Dateien im Cache des Service Workers, damit die App auch ohne Netz startet. Nichts davon verlässt Ihr Gerät (§ 25 Abs. 2 Nr. 2 TDDDG); löschen können Sie es jederzeit über die Website-Daten Ihres Browsers. Cookies setzen wir keine.</p>
 					<h3>6. Die API für Agenten</h3>
-					<p>Wer statt der Seite die API nutzt, sendet Blockchain-Adressen, Zeitraum sowie Name und Anschrift des Ausstellers an unseren Server. Sie werden nur für diese eine Antwort verwendet, nicht gespeichert und nicht protokolliert (Art. 6 Abs. 1 lit. b DSGVO). Die Bezahlung ist eine Transaktion auf der NEAR-Blockchain und dort öffentlich.</p>
+					<p>Wer statt der Seite die API nutzt, sendet Blockchain-Adressen, Zeitraum sowie Name und Anschrift des Ausstellers an unseren Server. Sie werden nur für diese eine Antwort verwendet, nicht gespeichert und nicht protokolliert (Art. 6 Abs. 1 lit. b DSGVO). Wer die Dateien zusätzlich per E-Mail wünscht, gibt eine E-Mail-Adresse an; sie wird für diese eine Mail genutzt und nicht gespeichert. Die Mail geht über unseren Mailserver, der den Versand wie jeder Mailserver protokolliert. Die Bezahlung ist eine Transaktion auf der NEAR-Blockchain und dort öffentlich.</p>
 					<h3>7. Kontakt per E-Mail</h3>
 					<p>Wenn Sie uns per E-Mail schreiben, verarbeiten wir Ihre Angaben zur Beantwortung der Anfrage (Art. 6 Abs. 1 lit. b bzw. lit. f DSGVO) und löschen sie, sobald sie dafür nicht mehr erforderlich sind und keine gesetzlichen Aufbewahrungspflichten entgegenstehen.</p>
 					<h3>8. Externe Links</h3>
@@ -240,7 +240,7 @@ curl https://eigenbeleg.le-space.de/llms.txt</pre>
 					<h3>5. Storage in your browser</h3>
 					<p>The page keeps in your browser: the language (only when you click the switch), name and postal address, and chain, network and addresses (each only when you tick its "remember on this device"; unticking deletes them) and its own files in the service worker's cache, so the app starts without a network. None of it leaves your device (Sect. 25(2) no. 2 TDDDG); you can delete it at any time through your browser's site data. We set no cookies.</p>
 					<h3>6. The API for agents</h3>
-					<p>Whoever uses the API instead of the page sends blockchain addresses, the period, and the issuer's name and postal address to our server. They are used for that one answer only, neither stored nor logged (Art. 6(1)(b) GDPR). The payment is a transaction on the NEAR blockchain and public there.</p>
+					<p>Whoever uses the API instead of the page sends blockchain addresses, the period, and the issuer's name and postal address to our server. They are used for that one answer only, neither stored nor logged (Art. 6(1)(b) GDPR). Whoever wants the files by e-mail as well gives an e-mail address; it is used for that one mail and not stored. The mail passes through our mail server, which logs the delivery as any mail server does. The payment is a transaction on the NEAR blockchain and public there.</p>
 					<h3>7. Contact by e-mail</h3>
 					<p>If you write to us by e-mail, we process your details to answer your enquiry (Art. 6(1)(b) or (f) GDPR) and delete them once they are no longer needed for that purpose and no statutory retention duties apply.</p>
 					<h3>8. External links</h3>

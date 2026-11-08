@@ -2,6 +2,7 @@
 // Starts the API with the settings from the environment (.env.example).
 import { readFileSync } from 'node:fs';
 import { createApp } from './app.js';
+import { createMailer } from './mail.js';
 import { createPaywall } from './paywall.js';
 
 // A .env next to the repository root, if there is one (no dependency for it).
@@ -28,12 +29,14 @@ const paywall = await createPaywall({
 	pingUrl: env.PING_FACILITATOR_URL,
 	pingAmountOut: env.PING_AMOUNT_OUT
 });
-const app = createApp({ paywall, deps: { nearblocksKey: env.NEARBLOCKS_API_KEY, alchemyKey: env.ALCHEMY_KEY }, source: env.SOURCE_URL, publicUrl: env.PUBLIC_URL });
+// The files by mail, when a request asks: SMTP_URL and MAIL_FROM; without them the API offers no mail.
+const mailer = createMailer({ smtpUrl: env.SMTP_URL, from: env.MAIL_FROM });
+const app = createApp({ paywall, deps: { nearblocksKey: env.NEARBLOCKS_API_KEY, alchemyKey: env.ALCHEMY_KEY }, source: env.SOURCE_URL, publicUrl: env.PUBLIC_URL, mailer });
 // Behind a reverse proxy (Caddy): trust its X-Forwarded-Proto, so the x402
 // resource URL says https. Express's syntax: e.g. "uniquelocal" or a subnet.
 if (env.TRUST_PROXY) app.set('trust proxy', env.TRUST_PROXY);
 const host = env.HOST ?? '127.0.0.1';
 const port = Number(env.PORT ?? 4402);
 app.listen(port, host, () => {
-	console.log(`eigenbeleg API on http://${host}:${port} – paywall: ${JSON.stringify(paywall.info)}`);
+	console.log(`eigenbeleg API on http://${host}:${port} – paywall: ${JSON.stringify(paywall.info)}, mail: ${mailer ? 'on' : 'off'}`);
 });

@@ -2,6 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { moduleAddress } from '@le-space/chains/bech32';
+
 import { RequestError, parseRequest } from '../src/request.js';
 
 const ok = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-10-01', to: '2026-10-31' }, payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' } };
@@ -40,4 +42,12 @@ test('the logo is off unless asked for, and only true or false', () => {
 	assert.equal(parseRequest(ok).logo, false);
 	assert.equal(parseRequest({ ...ok, logo: true }).logo, true);
 	refused({ logo: 'yes' });
+});
+
+test('a chain offers only its own kinds; the default is what it has of fee and storage', () => {
+	assert.deepEqual(parseRequest(ok).includeKinds, ['fee', 'storage']);
+	const akash = { ...ok, chain: 'akash', addresses: [moduleAddress('akash', 'wolkenfabrik-example')] };
+	assert.deepEqual(parseRequest(akash).includeKinds, ['fee']);
+	refused({ ...akash, includeKinds: ['fee', 'storage'] });
+	assert.deepEqual(parseRequest({ ...ok, chain: 'aleph', addresses: ['0x4EA28E630990a9e7A5De367107C2b804498238E2'], period: { month: '2026-09' }, document: 'kontoauszug' }).includeKinds, []);
 });

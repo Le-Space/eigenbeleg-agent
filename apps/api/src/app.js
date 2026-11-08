@@ -125,7 +125,7 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
   "document": "eigenbelege" | "kontoauszug" | "beide",
   "payer": { "name": "…", "address": "street, postcode town" }   printed on the documents; used for this response only, never stored or logged,
   "number": "EB-2026-001",                    optional, first number of the payer's own range,
-  "includeKinds": ["fee", "storage"],         optional: fee, storage, transfer, call
+  "includeKinds": ["fee", "storage"],         optional: of the chain's kinds in GET /blocks (fee, storage, transfer, call; storage is NEAR's)
   "logo": false                               optional: the chain's mark, small, beside the title
 }
 

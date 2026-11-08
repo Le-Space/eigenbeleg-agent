@@ -20,6 +20,7 @@ export const CHAINS_VERSION = '0.2.0';
  * @property {string} chain the id in requests and the web UI
  * @property {string[]} networks where payments can be read
  * @property {string[]} assets what the chain's fees and deposits are paid in
+ * @property {string[]} kinds the kinds of payment the chain has for an Eigenbeleg, of fee, storage, transfer, call (storage deposits exist on NEAR only); empty: no Eigenbeleg (Aleph)
  * @property {string} source which API
  * @property {string} version
  * @property {(p: any) => Promise<import('@le-space/ledger').LedgerEntry[]>} read a period's entries, oldest first
@@ -40,6 +41,7 @@ export const BLOCKS = {
 		chain: 'near',
 		networks: ['mainnet', 'testnet'],
 		assets: ['NEAR', 'NEP-141 tokens (USDC, USDT, …)'],
+		kinds: ['fee', 'storage', 'transfer', 'call'],
 		source: 'NearBlocks API v3; balances from the FastNEAR archival RPC',
 		version: CHAINS_VERSION,
 		read: near.readNear,
@@ -52,6 +54,7 @@ export const BLOCKS = {
 		chain: 'akash',
 		networks: ['mainnet'],
 		assets: ['AKT'],
+		kinds: ['fee', 'transfer'],
 		source: 'Akash RPC (PublicNode) + Akash Console indexer',
 		version: CHAINS_VERSION,
 		read: akash.readAkash,
@@ -64,6 +67,7 @@ export const BLOCKS = {
 		chain: 'filecoin',
 		networks: ['mainnet'],
 		assets: ['FIL', 'USDFC'],
+		kinds: ['fee', 'transfer'],
 		source: 'Filfox API',
 		version: CHAINS_VERSION,
 		read: filecoin.readFilecoin,
@@ -76,6 +80,7 @@ export const BLOCKS = {
 		chain: 'aleph',
 		networks: ['mainnet'],
 		assets: ['ALEPH-CREDIT (Aleph Cloud credits, by the Ethereum address)'],
+		kinds: [],
 		source: 'Aleph API, no key; EUR per USD from the ECB',
 		version: CHAINS_VERSION,
 		// A Verbrauchsauszug (VA-…) of one whole finished month; no Eigenbeleg for usage.

@@ -91,8 +91,12 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	// The chain's mark on the documents, small, beside the title: off unless asked for.
 	const logo = body.logo ?? false;
 	if (typeof logo !== 'boolean') throw new RequestError('logo: true or false');
-	const includeKinds = body.includeKinds ?? DEFAULT_KINDS;
+	// Only the kinds the chain has (storage deposits are NEAR's); the default is what the chain has of fee and storage.
+	const kindsOffered = block.kinds ?? [...KINDS];
+	const includeKinds = body.includeKinds ?? DEFAULT_KINDS.filter((k) => kindsOffered.includes(k));
 	if (!Array.isArray(includeKinds) || includeKinds.some((k) => !KINDS.has(k))) throw new RequestError(`includeKinds: some of ${[...KINDS].join(', ')}`);
+	const foreign = includeKinds.filter((k) => !kindsOffered.includes(k));
+	if (foreign.length) throw new RequestError(`includeKinds: ${chain} has ${kindsOffered.join(', ') || 'no kinds (a statement only)'}, not ${foreign.join(', ')}`);
 
 	return {
 		chain,

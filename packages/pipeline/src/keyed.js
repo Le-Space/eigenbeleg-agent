@@ -23,6 +23,7 @@ function evmBlock(id) {
 		chain: r.chain.id,
 		networks: ['mainnet'],
 		assets: [r.chain.native.symbol, ...Object.values(/** @type {Record<string, { symbol: string }>} */ (r.chain.tokens)).map((t) => t.symbol)],
+		kinds: ['fee', 'transfer'],
 		source: `Alchemy (${r.chain.alchemy.network}), with the server's key`,
 		version: CHAINS_VERSION,
 		/** Offered only where the server has this key; never in the web UI. */

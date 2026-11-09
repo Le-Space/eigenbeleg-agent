@@ -71,7 +71,12 @@ test('a month of Aleph credits is a Verbrauchsauszug: opening, purchases, usage 
 	assert.equal(out.statements.length, 1);
 	const [k] = out.summary.kontoauszuege;
 	// Before August: 2,000,000 + the July purchase; August: −2,200 used, +500,000 bought, +50,000 in, −5,000 out.
-	assert.deepEqual(k.assets, [{ asset: 'ALEPH-CREDIT', opening: '3000000', closing: '3542800', reconciled: true }], 'the purchase is credits in; its USD side is not on the statement');
+	const [{ monthly, ...credits }] = k.assets;
+	assert.deepEqual(credits, { asset: 'ALEPH-CREDIT', opening: '3000000', closing: '3542800', reconciled: true }, 'the purchase is credits in; its USD side is not on the statement');
+	// The month in sums (#24): per resource, in all, bought, in, out; the EUR of a transfer is unknown.
+	assert.deepEqual(monthly.usage.map((l) => [l.label, l.amount, l.eur, l.rows]), [['Verbrauch Speicher (storage)', '200', '0.00032', 1], ['Verbrauch wolkenfabrik-web', '2000', '0.0032', 1]]);
+	assert.deepEqual(monthly.usageTotal, { label: 'Verbrauch gesamt (Aufwand)', amount: '2200', eur: '0.00352', rows: 2 });
+	assert.deepEqual([monthly.purchases.amount, monthly.purchases.eur, monthly.transfersIn.amount, monthly.transfersIn.eur, monthly.transfersOut.amount, monthly.fees], ['500000', '1', '50000', '', '5000', null]);
 	assert.equal(k.method, 'derived');
 	assert.ok(asked.every((u) => u.startsWith('https://api2.aleph.im/') || u.startsWith('https://data-api.ecb.europa.eu/')), asked.join('\n'));
 

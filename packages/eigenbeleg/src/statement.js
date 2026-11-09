@@ -53,8 +53,55 @@ export const STATEMENT_NOTE =
  * @property {string} beleg the Eigenbeleg's number, when the booking has one
  * @property {boolean} fee
  * @property {boolean} usage consumption billed from the balance (Aleph credits)
+ * @property {boolean} purchase credits bought from Aleph (the payment is on another chain, with its own Eigenbeleg)
+ * @property {string} label the counterparty's label alone (the resource's name, for usage)
  * @property {string} hashLabel what the hash is: `Tx`, or `Ressource` for usage
  */
+
+/**
+ * @typedef {object} MonthlyLine one line of the month's summary
+ * @property {string} label
+ * @property {string} amount in the asset, positive
+ * @property {string} eur positive, '' when a row had no rate
+ * @property {number} rows how many bookings it sums
+ */
+
+/**
+ * The month in sums, as the books take it (issue #24): consumption per resource and in all,
+ * credits bought, transfers in and out, fees. One booking each instead of the day's rows below.
+ *
+ * @param {StatementRow[]} rows
+ */
+export function monthly(rows) {
+	/** @param {StatementRow[]} rs @param {string} label @param {'debit' | 'credit'} side @returns {MonthlyLine} */
+	const line = (rs, label, side) => ({
+		label,
+		amount: sum(rs.map((r) => r[side] || '0')),
+		eur: rs.some((r) => !r.eur) ? '' : sum(rs.map((r) => r.eur.replace(/^-/, ''))),
+		rows: rs.length
+	});
+	/** Usage rows by resource, in the order they first appear. */
+	const byResource = [...new Set(rows.filter((r) => r.usage).map((r) => r.label))].map((label) =>
+		line(
+			rows.filter((r) => r.usage && r.label === label),
+			`Verbrauch ${label.replace(/^Aleph Cloud \((.*)\)$/, '$1').replace(/^storage$/, 'Speicher (storage)')}`,
+			'debit'
+		)
+	);
+	const usage = rows.filter((r) => r.usage);
+	const purchases = rows.filter((r) => r.purchase);
+	const transfersIn = rows.filter((r) => r.credit && !r.purchase);
+	const transfersOut = rows.filter((r) => r.debit && !r.usage && !r.fee);
+	const fees = rows.filter((r) => r.fee);
+	return {
+		usage: byResource,
+		usageTotal: usage.length ? line(usage, 'Verbrauch gesamt (Aufwand)', 'debit') : null,
+		purchases: purchases.length ? line(purchases, 'Käufe von Guthaben (Vorauszahlung; Eigenbeleg je Kauf)', 'credit') : null,
+		transfersIn: transfersIn.length ? line(transfersIn, 'Eingänge von anderen Konten', 'credit') : null,
+		transfersOut: transfersOut.length ? line(transfersOut, 'Ausgänge an andere Konten', 'debit') : null,
+		fees: fees.length ? line(fees, 'Netzwerkgebühren (Aufwand)', 'debit') : null
+	};
+}
 
 /**
  * @param {object} p
@@ -99,6 +146,8 @@ export function buildStatement({ payer, account, chain, network, period, entries
 				beleg: belege.get(e.hash) ?? '',
 				fee: e.type === 'fee',
 				usage: e.kind === 'usage',
+				purchase: e.type === 'received' && e.counterparty === 'aleph',
+				label: e.counterpartyLabel,
 				hashLabel: e.kind === 'usage' ? 'Ressource' : 'Tx'
 			});
 		}
@@ -114,6 +163,7 @@ export function buildStatement({ payer, account, chain, network, period, entries
 			debit,
 			credit,
 			rows,
+			monthly: monthly(rows),
 			eurOut: sum(rows.filter((r) => r.debit && r.eur).map((r) => r.eur.replace(/^-/, ''))),
 			eurIn: sum(rows.filter((r) => r.credit && r.eur).map((r) => r.eur)),
 			eurFees: sum(rows.filter((r) => r.fee && r.eur).map((r) => r.eur.replace(/^-/, ''))),

@@ -172,6 +172,27 @@ export async function statementPdf(st, { logo = false } = {}) {
 		page.drawRectangle({ x: M, y: y - 18, width, height: 18, color: BAND });
 		page.drawText(clean(`${s.asset} · ${st.account}`, bold), { x: M + 6, y: y - 12.5, size: 9.5, font: bold });
 		y -= 24;
+		// The month in sums, first (#24): what the books take as one booking each; the rows below are the proof.
+		if (aleph) {
+			const m = s.monthly;
+			const lines = [...m.usage, m.usageTotal, m.purchases, m.transfersIn, m.transfersOut].filter((l) => l !== null);
+			if (lines.length) {
+				ensure(14 + lines.length * 11 + 8);
+				page.drawText('Monatsübersicht', { x: M, y: y - 8, size: 8, font: bold, color: GREY });
+				right('Credits', M + 371 - 4, 7.5, bold, GREY);
+				right('Wert EUR', M + 507 - 4, 7.5, bold, GREY);
+				y -= 12;
+				for (const l of lines) {
+					const total = l === m.usageTotal;
+					const f = total ? bold : regular;
+					page.drawText(clean(l.label, f), { x: M + (total ? 0 : 8), y: y - 8, size: 8, font: f });
+					right(qty(l.amount), M + 371 - 4, 8, f);
+					right(l.eur ? deEuro(l.eur, 4).replace(' €', '') : '—', M + 507 - 4, 8, f, l.eur ? rgb(0, 0, 0) : GREY);
+					y -= 11;
+				}
+				y -= 8;
+			}
+		}
 		const head = () => {
 			let x = M;
 			for (const c of COLS) {

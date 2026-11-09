@@ -80,7 +80,7 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 			number: s.number,
 			account: s.account,
 			method: s.method,
-			assets: s.sections.map((x) => ({ asset: x.asset, opening: x.opening, closing: x.closing, reconciled: reconciled(x.difference) }))
+			assets: s.sections.map((x) => ({ asset: x.asset, opening: x.opening, closing: x.closing, reconciled: reconciled(x.difference), monthly: x.monthly }))
 		}))
 	};
 	if (preview) return { summary, pdf: null, statements: [], csv: null };

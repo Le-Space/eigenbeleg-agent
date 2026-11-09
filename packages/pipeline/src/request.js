@@ -11,7 +11,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const NUMBER = /^[A-Za-z0-9][A-Za-z0-9._\/-]{0,39}$/;
 const FORMATS = new Set(['pdf', 'csv', 'json']);
 const DOCUMENTS = new Set(['eigenbelege', 'kontoauszug', 'beide']);
-const KINDS = new Set(['fee', 'storage', 'transfer', 'call']);
+const KINDS = new Set(['fee', 'storage', 'transfer', 'call', 'swap']);
 const MAX_DAYS = 92;
 
 export class RequestError extends Error {}
@@ -99,9 +99,10 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	if (preview && body.email !== undefined) throw new RequestError('the preview takes no email: the files go only with the paid POST /eigenbeleg');
 	const email = body.email === undefined || body.email === null ? null : body.email;
 	if (email !== null && !(typeof email === 'string' && EMAIL.test(email) && email.length <= 254)) throw new RequestError('email: one address to mail the files to, like belege@example.org');
-	// Only the kinds the chain has (storage deposits are NEAR's); the default is what the chain has of fee and storage.
+	// Only the kinds the chain has (storage deposits are NEAR's); the default is what the chain has of fee
+	// and storage, or the block's own default (Aleph: its credit purchases).
 	const kindsOffered = block.kinds ?? [...KINDS];
-	const includeKinds = body.includeKinds ?? DEFAULT_KINDS.filter((k) => kindsOffered.includes(k));
+	const includeKinds = body.includeKinds ?? (block.defaultKinds ?? DEFAULT_KINDS).filter((k) => kindsOffered.includes(k));
 	if (!Array.isArray(includeKinds) || includeKinds.some((k) => !KINDS.has(k))) throw new RequestError(`includeKinds: some of ${[...KINDS].join(', ')}`);
 	const foreign = includeKinds.filter((k) => !kindsOffered.includes(k));
 	if (foreign.length) throw new RequestError(`includeKinds: ${chain} has ${kindsOffered.join(', ') || 'no kinds (a statement only)'}, not ${foreign.join(', ')}`);

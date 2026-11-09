@@ -12,7 +12,7 @@ import { encode } from 'uqr';
 
 import { round, toHex, utf8 } from '@le-space/ledger';
 
-import { deDate, deEuro, deNumber } from './document.js';
+import { DATA_SOURCES, deDate, deEuro, deNumber, noInvoice } from './document.js';
 import { asset, FONTS, LOGOS } from './assets.js';
 
 
@@ -115,7 +115,7 @@ export async function eigenbelegPdf(doc, { logo = false } = {}) {
 	function footer() {
 		const s = 7;
 		page.drawText(`${current} · Seite ${pageNo}`, { x: M, y: M / 2, size: s, font: regular, color: GREY });
-		const right = 'Daten: NearBlocks.io APIs · Kurse: siehe Kursquelle';
+		const right = `Daten: ${DATA_SOURCES[doc.chain] ?? doc.chainName} · Kurse: siehe Kursquelle`;
 		page.drawText(right, { x: A4[0] - M - regular.widthOfTextAtSize(right, s), y: M / 2, size: s, font: regular, color: GREY });
 	}
 
@@ -189,7 +189,7 @@ export async function eigenbelegPdf(doc, { logo = false } = {}) {
 		text(`${deDate(doc.issuedAt)}, ${doc.issuedAt.slice(11, 16)} UTC`, { x: rx });
 		gap(3);
 		text('Empfänger', { x: rx, font: bold, size: 8.5, color: GREY });
-		text(`${doc.chainName}: Peer-to-Peer-Netzwerk ohne rechnungsstellende Organisation`, { x: rx });
+		text(noInvoice(doc.chain, doc.chainName).recipient, { x: rx });
 		y = Math.min(y, leftEnd);
 		gap(8);
 		text(doc.payer.addresses.length > 1 ? 'Eigene Zahlungsadressen' : 'Eigene Zahlungsadresse', { font: bold, size: 8.5, color: GREY });
@@ -297,7 +297,7 @@ export async function eigenbelegPdf(doc, { logo = false } = {}) {
 	}
 
 	const sourcesOf = (/** @type {import('./document.js').Transaction[]} */ ts) => [
-		...new Set(ts.flatMap((t) => t.movements.filter((m) => m.onIt).map((m) => /** @type {any} */ (m.entry.eur).source.replace(/ \d{4}-\d{2}-\d{2}.*$/, ''))))
+		...new Set(ts.flatMap((t) => t.movements.filter((m) => m.onIt).map((m) => /** @type {any} */ (m.entry.eur).source.replace(/ \d{4}-\d{2}-\d{2}.*$/, '').replace(/ vom$/, ''))))
 	];
 	const period = `${deDate(doc.period.from)} – ${deDate(doc.period.to)}`;
 
@@ -320,7 +320,7 @@ export async function eigenbelegPdf(doc, { logo = false } = {}) {
 			if (round(t.eurExact, 2) === '0' && t.eurExact !== '0') text(`Ungerundet ${deEuro(t.eurExact, 8)} (unter einem Cent).`, { size: 8, color: GREY });
 			gap(4);
 			field('Was wurde bezahlt', `${what} an ${t.to.label || t.to.address}`);
-			field('Warum kein Fremdbeleg', 'Der Empfänger ist ein Peer-to-Peer-Netzwerk ohne rechnungsstellende Organisation; es stellt keine Rechnung aus.');
+			field('Warum kein Fremdbeleg', noInvoice(doc.chain, doc.chainName).why);
 			sourcesAndSignature([], sourcesOf([t]));
 		});
 	} else {

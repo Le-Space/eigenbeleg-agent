@@ -20,7 +20,8 @@ export const CHAINS_VERSION = '0.2.0';
  * @property {string} chain the id in requests and the web UI
  * @property {string[]} networks where payments can be read
  * @property {string[]} assets what the chain's fees and deposits are paid in
- * @property {string[]} kinds the kinds of payment the chain has for an Eigenbeleg, of fee, storage, transfer, call (storage deposits exist on NEAR only); empty: no Eigenbeleg (Aleph)
+ * @property {string[]} kinds the kinds of payment the chain has for an Eigenbeleg, of fee, storage, transfer, call, swap (storage deposits exist on NEAR only; swap: Aleph's credit purchases); empty: no Eigenbeleg
+ * @property {string[]} [defaultKinds] the kinds on the Eigenbeleg unless the request says (DEFAULT_KINDS when not given)
  * @property {string} source which API
  * @property {string} version
  * @property {(p: any) => Promise<import('@le-space/ledger').LedgerEntry[]>} read a period's entries, oldest first
@@ -79,12 +80,14 @@ export const BLOCKS = {
 		name: '@le-space/chains/aleph',
 		chain: 'aleph',
 		networks: ['mainnet'],
-		assets: ['ALEPH-CREDIT (Aleph Cloud credits, by the Ethereum address)'],
-		kinds: [],
+		assets: ['ALEPH-CREDIT (Aleph Cloud credits, by the Ethereum address)', 'USD (what a credit purchase is worth)'],
+		// The purchase of credits with a token: a payment of its own, so an Eigenbeleg (issue #23). Usage has none.
+		kinds: ['swap'],
+		defaultKinds: ['swap'],
 		source: 'Aleph API, no key; EUR per USD from the ECB',
 		version: CHAINS_VERSION,
-		// A Verbrauchsauszug (VA-…) of one whole finished month; no Eigenbeleg for usage.
-		documents: ['kontoauszug'],
+		// One whole finished month: the Verbrauchsauszug (VA-…) first, an Eigenbeleg per credit purchase too.
+		documents: ['kontoauszug', 'eigenbelege', 'beide'],
 		period: 'month',
 		statementPrefix: 'VA',
 		read: aleph.readAleph,

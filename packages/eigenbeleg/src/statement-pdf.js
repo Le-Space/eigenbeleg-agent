@@ -11,7 +11,7 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 
 import { round } from '@le-space/ledger';
-import { deDate, deEuro, deNumber } from './document.js';
+import { DATA_SOURCES, deDate, deEuro, deNumber } from './document.js';
 import { makePdfA } from './pdf.js';
 import { isDust, reconciled } from './statement.js';
 import { asset, FONTS, LOGOS } from './assets.js';
@@ -254,8 +254,7 @@ export async function statementPdf(st, { logo = false } = {}) {
 	pages.forEach((p, i) => {
 		const f = clean(`${st.number} · Seite ${i + 1} von ${pages.length}`, regular);
 		p.drawText(f, { x: M, y: M / 2, size: 7, font: regular, color: GREY });
-		const data = /** @type {Record<string, string>} */ ({ near: 'NearBlocks.io APIs, NEAR-Archiv-RPC', filecoin: 'Filfox', akash: 'Akash-RPC, Akash Console', aleph: 'Aleph-API (api2.aleph.im)' });
-		const r = `Daten: ${data[st.chain] ?? st.chainName} · kein Dokument eines Kreditinstituts`;
+		const r = `Daten: ${DATA_SOURCES[st.chain] ?? st.chainName} · kein Dokument eines Kreditinstituts`;
 		p.drawText(r, { x: A4[0] - M - regular.widthOfTextAtSize(r, 7), y: M / 2, size: 7, font: regular, color: GREY });
 	});
 

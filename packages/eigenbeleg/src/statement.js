@@ -20,7 +20,7 @@
 // 10⁻²⁴ NEAR), so an account that moved tokens is off by a few yocto.
 
 import { normalize, sum } from '@le-space/ledger';
-import { CHAIN_NAMES, KIND_TEXT } from './document.js';
+import { CHAIN_NAMES, kindText } from './document.js';
 
 /** Smaller than the twelve decimals the documents print. @param {string} difference */
 export const isDust = (difference) => /^-?0\.0{12}\d*$/.test(difference);
@@ -73,7 +73,10 @@ export const STATEMENT_NOTE =
  * @param {string} [p.issuedAt]
  */
 export function buildStatement({ payer, account, chain, network, period, entries, opening, closing, method, at = null, belege = new Map(), number, issuedAt }) {
-	const own = entries.filter((e) => e.account === account && e.success !== false);
+	// An Aleph credit purchase (kind `swap`) is the payment on another chain; the
+	// credits it bought are the incoming row. Only that row belongs on the statement.
+	const mine = entries.filter((e) => e.account === account && !(e.chain === 'aleph' && e.kind === 'swap'));
+	const own = mine.filter((e) => e.success !== false);
 	const assets = [...new Set([...Object.keys(opening), ...own.filter((e) => e.priceAs).map((e) => e.asset)])];
 	const sections = assets.map((asset) => {
 		let balance = normalize(opening[asset] ?? '0');
@@ -85,7 +88,7 @@ export function buildStatement({ payer, account, chain, network, period, entries
 			rows.push({
 				date: e.date,
 				time: e.time.slice(11, 19),
-				text: `${KIND_TEXT[/** @type {keyof typeof KIND_TEXT} */ (e.kind)] ?? e.kind}${e.type === 'received' ? ' (Eingang)' : ''}`,
+				text: `${kindText(e)}${e.type === 'received' ? ' (Eingang)' : ''}`,
 				counterparty: e.counterpartyLabel ? `${e.counterpartyLabel} · ${e.counterparty}` : e.counterparty,
 				hash: e.hash,
 				explorerUrl: e.explorerUrl,
@@ -135,7 +138,7 @@ export function buildStatement({ payer, account, chain, network, period, entries
 		method,
 		at,
 		sections,
-		unlisted: entries.filter((e) => e.account === account && !e.priceAs && !assets.includes(e.asset)).length,
+		unlisted: mine.filter((e) => !e.priceAs && !assets.includes(e.asset)).length,
 		note: usage ? USAGE_NOTE : STATEMENT_NOTE
 	};
 }

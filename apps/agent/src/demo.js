@@ -10,7 +10,7 @@
 
 import { readFile } from 'node:fs/promises';
 
-import { fixedRates } from '@eigenbeleg/eigenbeleg';
+import { fixedRates } from '@le-space/eigenbeleg';
 import { createApp } from '../../api/src/app.js';
 import { runJob } from './agent.js';
 import { recordedNear } from './recorded.js';

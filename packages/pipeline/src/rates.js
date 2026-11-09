@@ -23,11 +23,11 @@ const SOURCE_TEXT = {
  * @param {typeof fetch} [o.fetch]
  * @param {string} [o.coingeckoKey] a CoinGecko demo key, optional
  * @param {() => Date} [o.now] for tests
- * @returns {import('@eigenbeleg/eigenbeleg').Rates}
+ * @returns {import('@le-space/eigenbeleg').Rates}
  */
 export function dayRates({ fetch = globalThis.fetch, coingeckoKey, now } = {}) {
 	const service = createRateService({ fetch, coingeckoKey: async () => coingeckoKey ?? null, ...(now ? { now } : {}) });
-	/** @type {Map<string, Promise<import('@eigenbeleg/eigenbeleg').Rate | null>>} */
+	/** @type {Map<string, Promise<import('@le-space/eigenbeleg').Rate | null>>} */
 	const cache = new Map();
 
 	/**
@@ -55,7 +55,7 @@ export function dayRates({ fetch = globalThis.fetch, coingeckoKey, now } = {}) {
 				})()
 			);
 		}
-		return /** @type {Promise<import('@eigenbeleg/eigenbeleg').Rate | null>} */ (cache.get(key));
+		return /** @type {Promise<import('@le-space/eigenbeleg').Rate | null>} */ (cache.get(key));
 	}
 
 	return { rateFor };

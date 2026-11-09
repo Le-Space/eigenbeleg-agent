@@ -5,7 +5,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { toHex, utf8 } from '@le-space/ledger';
-import { fixedRates } from '@eigenbeleg/eigenbeleg';
+import { fixedRates } from '@le-space/eigenbeleg';
 
 import { generate, parseRequest } from '../src/index.js';
 import { recordedNear } from '../../../apps/agent/src/recorded.js';

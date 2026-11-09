@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 
 import { FAKE_ALCHEMY_KEY as KEY, startFakeAlchemy } from '@le-space/chains/testing/alchemy';
 import { EVM } from '@le-space/chains/testing/blockscout';
-import { fixedRates } from '@eigenbeleg/eigenbeleg';
+import { fixedRates } from '@le-space/eigenbeleg';
 import { RequestError, blocksFor, checkBlock, describeBlocks, generate, parseRequest } from '../src/index.js';
 
 const OWN = EVM.wallet;

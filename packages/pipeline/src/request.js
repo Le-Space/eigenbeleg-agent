@@ -4,7 +4,7 @@
 // and dropped; it is never logged or stored.
 
 import { monthPeriod } from '@le-space/ledger';
-import { DEFAULT_KINDS } from '@eigenbeleg/eigenbeleg/document';
+import { DEFAULT_KINDS } from '@le-space/eigenbeleg/document';
 import { BLOCKS } from './blocks.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;

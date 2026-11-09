@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 import { paymentMiddleware, x402ResourceServer } from '@x402/express';
 import { ExactNearScheme } from '@x402/near/exact/server';
-import { fixedRates } from '@eigenbeleg/eigenbeleg';
+import { fixedRates } from '@le-space/eigenbeleg';
 
 import { createApp } from '../src/app.js';
 import { recordedNear } from '../../agent/src/recorded.js';

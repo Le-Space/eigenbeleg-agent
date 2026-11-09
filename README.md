@@ -113,6 +113,8 @@ A run like this on 6 Nov 2026: [`Aqxuj1QQ…ynUX`](https://testnet.nearblocks.io
 
 `curl -i -X POST localhost:4402/eigenbeleg -H 'content-type: application/json' -d '{…}'` without payment shows the bare `402` and its `PAYMENT-REQUIRED` header (base64 JSON).
 
+**Base and Ethereum.** With `eip155:8453` or `eip155:1` in `PAY_NETWORKS` the 402 also offers USDC on Base and on Ethereum (`@x402/evm`, scheme `exact`): the payer signs an EIP-3009 `transferWithAuthorization` to `PAY_TO_EVM`, and the API's EVM relayer (`EVM_RELAYER_KEY`, a little ETH on each network) submits it and pays the gas. On Ethereum that gas costs more than a cheap document, so `PRICE_EIP155_1` sets Ethereum's own price. The agent pays on these networks with `AGENT_EVM_KEY`.
+
 **PingPay, for mainnet.** With `PAYWALL=ping` the same route sits behind [PingPay Agent Pay](https://pingpay.gitbook.io/docs/pingpay-api/agent-pay-facilitator) instead (`@pingpay/agentpay-middleware`): agents pay in USDC on Base or another origin chain, and NEAR Intents settles to the NEAR account set in the Ping dashboard. NEAR Intents has no testnet, so this mode is for mainnet only (minimum about 0.20 USDC).
 
 ## In the browser: the web UI
@@ -261,9 +263,12 @@ eigenbeleg.example.com {
 
 | Variable | Meaning | Secret |
 | --- | --- | --- |
-| `PAYWALL` | `near` (x402 on NEAR), `ping` (PingPay, mainnet only), `none` (development: free, and says so) | no |
-| `PAY_NETWORK` | `near:testnet` or `near:mainnet`: where the payment is made (not which chain is read) | no |
-| `PRICE` | price per request in USDC, e.g. `$0.10` | no |
+| `PAYWALL` | `x402` (x402 `exact`, USDC, on the networks in `PAY_NETWORKS`; `near` is its old name), `ping` (PingPay, mainnet only), `none` (development: free, and says so) | no |
+| `PAY_NETWORKS` | where customers may pay, comma-separated: `near:mainnet`, `near:testnet`, `eip155:8453` (Base), `eip155:1` (Ethereum); the 402 offers them all (not which chain is read). `PAY_NETWORK` with one network still works | no |
+| `PRICE` | price per request in USDC, e.g. `$0.10`; `PRICE_EIP155_1` etc. set one network's own price (Ethereum's gas costs the relayer more) | no |
+| `PAY_TO_EVM` | the 0x address that receives the USDC on Base and Ethereum | no |
+| `EVM_RELAYER_KEY` | 0x private key of the account that submits the payer's EIP-3009 transfer on Base and Ethereum and pays its gas (a little ETH on each) | **yes** |
+| `EVM_RPC_EIP155_8453`, `EVM_RPC_EIP155_1` | an RPC per EVM network; else Alchemy with `ALCHEMY_KEY`, else the chain's public RPC | no |
 | `PAY_TIMEOUT_SECONDS` | how far ahead a signed payment may expire (default 300; browser wallets such as Meteor sign 200 blocks ahead) | no |
 | `PAY_TO` | the NEAR account that receives the USDC; it must be registered with the USDC contract (`storage_deposit`) | no |
 | `RELAYER_ACCOUNT_ID` | the NEAR account that submits the payer's signed delegate action and pays its gas; needs a little NEAR | no |
@@ -279,7 +284,7 @@ eigenbeleg.example.com {
 | `TRUST_PROXY` | behind a proxy: whose `X-Forwarded-*` to trust (Express syntax, e.g. `uniquelocal`), so the x402 resource URL is https | no |
 | `HOST`, `PORT` | listen address; the image uses `0.0.0.0:3000` | no |
 
-Testnet vs mainnet: `PAY_NETWORK` decides where customers pay; the chain data read is chosen per request (`network` in the body). For the hackathon instance: `PAYWALL=near`, `PAY_NETWORK=near:testnet`.
+Testnet vs mainnet: `PAY_NETWORKS` decides where customers pay; the chain data read is chosen per request (`network` in the body). For the hackathon instance: `PAYWALL=x402`, `PAY_NETWORKS=near:testnet`. For production: `PAY_NETWORKS=near:mainnet,eip155:8453,eip155:1` with `PAY_TO`, `PAY_TO_EVM` and both relayers. This API is its own x402 facilitator on every network: the NEAR relayer submits delegate actions, the EVM relayer submits `transferWithAuthorization`; no third party sees or settles the payments.
 
 **Outbound hosts** the API calls (HTTPS only):
 

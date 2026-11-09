@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The x402 paywall in front of POST /eigenbeleg.
 //
-//   near  x402 `exact` on NEAR (testnet by default): the client signs a
-//         NEP-366 delegate action for one USDC ft_transfer to PAY_TO; this
-//         server's own facilitator checks it and a relayer account submits it,
-//         so the payer needs no NEAR for gas. Settles straight to a NEAR
-//         account. (x402 spec: specs/schemes/exact/scheme_exact_near.md)
+//   x402  x402 `exact`, USDC, on one or more networks (PAY_NETWORKS); the
+//         payer picks one from the 402. This server is its own facilitator:
+//         - near:mainnet / near:testnet: the client signs a NEP-366 delegate
+//           action for one USDC ft_transfer to PAY_TO; a relayer account
+//           submits it, so the payer needs no NEAR for gas.
+//           (x402 spec: specs/schemes/exact/scheme_exact_near.md)
+//         - eip155:8453 (Base), eip155:1 (Ethereum): the client signs an
+//           EIP-3009 transferWithAuthorization of USDC to PAY_TO_EVM; this
+//           server's EVM relayer (EVM_RELAYER_KEY) submits it and pays the
+//           gas, so the payer needs no ETH. Ethereum's gas costs more than a
+//           cheap document, so each network may have its own price.
+//         `near` is the old name of this mode with one NEAR network.
 //   ping  PingPay Agent Pay: the agent pays USDC on Base (or another origin
 //         chain), NEAR Intents settles to the NEAR recipient configured in the
 //         Ping dashboard. Mainnet only: NEAR Intents has no testnet.
@@ -17,22 +24,39 @@ import { x402Facilitator } from '@x402/core/facilitator';
 import { createFacilitatorNearSigner } from '@x402/near';
 import { ExactNearScheme as NearServerScheme } from '@x402/near/exact/server';
 import { ExactNearScheme as NearFacilitatorScheme } from '@x402/near/exact/facilitator';
+import { toFacilitatorEvmSigner } from '@x402/evm';
+import { ExactEvmScheme as EvmServerScheme } from '@x402/evm/exact/server';
+import { ExactEvmScheme as EvmFacilitatorScheme } from '@x402/evm/exact/facilitator';
 
 import { nearSecretKey } from './keys.js';
 
 export const ROUTE = 'POST /eigenbeleg';
 export const DESCRIPTION = 'Eigenbeleg (PDF/A + CSV) for the payments of own blockchain addresses in a period';
 
+/** The networks this server can take USDC on, and what the 402 and GET / call them. */
+export const NETWORKS = {
+	'near:mainnet': { name: 'NEAR', asset: 'USDC (NEP-141)', family: 'near' },
+	'near:testnet': { name: 'NEAR testnet', asset: 'USDC (NEP-141, testnet)', family: 'near' },
+	'eip155:8453': { name: 'Base', asset: 'USDC (ERC-20, EIP-3009)', family: 'evm', chain: 'base', alchemy: 'base-mainnet' },
+	'eip155:1': { name: 'Ethereum', asset: 'USDC (ERC-20, EIP-3009)', family: 'evm', chain: 'mainnet', alchemy: 'eth-mainnet' }
+};
+
 /**
  * @param {object} c
- * @param {'near' | 'ping' | 'none'} c.mode
- * @param {string} [c.price] e.g. "$0.10" (USDC)
- * @param {'near:testnet' | 'near:mainnet'} [c.network]
+ * @param {'x402' | 'near' | 'ping' | 'none'} c.mode
+ * @param {string} [c.price] e.g. "$0.10" (USDC), for every network without its own
+ * @param {Record<string, string>} [c.prices] per network, e.g. { 'eip155:1': '$1.00' }
+ * @param {string[]} [c.networks] the networks to take USDC on (keys of NETWORKS); default: [c.network]
+ * @param {'near:testnet' | 'near:mainnet'} [c.network] the old single-network setting
  * @param {string} [c.payTo] NEAR account that receives the USDC
  * @param {string} [c.relayerId] NEAR account that submits the delegate action and pays its gas
  * @param {string} [c.relayerKey] its secret key; else read from the near-cli keychain
- * @param {string} [c.rpcUrl]
- * @param {number} [c.timeoutSeconds] how far ahead the payer's delegate may expire (1 block ≈ 1 s); browser wallets sign with up to 200 blocks
+ * @param {string} [c.rpcUrl] a NEAR RPC instead of the default
+ * @param {string} [c.payToEvm] the 0x address that receives the USDC on Base and Ethereum
+ * @param {string} [c.evmRelayerKey] 0x private key of the account that submits EIP-3009 transfers and pays their gas
+ * @param {Record<string, string>} [c.evmRpcUrls] per EVM network, an RPC URL; else Alchemy with alchemyKey, else the chain's public RPC
+ * @param {string} [c.alchemyKey]
+ * @param {number} [c.timeoutSeconds] how far ahead the payer's signed payment may expire; browser wallets sign with up to 200 NEAR blocks
  * @param {string} [c.pingApiKey]
  * @param {string} [c.pingUrl]
  * @param {string} [c.pingAmountOut] destination USDC base units (>= 200000)
@@ -57,30 +81,72 @@ export async function createPaywall(c) {
 		};
 	}
 
-	if (c.mode !== 'near') throw new Error(`unknown PAYWALL ${c.mode}`);
-	const network = c.network ?? 'near:testnet';
-	if (!c.payTo) throw new Error('PAYWALL=near needs PAY_TO (the NEAR account that receives the USDC)');
-	if (!c.relayerId) throw new Error('PAYWALL=near needs RELAYER_ACCOUNT_ID (pays the gas of the payment)');
-	const short = /** @type {'mainnet' | 'testnet'} */ (network.split(':')[1]);
-	const secretKey = await nearSecretKey(c.relayerId, short, c.relayerKey);
-	const rpcUrls = c.rpcUrl ? { [network]: c.rpcUrl } : undefined;
-	const signer = createFacilitatorNearSigner({ relayers: [{ accountId: c.relayerId, secretKey }], rpcUrls });
-	const facilitator = new x402Facilitator().register(network, new NearFacilitatorScheme(signer));
-	const server = new x402ResourceServer({
-		verify: facilitator.verify.bind(facilitator),
-		settle: facilitator.settle.bind(facilitator),
-		getSupported: async () => facilitator.getSupported()
-	}).register(network, new NearServerScheme());
+	if (c.mode !== 'x402' && c.mode !== 'near') throw new Error(`unknown PAYWALL ${c.mode}`);
+	const networks = [...new Set(c.networks?.length ? c.networks : [c.network ?? 'near:testnet'])];
+	for (const n of networks) if (!Object.hasOwn(NETWORKS, n)) throw new Error(`PAY_NETWORKS: unknown network ${n}; known: ${Object.keys(NETWORKS).join(', ')}`);
 	const price = c.price ?? '$0.10';
-	const routes = {
-		[ROUTE]: {
-			accepts: [{ scheme: 'exact', price, network, payTo: c.payTo, maxTimeoutSeconds: c.timeoutSeconds ?? 300 }],
-			description: DESCRIPTION,
-			mimeType: 'application/pdf'
+	const priceOf = (/** @type {string} */ n) => c.prices?.[n] ?? price;
+	const timeout = c.timeoutSeconds ?? 300;
+
+	const facilitator = new x402Facilitator();
+	const server = new x402ResourceServer({
+		verify: (p, r) => facilitator.verify(p, r),
+		settle: (p, r) => facilitator.settle(p, r),
+		getSupported: async () => facilitator.getSupported()
+	});
+	/** @type {{ scheme: 'exact', price: string, network: string, payTo: string, maxTimeoutSeconds: number }[]} */
+	const accepts = [];
+	/** @type {Record<string, string>} */
+	const relayers = {};
+
+	for (const network of networks.filter((n) => NETWORKS[/** @type {keyof typeof NETWORKS} */ (n)].family === 'near')) {
+		if (!c.payTo) throw new Error(`${network} needs PAY_TO (the NEAR account that receives the USDC)`);
+		if (!c.relayerId) throw new Error(`${network} needs RELAYER_ACCOUNT_ID (pays the gas of the payment)`);
+		const short = /** @type {'mainnet' | 'testnet'} */ (network.split(':')[1]);
+		const secretKey = await nearSecretKey(c.relayerId, short, c.relayerKey);
+		const rpcUrls = c.rpcUrl ? { [network]: c.rpcUrl } : undefined;
+		const signer = createFacilitatorNearSigner({ relayers: [{ accountId: c.relayerId, secretKey }], rpcUrls });
+		facilitator.register(/** @type {any} */ (network), new NearFacilitatorScheme(signer));
+		server.register(/** @type {any} */ (network), new NearServerScheme());
+		accepts.push({ scheme: 'exact', price: priceOf(network), network, payTo: c.payTo, maxTimeoutSeconds: timeout });
+		relayers[network] = c.relayerId;
+	}
+
+	const evm = networks.filter((n) => NETWORKS[/** @type {keyof typeof NETWORKS} */ (n)].family === 'evm');
+	if (evm.length) {
+		if (!c.payToEvm || !/^0x[0-9a-fA-F]{40}$/.test(c.payToEvm)) throw new Error(`${evm.join(', ')} need PAY_TO_EVM (the 0x address that receives the USDC)`);
+		if (!c.evmRelayerKey || !/^0x[0-9a-fA-F]{64}$/.test(c.evmRelayerKey)) throw new Error(`${evm.join(', ')} need EVM_RELAYER_KEY (0x private key of the account that pays the gas)`);
+		const [{ createWalletClient, http, publicActions }, chains, { privateKeyToAccount }] = await Promise.all([import('viem'), import('viem/chains'), import('viem/accounts')]);
+		const account = privateKeyToAccount(/** @type {`0x${string}`} */ (c.evmRelayerKey));
+		for (const network of evm) {
+			const meta = NETWORKS[/** @type {'eip155:8453' | 'eip155:1'} */ (network)];
+			const chain = chains[meta.chain];
+			const rpc = c.evmRpcUrls?.[network] ?? (c.alchemyKey ? `https://${meta.alchemy}.g.alchemy.com/v2/${c.alchemyKey}` : undefined);
+			const client = createWalletClient({ account, chain, transport: http(rpc) }).extend(publicActions);
+			const signer = toFacilitatorEvmSigner(/** @type {any} */ (client));
+			facilitator.register(/** @type {any} */ (network), new EvmFacilitatorScheme(signer));
+			server.register(/** @type {any} */ (network), new EvmServerScheme());
+			accepts.push({ scheme: 'exact', price: priceOf(network), network, payTo: c.payToEvm, maxTimeoutSeconds: timeout });
+			relayers[network] = account.address;
 		}
-	};
+	}
+
+	const routes = { [ROUTE]: { accepts, description: DESCRIPTION, mimeType: 'application/pdf' } };
 	return {
 		middleware: /** @type {any} */ (paymentMiddleware(/** @type {any} */ (routes), server)),
-		info: { mode: 'near', scheme: 'exact', network, price, asset: 'USDC (NEP-141)', payTo: c.payTo, relayer: c.relayerId, gasless: true }
+		info: {
+			mode: 'x402',
+			scheme: 'exact',
+			// Kept for readers of the single-network shape (the first network).
+			network: accepts[0].network,
+			price: accepts[0].price,
+			asset: NETWORKS[/** @type {keyof typeof NETWORKS} */ (accepts[0].network)].asset,
+			payTo: accepts[0].payTo,
+			gasless: true,
+			accepts: accepts.map((a) => {
+				const meta = NETWORKS[/** @type {keyof typeof NETWORKS} */ (a.network)];
+				return { network: a.network, name: meta.name, asset: meta.asset, price: a.price, payTo: a.payTo, relayer: relayers[a.network], gasless: true };
+			})
+		}
 	};
 }

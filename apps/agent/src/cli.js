@@ -38,7 +38,8 @@ Options: --chain, --network, --address (repeatable), --month YYYY-MM or --from/-
   --email belege@example.org (the API also mails the files, e.g. to a document management system),
   --api URL (else API_URL), --out DIR (else OUT_DIR, default ./out).
 Environment (.env): API_URL, AGENT_ACCOUNT_ID and AGENT_SECRET_KEY (or the near-cli keychain),
-  PAY_NETWORK (near:testnet), AGENT_BUDGET per payment (default $0.25).`;
+  PAY_NETWORK (near:testnet), AGENT_EVM_KEY (USDC on Base and Ethereum), PAY_PREFER (the network to
+  pay on when the API offers several), AGENT_BUDGET per payment (default $0.25).`;
 
 const { values: v } = parseArgs({
 	options: {
@@ -87,18 +88,21 @@ const env = process.env;
 const api = (v.api ?? env.API_URL ?? 'http://127.0.0.1:4402').replace(/\/$/, '');
 let paidFetch = fetch;
 let lastPayment = () => ({});
-if (env.AGENT_ACCOUNT_ID) {
+if (env.AGENT_ACCOUNT_ID || env.AGENT_EVM_KEY) {
 	const payer = await createPayer({
 		accountId: env.AGENT_ACCOUNT_ID,
 		secretKey: env.AGENT_SECRET_KEY,
 		network: /** @type {any} */ (env.PAY_NETWORK ?? 'near:testnet'),
+		evmKey: env.AGENT_EVM_KEY,
+		prefer: env.PAY_PREFER,
 		budget: env.AGENT_BUDGET ?? '$0.25'
 	});
 	paidFetch = payer.paidFetch;
 	lastPayment = payer.last;
-	console.log(`Wallet: ${env.AGENT_ACCOUNT_ID} (${env.PAY_NETWORK ?? 'near:testnet'}), budget ${env.AGENT_BUDGET ?? '$0.25'} per payment`);
+	const wallets = [...(env.AGENT_ACCOUNT_ID ? [`${env.AGENT_ACCOUNT_ID} (${env.PAY_NETWORK ?? 'near:testnet'})`] : []), ...(env.AGENT_EVM_KEY ? ['an EVM key (Base, Ethereum)'] : [])];
+	console.log(`Wallet: ${wallets.join(' and ')}, budget ${env.AGENT_BUDGET ?? '$0.25'} per payment${env.PAY_PREFER ? `, pays on ${env.PAY_PREFER} when offered` : ''}`);
 } else {
-	console.log('Wallet: none (AGENT_ACCOUNT_ID not set) – works only against an API without paywall.');
+	console.log('Wallet: none (neither AGENT_ACCOUNT_ID nor AGENT_EVM_KEY set) – works only against an API without paywall.');
 }
 
 const outDir = v.out ?? env.OUT_DIR ?? 'out';

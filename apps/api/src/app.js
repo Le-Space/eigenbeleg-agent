@@ -103,7 +103,13 @@ export function createApp({
 	// For agents (llms.txt convention): what is sold, the price, the x402 flow, and where people go instead.
 	app.get('/llms.txt', (req, res) => {
 		const p = /** @type {Record<string, unknown>} */ (paywall.info);
-		const price = p.mode === 'near' ? `${p.price} in USDC (NEP-141) on ${p.network}, to ${p.payTo}; the API's relayer pays the gas` : p.mode === 'none' ? 'free (development mode)' : `paid via ${p.mode}`;
+		const accepts = /** @type {{ network: string, name: string, asset: string, price: string, payTo: string }[]} */ (p.accepts ?? []);
+		const price =
+			p.mode === 'x402'
+				? `USDC on ${accepts.map((a) => `${a.name} (${a.network}): ${a.price} to ${a.payTo}`).join('; ')}. The payer picks one of the 402's accepts; this API's relayer pays the gas on each`
+				: p.mode === 'none'
+					? 'free (development mode)'
+					: `paid via ${p.mode}`;
 		const base = origin(req, publicUrl);
 		res.type('text/plain; charset=utf-8').send(`# Eigenbeleg API
 
@@ -116,9 +122,9 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
 - POST ${base}/eigenbeleg/preview: free, the same body without \`payer\`; counts and totals, no files. Check here first.
 - POST ${base}/eigenbeleg: ${price}.
   1. Send the body; the answer is 402 with a \`PAYMENT-REQUIRED\` header (base64 JSON, x402 v2, scheme \`exact\`).
-  2. Sign what it asks for (on NEAR: one NEP-366 delegate action with one \`ft_transfer\` of USDC; the payer needs USDC and a USDC storage registration, no NEAR) and send the same request again with \`PAYMENT-SIGNATURE\`.
+  2. Sign what it asks for and send the same request again with \`PAYMENT-SIGNATURE\`. On NEAR: one NEP-366 delegate action with one \`ft_transfer\` of USDC (the payer needs USDC and a USDC storage registration, no NEAR). On Base or Ethereum: one EIP-3009 \`transferWithAuthorization\` of USDC (the payer needs USDC, no ETH).
   3. The answer carries the files and \`PAYMENT-RESPONSE\` (the transaction). If reading the chain fails, nothing is charged.
-  Clients: @x402/fetch with @x402/near (JavaScript), or this repository's agent: npm run agent -- --help.
+  Clients: @x402/fetch with @x402/near or @x402/evm (JavaScript), or this repository's agent: npm run agent -- --help.
 
 ## Body
 

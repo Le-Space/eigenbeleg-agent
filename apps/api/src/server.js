@@ -16,14 +16,26 @@ try {
 }
 
 const env = process.env;
+// Per network, from the environment: PRICE_EIP155_1 is the price on eip155:1, EVM_RPC_EIP155_8453 its RPC.
+const perNetwork = (/** @type {string} */ prefix) =>
+	Object.fromEntries(
+		Object.entries(env)
+			.filter(([k, v]) => k.startsWith(prefix) && v)
+			.map(([k, v]) => [k.slice(prefix.length).toLowerCase().replace('_', ':'), /** @type {string} */ (v)])
+	);
 const paywall = await createPaywall({
-	mode: /** @type {any} */ (env.PAYWALL ?? 'near'),
+	mode: /** @type {any} */ (env.PAYWALL ?? 'x402'),
 	price: env.PRICE,
-	network: /** @type {any} */ (env.PAY_NETWORK ?? 'near:testnet'),
+	prices: perNetwork('PRICE_'),
+	networks: (env.PAY_NETWORKS ?? env.PAY_NETWORK ?? 'near:testnet').split(',').map((n) => n.trim()).filter(Boolean),
 	payTo: env.PAY_TO,
 	relayerId: env.RELAYER_ACCOUNT_ID,
 	relayerKey: env.RELAYER_SECRET_KEY,
 	rpcUrl: env.NEAR_RPC_URL,
+	payToEvm: env.PAY_TO_EVM,
+	evmRelayerKey: env.EVM_RELAYER_KEY,
+	evmRpcUrls: perNetwork('EVM_RPC_'),
+	alchemyKey: env.ALCHEMY_KEY,
 	timeoutSeconds: env.PAY_TIMEOUT_SECONDS ? Number(env.PAY_TIMEOUT_SECONDS) : undefined,
 	pingApiKey: env.PING_API_KEY,
 	pingUrl: env.PING_FACILITATOR_URL,

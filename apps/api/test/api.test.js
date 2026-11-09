@@ -236,7 +236,7 @@ test('the preview is free behind the paywall; the payment window fits browser wa
 	}
 	// Meteor signs with 200 blocks ahead; the route must accept that (1 block ≈ 1 s).
 	const src = await readFile(new URL('../src/paywall.js', import.meta.url), 'utf8');
-	assert.match(src, /maxTimeoutSeconds: c\.timeoutSeconds \?\? 300/);
+	assert.match(src, /const timeout = c\.timeoutSeconds \?\? 300/);
 });
 
 test('GET /ui/ serves the built PWA with the build\'s CSP; no UI, no route', async () => {
@@ -327,7 +327,14 @@ test('the share cards get absolute URLs: PUBLIC_URL, else the request origin, ne
 });
 
 test('GET /llms.txt tells agents what is sold, the price and the x402 steps', async () => {
-	const info = { mode: 'near', scheme: 'exact', network: 'near:testnet', price: '$0.10', asset: 'USDC (NEP-141)', payTo: 'eigenbeleg-api.testnet' };
+	const info = {
+		mode: 'x402',
+		scheme: 'exact',
+		accepts: [
+			{ network: 'near:testnet', name: 'NEAR testnet', asset: 'USDC (NEP-141, testnet)', price: '$0.10', payTo: 'eigenbeleg-api.testnet' },
+			{ network: 'eip155:8453', name: 'Base', asset: 'USDC (ERC-20, EIP-3009)', price: '$0.10', payTo: '0x1111111111111111111111111111111111111111' }
+		]
+	};
 	const { base, close } = await serve(createApp({ paywall: { middleware: null, info }, deps, log: () => {}, web: null, publicUrl: 'https://eigenbeleg.example.org' }));
 	try {
 		const r = await globalThis.fetch(base + '/llms.txt');
@@ -335,7 +342,8 @@ test('GET /llms.txt tells agents what is sold, the price and the x402 steps', as
 		assert.match(r.headers.get('content-type') ?? '', /^text\/plain/);
 		const text = await r.text();
 		assert.match(text, /^# Eigenbeleg API/);
-		assert.match(text, /POST https:\/\/eigenbeleg\.example\.org\/eigenbeleg: \$0\.10 in USDC \(NEP-141\) on near:testnet, to eigenbeleg-api\.testnet/);
+		assert.match(text, /POST https:\/\/eigenbeleg\.example\.org\/eigenbeleg: USDC on NEAR testnet \(near:testnet\): \$0\.10 to eigenbeleg-api\.testnet; Base \(eip155:8453\): \$0\.10 to 0x1111/);
+		assert.match(text, /transferWithAuthorization/);
 		assert.match(text, /PAYMENT-REQUIRED[\s\S]*PAYMENT-SIGNATURE[\s\S]*PAYMENT-RESPONSE/);
 		assert.match(text, /web UI at https:\/\/eigenbeleg\.example\.org\/ui\/ instead: it does everything in their browser/);
 		assert.match(text, /"chain": "near" \| "akash" \| "filecoin" \| "aleph"/);

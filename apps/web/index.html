@@ -184,7 +184,19 @@
 
 			<section id="agents" aria-labelledby="h-agents">
 				<h2 id="h-agents" data-i18n="hAgents">Für Agenten: dieselben Dokumente per API, bezahlt per x402</h2>
-				<p data-i18n="agentsText">Wer einen Agenten für sich arbeiten lässt, nutzt die API. Sie prüft die Anfrage, liest, bewertet und zeichnet mit demselben Code wie diese Seite. Der Agent zahlt je Anfrage 0,10 USDC per x402, ohne Gas (derzeit auf dem NEAR-Testnet). Die Vorschau ist kostenlos, und abgebucht wird nur, wenn die Chain gelesen werden konnte. Auf Wunsch schickt die API die Dateien zusätzlich per E-Mail, etwa an das Postfach eines Dokumentenmanagementsystems.</p>
+				<p data-i18n="agentsText">Wer einen Agenten für sich arbeiten lässt, nutzt die API. Sie prüft die Anfrage, liest, bewertet und zeichnet mit demselben Code wie diese Seite. Der Agent zahlt je Anfrage in USDC per x402, ohne Gas, auf NEAR, Base oder Ethereum. Die Vorschau ist kostenlos, und abgebucht wird nur, wenn die Chain gelesen werden konnte. Auf Wunsch schickt die API die Dateien zusätzlich per E-Mail, etwa an das Postfach eines Dokumentenmanagementsystems.</p>
+				<h3 data-i18n="hPay">Womit Agenten zahlen</h3>
+				<table class="pay">
+					<thead>
+						<tr><th data-i18n="payNet">Netz</th><th data-i18n="payAsset">Asset</th><th data-i18n="payHow">Wie</th><th data-i18n="payPrice">Preis je Anfrage</th></tr>
+					</thead>
+					<tbody>
+						<tr><td>NEAR <code>near:mainnet</code></td><td>USDC (NEP-141)</td><td data-i18n="payNearHow">Eine signierte Delegate-Action; unser Relayer trägt das Gas</td><td data-i18n="payNearPrice">0,10 USDC</td></tr>
+						<tr><td>Base <code>eip155:8453</code></td><td>USDC</td><td data-i18n="payEvmHow">Eine signierte EIP-3009-Überweisung; unser Relayer trägt das Gas</td><td data-i18n="payBasePrice">0,10 USDC</td></tr>
+						<tr><td>Ethereum <code>eip155:1</code></td><td>USDC</td><td data-i18n="payEthHow">Wie Base; teurer, weil das Gas auf Ethereum ein Vielfaches kostet</td><td data-i18n="payEthPrice">1,00 USDC</td></tr>
+					</tbody>
+				</table>
+				<p class="note" data-i18n="payNote">Die 402-Antwort bietet alle Netze an, der Agent wählt eins. Welche Netze und Preise die laufende API gerade annimmt, sagt sie selbst unter /llms.txt; der Hackathon-Stand läuft noch auf dem NEAR-Testnet.</p>
 				<p class="note" data-i18n="agentsPrompt">So beauftragen Sie zum Beispiel Claude oder einen anderen Agenten, der x402 kann (die Adresse ist unser eigener Testnet-Agent, mit echten Zahlungen):</p>
 				<div class="copy">
 					<pre data-i18n="prompt">Besorge mir die Eigenbelege und den Kontoauszug für den 1. bis 6. November 2026 für meine NEAR-Testnet-Adresse eigenbeleg-agent.testnet von https://eigenbeleg.le-space.de. Lies zuerst https://eigenbeleg.le-space.de/llms.txt. Aussteller: Wolkenfabrik Hosting GmbH, Musterstraße 1, 12345 Beispielstadt. Zahle höchstens 0,10 USDC.</pre>

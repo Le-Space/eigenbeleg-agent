@@ -178,3 +178,9 @@ details.more[open] summary { margin-bottom: 0.25rem; }
 	.band::before { border-radius: 10px 0 0 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .band { animation: none; transform: rotate(-2deg); } }
+
+/* What agents pay with: a small table, scrollable sideways on a phone. */
+.pay { border-collapse: collapse; width: 100%; font-size: 0.9rem; display: block; overflow-x: auto; }
+.pay th, .pay td { text-align: left; padding: 0.35rem 0.6rem 0.35rem 0; border-bottom: 1px solid var(--line, #ddd); vertical-align: top; }
+.pay th { color: var(--muted); font-weight: 600; }
+.pay code { font-size: 0.8em; }

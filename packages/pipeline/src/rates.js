@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The euro rate of a payment's day, from @le-space/rates (shared with Le
 // Space Belege): the price at 00:00 UTC of the day – CoinGecko's daily
-// snapshot, else Kraken's daily open; for USD (Aleph credits are priced in
-// it) the ECB reference rate. The Eigenbeleg names the source and the
+// snapshot, else Kraken's daily open (NEAR and USDT too, both are in
+// RATE_SOURCES); for USD (Aleph credits are priced in it) the ECB reference
+// rate. The Eigenbeleg names the source and the
 // moment on the document, so a bookkeeper can look the rate up again.
 //
 // No storage: rates are cached in memory for one run.
@@ -45,15 +46,9 @@ export function dayRates({ fetch = globalThis.fetch, coingeckoKey, now } = {}) {
 					try {
 						r = await service.rate(asset, date);
 					} catch (e) {
-						if (!(e instanceof RateError)) throw e;
-						// 502: no source had the day. 400: the service lists no source for the asset
-						// (NEAR, USDT): Kraken trades the asset against EUR, so its daily open is asked.
-						if (e.status !== 400) return null;
-						try {
-							r = await service.rate(asset, date, { prefer: 'kraken' });
-						} catch {
-							return null;
-						}
+						// 502: no source had the day; 400: the service lists no source for the asset.
+						if (e instanceof RateError) return null;
+						throw e;
 					}
 					const text = SOURCE_TEXT[r.source] ?? ((/** @type {string} */ d) => `${r.source}, Kurs ${d} 00:00 UTC`);
 					return { rate: r.rate, source: text(date, r), date };

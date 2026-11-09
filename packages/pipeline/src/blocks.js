@@ -12,7 +12,7 @@ import * as filecoin from './readers/filecoin.js';
 import * as aleph from './readers/aleph.js';
 
 /** The version of @le-space/chains the blocks are built on (a test holds it against the installed package). */
-export const CHAINS_VERSION = '0.2.0';
+export const CHAINS_VERSION = '0.3.0';
 
 /**
  * @typedef {object} Block

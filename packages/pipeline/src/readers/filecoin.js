@@ -7,7 +7,7 @@
 
 import { derivedStatement, fromWalletEntry, sortEntries } from '@le-space/ledger';
 import { createFilecoinClient, isFilecoinAddress, toFilecoinAddress } from '@le-space/chains/filecoin';
-import { FILECOIN } from '@le-space/chains';
+import { FILECOIN } from '@le-space/chains/filecoin-chain';
 
 const PRICE_AS = { FIL: 'FIL', USDFC: 'USDC' };
 

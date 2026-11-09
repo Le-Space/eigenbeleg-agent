@@ -15,9 +15,9 @@
   },
   "dependencies": {
     "@eigenbeleg/eigenbeleg": "0.1.0",
-    "@le-space/chains": "0.2.0",
-    "@le-space/ledger": "0.2.0",
-    "@le-space/rates": "0.2.0"
+    "@le-space/chains": "0.3.0",
+    "@le-space/ledger": "0.3.0",
+    "@le-space/rates": "0.3.0"
   },
   "devDependencies": {
     "@noble/hashes": "2.4.0"

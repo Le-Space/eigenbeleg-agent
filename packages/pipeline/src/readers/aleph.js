@@ -22,7 +22,7 @@
 
 import { entry, multiply, normalize, sortEntries } from '@le-space/ledger';
 import { ALEPH_API, ALEPH_EXPLORER, alephEntries, createAlephClient } from '@le-space/chains/aleph';
-import { isEvmAddress, toChecksumAddress } from '@le-space/chains/evm';
+import { isEvmAddress, toChecksumAddress } from '@le-space/chains/evm-address';
 import { CHAINS } from '@le-space/chains/registry';
 import { plain } from '@le-space/rates/aleph-credits';
 

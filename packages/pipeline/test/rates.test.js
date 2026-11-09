@@ -34,7 +34,7 @@ test('CoinGecko’s price at 00:00 UTC, named with its source and moment', async
 	assert.equal(asked.filter((u) => u.includes('akash-network')).length, 1, 'asked once per asset and day');
 });
 
-test('an asset the service lists no source for (NEAR) gets Kraken’s daily open', async () => {
+test('where CoinGecko has no rate (NEAR here), Kraken’s daily open', async () => {
 	/** @type {string[]} */
 	const asked = [];
 	const rates = dayRates({ fetch: fakeFetch(asked), now: () => new Date('2026-10-08T12:00:00Z') });

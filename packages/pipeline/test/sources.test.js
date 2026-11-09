@@ -6,7 +6,7 @@ import { join } from 'node:path';
 
 import * as near from '@le-space/chains/near';
 import { AKASH_CHAIN } from '@le-space/chains/cosmos-chains';
-import { FILECOIN } from '@le-space/chains';
+import { FILECOIN } from '@le-space/chains/filecoin-chain';
 import { ALEPH_API, ALEPH_EXPLORER } from '@le-space/chains/aleph';
 import { alchemyBaseUrl } from '@le-space/chains/alchemy';
 import { CHAINS } from '@le-space/chains/registry';

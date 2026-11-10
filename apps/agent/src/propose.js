@@ -88,7 +88,7 @@ AGPL-3.0-or-later, like every building block: whoever changes it and runs it as 
 
 	await writeFile(
 		join(pkg, 'package.json'),
-		JSON.stringify({ name: `@eigenbeleg/chain-${id}`, version: '0.0.1', type: 'module', license: 'AGPL-3.0-or-later', main: './src/index.js', exports: { '.': './src/index.js' }, dependencies: { '@le-space/ledger': '^0.2.0' } }, null, 2) + '\n'
+		JSON.stringify({ name: `@eigenbeleg/chain-${id}`, version: '0.0.1', type: 'module', license: 'AGPL-3.0-or-later', main: './src/index.js', exports: { '.': './src/index.js' }, dependencies: { '@le-space/ledger': '^0.3.0' } }, null, 2) + '\n'
 	);
 	await writeFile(
 		join(pkg, 'src', 'index.js'),

@@ -6,8 +6,8 @@
   "license": "AGPL-3.0-or-later",
   "main": "./src/app.js",
   "dependencies": {
-    "@eigenbeleg/eigenbeleg": "0.1.0",
     "@eigenbeleg/pipeline": "0.1.0",
+    "@le-space/eigenbeleg": "0.1.1",
     "@pingpay/agentpay-middleware": "^0.2.0",
     "@x402/core": "^2.30.0",
     "@x402/evm": "^2.30.0",

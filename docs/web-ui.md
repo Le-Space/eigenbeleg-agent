@@ -73,18 +73,22 @@ says so.
 
 - `apps/web`: Vite, plain JS, `base: './'`, so the same `dist/` runs at `/ui/` on
   the API host, on a static host and on an IPFS path gateway.
-- The page loads 82 kB of script; the readers, pdf-lib and fontkit (about 1.2 MB)
-  and the DejaVu fonts (1.6 MB) load on the first *Lesen und erstellen*.
-- `@eigenbeleg/eigenbeleg` takes its fonts and sRGB profile through `#assets`:
-  files in Node, `fetch` in the browser (package.json `imports`, condition
-  `browser`).
+- The page loads 106 kB of script; the readers, pdf-lib and fontkit (about 1.2 MB)
+  and the fonts (DejaVu 1.7 MB, Noto Sans Arabic 0.2 MB) load on the first
+  *Lesen und erstellen*. The bundle holds no Alchemy code (the EVM blocks are
+  the API's only).
+- `@le-space/pdf` (under `@le-space/eigenbeleg`) takes its fonts and sRGB
+  profile through `#load-asset`: files in Node, `fetch` in the browser
+  (package.json `imports`, condition `browser`; Vite copies the files next to
+  the page with `?url`). The fonts are fetched from the page's own origin, so
+  the CSP needs no further host.
 - CSP: `default-src 'self'; script-src 'self'; connect-src 'self' <data sources>;
   worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none';
   form-action 'none'` – as `<meta>` in `index.html` and as `dist/csp.txt`, which
   the API sends as a header with `frame-ancestors 'none'`.
 - PWA as in Le Space Belege: `manifest.webmanifest`, the signet as icons (192,
   512, maskable 512), `sw.js` caching only the page's own files, never a data
-  source's answer. On install it loads every file of the build (about 3 MB: the
+  source's answer. On install it loads every file of the build (about 3.3 MB: the
   page, the PDF code, the fonts; the build writes the list and a cache name from
   the files' hash into `sw.js`), so the installed app starts and draws documents
   offline; reading a chain still needs the network. A new version takes over

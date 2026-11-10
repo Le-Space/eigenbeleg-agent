@@ -5,9 +5,18 @@
 // browser (the web UI) alike.
 
 import { sortEntries } from '@le-space/ledger';
-import { buildDocument, buildStatement, eigenbelegCsv, eigenbelegPdf, reconciled, statementPdf, valueEntries } from '@eigenbeleg/eigenbeleg';
+import { buildDocument, buildStatement, eigenbelegCsv, eigenbelegPdf, statementPdf, valueEntries } from '@le-space/eigenbeleg';
 import { dayRates } from './rates.js';
 import { BLOCKS } from './blocks.js';
+
+/**
+ * Whether opening balance plus bookings meet the chain's balance (null: the chain names none). A
+ * difference below the twelve decimals the documents print counts as met: the NEAR reader leaves
+ * out the 1 yoctoNEAR a token transfer attaches as its security deposit (no payment, 10⁻²⁴ NEAR).
+ *
+ * @param {string | null} difference
+ */
+export const reconciled = (difference) => (difference === null ? null : /^-?0(\.0+)?$/.test(difference) || /^-?0\.0{12}\d*$/.test(difference));
 
 /**
  * @typedef {{ step: 'read', account: string, index: number, count: number } | { step: 'rates' } | { step: 'draw' }} Progress
@@ -16,7 +25,7 @@ import { BLOCKS } from './blocks.js';
 
 /**
  * @param {ReturnType<typeof import('./request.js').parseRequest>} req
- * @param {{ fetch?: typeof fetch, rates?: import('@eigenbeleg/eigenbeleg').Rates, nearblocksKey?: string, alchemyKey?: string, blocks?: Record<string, import('./blocks.js').Block>, now?: () => Date, probeDay?: string, endpoints?: Record<string, Record<string, string>> }} [deps]
+ * @param {{ fetch?: typeof fetch, rates?: import('@le-space/eigenbeleg').Rates, nearblocksKey?: string, alchemyKey?: string, blocks?: Record<string, import('./blocks.js').Block>, now?: () => Date, probeDay?: string, endpoints?: Record<string, Record<string, string>> }} [deps]
  *   blocks: what this side serves (BLOCKS when not given; the API with an Alchemy key: `blocksFor(deps)`, keyed.js)
  *   alchemyKey: the server's, for the EVM blocks; it goes to their reads only
  *   endpoints: per chain, endpoints to use instead of the reader's own, e.g. `{ akash: { indexer: 'https://…' } }` for a CORS proxy
@@ -85,9 +94,11 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	};
 	if (preview) return { summary, pdf: null, statements: [], csv: null };
 	onProgress?.({ step: 'draw' });
-	const pdf = req.format !== 'csv' && wantBelege ? await eigenbelegPdf(doc, { logo: req.logo }) : null;
+	// `req.logo` (the chain's mark beside the title) waits for @le-space/eigenbeleg to draw it again:
+	// its PDFs take no logo yet, so the request still accepts it and the documents come without.
+	const pdf = req.format !== 'csv' && wantBelege ? await eigenbelegPdf(doc) : null;
 	const statementPdfs = [];
-	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s, { logo: req.logo }) });
+	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s) });
 	const csv = req.format === 'pdf' ? null : eigenbelegCsv(doc);
 	return { summary, pdf, statements: statementPdfs, csv };
 }

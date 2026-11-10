@@ -105,9 +105,10 @@ fill in.
 - **No `innerHTML` with text from a chain or a user**, no remote scripts, fonts
   or trackers in the page.
 - **Nothing twice:** the API and the page run the same code
-  (`@eigenbeleg/pipeline`); readers, booking format and rates are the
-  `@le-space/*` packages shared with Le Space Belege (#6), and a test fails
-  when `packages/chain-*`, `ledger-core` or `rates` come back here. Before
+  (`@eigenbeleg/pipeline`); readers, booking format, rates and the
+  documents are the `@le-space/*` packages shared with Le Space Belege (#6),
+  and a test fails when `packages/chain-*`, `ledger-core`, `rates` or
+  `eigenbeleg` (or their old `@eigenbeleg/*` names) come back here. Before
   writing something new, look whether it exists in one of the packages.
 - Every new file starts with `// SPDX-License-Identifier: AGPL-3.0-or-later`.
   By contributing you agree that your contribution is licensed under the

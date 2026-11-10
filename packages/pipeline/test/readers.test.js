@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { moduleAddress } from '@le-space/chains/bech32';
 import { AKASH_CHAIN } from '@le-space/chains/cosmos-chains';
 import { normalizeFilecoin } from '@le-space/chains/filecoin';
-import { FILECOIN } from '@le-space/chains';
+import { FILECOIN } from '@le-space/chains/filecoin-chain';
 import { BLOCKS } from '../src/blocks.js';
 import * as akash from '../src/readers/akash.js';
 import * as filecoin from '../src/readers/filecoin.js';

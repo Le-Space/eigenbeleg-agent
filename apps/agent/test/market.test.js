@@ -4,7 +4,7 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { fixedRates } from '@eigenbeleg/eigenbeleg';
+import { fixedRates } from '@le-space/eigenbeleg';
 import { createApp } from '../../api/src/app.js';
 import { recordedNear } from '../src/recorded.js';
 import { jobFromBrief, marketPass } from '../src/market.js';

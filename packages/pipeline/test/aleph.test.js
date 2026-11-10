@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { toChecksumAddress } from '@le-space/chains/evm';
+import { toChecksumAddress } from '@le-space/chains/evm-address';
 import { RequestError, describeBlocks, generate, parseRequest } from '../src/index.js';
 
 const ACCOUNT = `0x${'a1'.repeat(20)}`;

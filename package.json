@@ -5,7 +5,7 @@
   "description": "Eigenbelege (self-issued proofs of payment) from public blockchain transactions: open building blocks, a paid API and a minimal agent.",
   "license": "AGPL-3.0-or-later",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "workspaces": [
     "packages/*",

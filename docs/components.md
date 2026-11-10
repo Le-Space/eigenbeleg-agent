@@ -18,7 +18,7 @@ not separate services:
 | Relayer | `createFacilitatorNearSigner` with `RELAYER_ACCOUNT_ID` and its key | wraps the payer's signed delegate into its own NEAR transaction, signs it with its key, pays the gas, waits for the `ft_transfer` receipt |
 | Chain readers | `@le-space/chains` (npm, from Le-Space/belege), wired by `packages/pipeline/src/blocks.js` | read the payments of the addresses on the Eigenbeleg, and the balances for the Kontoauszug |
 | Rates | `@le-space/rates` (npm), named by `packages/pipeline/src/rates.js` | EUR per asset and day: the price at 00:00 UTC |
-| Documents | `packages/eigenbeleg` | Eigenbelege and Kontoauszug as PDF/A-2b, CSV |
+| Documents | `@le-space/eigenbeleg` and `@le-space/pdf` (npm, from Le-Space/belege) | Eigenbelege and Kontoauszug as PDF/A-2b, CSV |
 
 On testnet the relayer and the recipient are the same account,
 `eigenbeleg-api.testnet` (`RELAYER_ACCOUNT_ID` = `PAY_TO`). They can be two

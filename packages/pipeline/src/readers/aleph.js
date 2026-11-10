@@ -10,61 +10,22 @@
 //
 // Only whole, finished months. Consumption billed from a prepaid balance has
 // no single payment an Eigenbeleg could stand for; the purchase of credits
-// has (issue #23): for each purchase row the reader adds the payment the
-// account holder made, as a `sent` entry of kind `swap` (a token for
-// credits) in USD, credits × Aleph's USD price per credit, valued at the
-// ECB's rate of the day, with the paying transaction's hash and its explorer
-// link on Ethereum or Base. The token amount paid is not in Aleph's data; it
-// is checked through the hash. The credits bought stay the `received` row,
-// with the same hash, so the Eigenbeleg shows both sides. Opening and
-// closing balance: the balance now less what came and went since the month
-// began or ended (Aleph's summary), so `method: 'derived'`.
+// has (issue #23): @le-space/chains' `purchaseEntries` adds, for each
+// purchase row, the payment the account holder made, as a `sent` entry of
+// kind `swap` (a token for credits) in USD, credits × Aleph's USD price per
+// credit, valued at the ECB's rate of the day, with the paying transaction's
+// hash and its explorer link on Ethereum or Base. The credits bought stay
+// the `received` row, with the same hash, so the Eigenbeleg shows both
+// sides. Opening and closing balance: the balance now less what came and
+// went since the month began or ended (Aleph's summary), so `method:
+// 'derived'`.
 
-import { entry, multiply, normalize, sortEntries } from '@le-space/ledger';
-import { ALEPH_API, ALEPH_EXPLORER, alephEntries, createAlephClient } from '@le-space/chains/aleph';
-import { isEvmAddress, toChecksumAddress } from '@le-space/chains/evm';
-import { CHAINS } from '@le-space/chains/registry';
+import { sortEntries } from '@le-space/ledger';
+import { ALEPH_API, alephEntries, createAlephClient, purchaseEntries } from '@le-space/chains/aleph';
+import { isEvmAddress, toChecksumAddress } from '@le-space/chains/evm-address';
 import { plain } from '@le-space/rates/aleph-credits';
 
 export const ASSET = 'ALEPH-CREDIT';
-
-/** Aleph's name for the chain a purchase was paid on → the registry's chain, for the explorer link. */
-const PAID_ON = /** @type {Record<string, string>} */ ({ ETH: 'ethereum', BASE: 'base' });
-
-/**
- * The payments behind a month's credit purchases: one `sent` entry per purchase, in USD.
- *
- * @param {Awaited<ReturnType<ReturnType<typeof createAlephClient>['statement']>>} st
- * @returns {import('@le-space/ledger').LedgerEntry[]}
- */
-export function purchaseEntries(st) {
-	return st.topUps
-		.filter((t) => t.how === 'purchase' && t.price)
-		.map((t, i) => {
-			const explorer = t.chain ? CHAINS[/** @type {keyof typeof CHAINS} */ (PAID_ON[t.chain.toUpperCase()])]?.explorer : undefined;
-			return entry({
-				id: `aleph:${st.address}:purchase:${t.time}:${i}`,
-				chain: 'aleph',
-				network: 'mainnet',
-				account: st.address,
-				hash: t.txHash ?? '',
-				height: 0,
-				time: t.time,
-				type: 'sent',
-				kind: 'swap',
-				asset: 'USD',
-				contract: 'native',
-				decimals: 6,
-				amount: `-${normalize(multiply(plain(t.credits), /** @type {string} */ (t.price), 8))}`,
-				counterparty: 'aleph',
-				counterpartyLabel: `Aleph Cloud (Kauf von ${plain(t.credits)} Credits${t.token ? ` mit ${t.token}` : ''}${t.chain ? ` auf ${t.chain}` : ''})`,
-				memo: `${plain(t.credits)} Credits × ${t.price} USD`,
-				success: true,
-				explorerUrl: explorer && t.txHash ? explorer.tx.replace('{tx}', encodeURIComponent(t.txHash)) : `${ALEPH_EXPLORER}${st.address}`,
-				priceAs: 'USD'
-			});
-		});
-}
 
 /** An Ethereum address, as Aleph keys its accounts. @param {string} a */
 export const isAddress = (a) => isEvmAddress(a);

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-marketplace.json",
+  "name": "le-space",
+  "description": "Le Space's skills for agents: Eigenbelege and Kontoauszüge for blockchain payments.",
+  "owner": { "name": "Le Space UG", "url": "https://le-space.de" },
+  "plugins": [
+    {
+      "name": "eigenbeleg",
+      "source": "./",
+      "description": "Buys Eigenbelege and Kontoauszüge for a person's own blockchain addresses from the Eigenbeleg API, paying per request with x402 in USDC.",
+      "category": "finance",
+      "tags": ["eigenbeleg", "kontoauszug", "x402", "near", "akash", "filecoin", "aleph", "bookkeeping"]
+    }
+  ]
+}

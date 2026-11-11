@@ -1,0 +1,10 @@
+{
+  "name": "eigenbeleg",
+  "description": "Eigenbelege and Kontoauszüge for blockchain payments: the skill that buys them from the Eigenbeleg API with x402.",
+  "version": "0.1.0",
+  "author": { "name": "Le Space UG", "url": "https://le-space.de" },
+  "homepage": "https://eigenbeleg.le-space.de",
+  "repository": "https://github.com/Le-Space/eigenbeleg-agent",
+  "license": "AGPL-3.0-or-later",
+  "keywords": ["eigenbeleg", "kontoauszug", "x402", "near", "akash", "filecoin", "aleph", "bookkeeping"]
+}

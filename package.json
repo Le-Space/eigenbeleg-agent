@@ -14,6 +14,7 @@
   "scripts": {
     "test": "node --test \"packages/*/test/*.test.js\" \"apps/*/test/*.test.js\" \"deploy/*/test/*.test.js\" \"skills/test/*.test.js\"",
     "api": "node apps/api/src/server.js",
+    "local": "node apps/cli/src/cli.js",
     "agent": "node apps/agent/src/cli.js",
     "agent:market": "node apps/agent/src/cli.js --market",
     "demo": "node apps/agent/src/demo.js",

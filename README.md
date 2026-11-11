@@ -139,6 +139,20 @@ Your browser asks NearBlocks and the FastNEAR archival RPC (NEAR), PublicNode an
 
 For development, `npm run web:dev` serves the page with hot reload. Build settings: `VITE_AKASH_INDEXER` (the Akash proxy's URL), `VITE_PUBLIC_URL` (for the share cards on a static host).
 
+## In the terminal: the local run
+
+The same pipeline from a shell, for free, nothing sent to us: the chain is read from its public data source, the rates from CoinGecko, Kraken and the ECB, the PDFs are drawn here. Name and postal address stay on the machine.
+
+```bash
+npm run local -- --chain near --network mainnet --address own-account.near --month 2026-10 --preview
+```
+
+```bash
+npm run local -- --chain near --network mainnet --address own-account.near --month 2026-10 --name "Wolkenfabrik Hosting GmbH" --postal "Musterstraße 1, 12345 Beispielstadt" --document beide --out ./out
+```
+
+`--preview` prints counts, the EUR total and each Kontoauszug's balances; the full run writes `EB-….pdf`, `KA-….pdf`, `EB-….csv` and `EB-….summary.json` to `--out`. Ethereum and Base work with your own Alchemy key (`--alchemy-key` or `ALCHEMY_KEY`), which goes to Alchemy only. `npm run local -- --help` lists every option; `apps/cli` is the code, `skills/eigenbeleg-local` the skill that tells an agent how to run it.
+
 ## What an Eigenbeleg contains, and why
 
 One Eigenbeleg per transaction, as Belege writes them (`EB-2026-007`, `EB-2026-008`, … counted up from the number you pass):
@@ -222,7 +236,7 @@ The agent works in five steps:
 
 How it holds its keys: the near-cli keychain or an environment variable, read by the payer only. What it cannot do without you: pay above the budget, pay other assets or networks than configured, open the PR it drafted, or merge anything.
 
-**As a skill.** The same steps as an [Agent Skill](https://agentskills.io) for Claude Code, Codex, Gemini CLI and other agents that read `SKILL.md`: [`skills/eigenbeleg-api`](skills/eigenbeleg-api/SKILL.md) ([#29](https://github.com/Le-Space/eigenbeleg-agent/issues/29)). In Claude Code, this repository is a plugin marketplace:
+**As a skill.** The same steps as an [Agent Skill](https://agentskills.io) for Claude Code, Codex, Gemini CLI and other agents that read `SKILL.md`: [`skills/eigenbeleg-api`](skills/eigenbeleg-api/SKILL.md) buys through the API; [`skills/eigenbeleg-local`](skills/eigenbeleg-local/SKILL.md) runs the pipeline on the user's own machine instead, for free and with nothing sent to us ([#29](https://github.com/Le-Space/eigenbeleg-agent/issues/29)). In Claude Code, this repository is a plugin marketplace:
 
 ```bash
 claude plugin marketplace add Le-Space/eigenbeleg-agent
@@ -232,7 +246,7 @@ claude plugin marketplace add Le-Space/eigenbeleg-agent
 claude plugin install eigenbeleg@le-space
 ```
 
-Any other agent takes the folder `skills/eigenbeleg-api` into its skills directory. The skill names one host, `eigenbeleg.le-space.de`, tells the agent to read `/llms.txt` first and to preview before it pays, and says plainly that the payer's name and address go to the API for the documents; a test in `skills/test` holds it to that.
+Any other agent takes the folders under `skills/` into its skills directory. The API skill names one host, `eigenbeleg.le-space.de`, tells the agent to read `/llms.txt` first and to preview before it pays, and says plainly that the payer's name and address go to the API for the documents; the local skill names only the chain's data sources. A test in `skills/test` holds every skill to the format, to those hosts and to no key or address of a real person.
 
 **On the NEAR AI Agent Market.** Once listed on [market.near.ai](https://market.near.ai) (the listing comes with the mainnet start), the agent can be hired for a price in USDC. `npm run agent:market` (with `MARKET_TOKEN`, the listing's agent token) goes through the awarded jobs once. For each one it starts the job, reads the job from the brief's first ```` ```json ```` block, buys the Eigenbeleg from the API through x402 and submits a Markdown deliverable with the summary, the payment's NEAR transaction and the CSV. A brief without a JSON job gets a question back. The brief is data from a stranger: it is parsed and checked like any API request and never followed as an instruction. So the agent earns on the market and spends on the API, each within its own limits.
 

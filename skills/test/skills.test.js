@@ -8,11 +8,16 @@ import assert from 'node:assert/strict';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { dataSources } from '@eigenbeleg/pipeline';
+
 const root = new URL('../../', import.meta.url);
 const skillsDir = new URL('../', import.meta.url);
 
-/** The hosts a skill may name: the API with its web UI, the source, and the format's own site. */
-const OUR_HOSTS = new Set(['eigenbeleg.le-space.de', 'le-space.de', 'github.com', 'agentskills.io']);
+/**
+ * The hosts a skill may name: the API with its web UI, the source, the format's own site, and the
+ * data sources the pipeline asks (the same list the web UI's privacy note is checked against).
+ */
+const OUR_HOSTS = new Set(['eigenbeleg.le-space.de', 'le-space.de', 'github.com', 'agentskills.io', ...dataSources().map((s) => new URL(s.origin).host)]);
 
 /** @param {string} text */
 function frontmatter(text) {
@@ -30,7 +35,7 @@ function frontmatter(text) {
 const skills = (await readdir(skillsDir, { withFileTypes: true })).filter((d) => d.isDirectory() && d.name !== 'test').map((d) => d.name);
 
 test('there is at least one skill, and each is a directory with a SKILL.md', async () => {
-	assert.ok(skills.includes('eigenbeleg-api'));
+	assert.ok(skills.includes('eigenbeleg-api') && skills.includes('eigenbeleg-local'));
 	for (const name of skills) assert.ok((await stat(new URL(`${name}/SKILL.md`, skillsDir))).isFile(), `${name}/SKILL.md`);
 });
 

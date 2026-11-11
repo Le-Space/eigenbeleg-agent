@@ -209,6 +209,17 @@
 curl https://eigenbeleg.le-space.de/llms.txt</pre>
 					<button type="button" class="copy-btn" data-copy aria-label="In die Zwischenablage"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2" /><path d="M15 9V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4" fill="none" stroke="currentColor" stroke-width="2" /></svg><span></span></button>
 				</div>
+				<h3 id="skills" data-i18n="hSkills">Als Skill für Claude Code und andere Agenten</h3>
+				<p data-i18n="skillsText">Dieselben Schritte gibt es als Agent Skills im offenen Format von agentskills.io: „eigenbeleg-api“ kauft die Dokumente über die API, „eigenbeleg-local“ baut sie kostenlos auf dem eigenen Rechner, ohne dass Name und Anschrift ihn verlassen. In Claude Code:</p>
+				<div class="copy">
+					<pre>claude plugin marketplace add Le-Space/eigenbeleg-agent
+claude plugin install eigenbeleg@le-space</pre>
+					<button type="button" class="copy-btn" data-copy aria-label="In die Zwischenablage"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2" /><path d="M15 9V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4" fill="none" stroke="currentColor" stroke-width="2" /></svg><span></span></button>
+				</div>
+				<p class="note">
+					<span data-i18n="skillsMore">Andere Agenten, die SKILL.md lesen, nehmen die Ordner aus</span>
+					<a href="https://github.com/Le-Space/eigenbeleg-agent/tree/main/skills" rel="noopener noreferrer">skills/</a>.
+				</p>
 				<p class="note">
 					<span data-i18n="agentsMore">Der Agent aus dem Quellcode kauft innerhalb seines Budgets, prüft die PDFs und legt eine Quittung ab. Beauftragen lässt er sich auch auf dem</span>
 					<a href="https://market.near.ai" rel="noopener noreferrer">NEAR AI Agent Market</a>.

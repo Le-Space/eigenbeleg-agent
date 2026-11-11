@@ -7,7 +7,7 @@
     {
       "name": "eigenbeleg",
       "source": "./",
-      "description": "Buys Eigenbelege and Kontoauszüge for a person's own blockchain addresses from the Eigenbeleg API, paying per request with x402 in USDC.",
+      "description": "Eigenbelege and Kontoauszüge for a person's own blockchain addresses: bought from the Eigenbeleg API with x402, or built locally for free with the pipeline.",
       "category": "finance",
       "tags": ["eigenbeleg", "kontoauszug", "x402", "near", "akash", "filecoin", "aleph", "bookkeeping"]
     }

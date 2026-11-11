@@ -1,0 +1,13 @@
+{
+  "name": "@eigenbeleg/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "description": "Eigenbelege and Kontoauszüge on your own machine: the pipeline from the command line, no payment, nothing sent to us.",
+  "bin": { "eigenbeleg": "./src/cli.js" },
+  "main": "./src/local.js",
+  "dependencies": {
+    "@eigenbeleg/pipeline": "0.1.0"
+  }
+}

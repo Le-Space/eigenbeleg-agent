@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The blocks that need a key the server holds: Ethereum and Base, read
-// through Alchemy (readers/evm.js). They are offered only where the key is
+// through Alchemy (@le-space/chains/evm's evmReader). They are offered only where the key is
 // configured (the API's ALCHEMY_KEY): `blocksFor({ alchemyKey })` gives them
 // with the keyless ones, and the API hands that map to parseRequest,
 // generate, describeBlocks and checkBlock. The web UI never has a key and
@@ -13,11 +13,11 @@
 import { alchemyBaseUrl, isAlchemyKey } from '@le-space/chains/alchemy';
 import { CHAINS } from '@le-space/chains/registry';
 import { BLOCKS, CHAINS_VERSION } from './blocks.js';
-import { evmReader } from './readers/evm.js';
+import { evmReader } from '@le-space/chains/evm';
 
 /** @param {'ethereum' | 'base'} id @returns {import('./blocks.js').Block} */
 function evmBlock(id) {
-	const r = evmReader(id);
+	const r = evmReader(/** @type {import('@le-space/chains/registry').EvmChain} */ (CHAINS[id]));
 	return {
 		name: '@le-space/chains/evm',
 		chain: r.chain.id,

@@ -9,8 +9,8 @@ import { AKASH_CHAIN } from '@le-space/chains/cosmos-chains';
 import { normalizeFilecoin } from '@le-space/chains/filecoin';
 import { FILECOIN } from '@le-space/chains/filecoin-chain';
 import { BLOCKS } from '../src/blocks.js';
-import * as akash from '../src/readers/akash.js';
-import * as filecoin from '../src/readers/filecoin.js';
+import * as akash from '@le-space/chains/akash';
+import * as filecoin from '@le-space/chains/filecoin';
 
 // Made-up entries in the shape the Belege reader gives (WalletEntry).
 const account = moduleAddress('akash', 'wolkenfabrik-example');

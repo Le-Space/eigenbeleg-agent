@@ -7,8 +7,8 @@
 // before anything is fetched.
 
 import * as near from '@le-space/chains/near';
-import * as akash from './readers/akash.js';
-import * as filecoin from './readers/filecoin.js';
+import * as akash from '@le-space/chains/akash';
+import * as filecoin from '@le-space/chains/filecoin';
 import * as aleph from './readers/aleph.js';
 
 /** The version of @le-space/chains the blocks are built on (a test holds it against the installed package). */
@@ -74,7 +74,7 @@ export const BLOCKS = {
 		read: filecoin.readFilecoin,
 		statement: filecoin.statementFilecoin,
 		probe: filecoin.probe,
-		isAddress: filecoin.isAddress
+		isAddress: filecoin.isFilecoinAddress
 	},
 	aleph: {
 		name: '@le-space/chains/aleph',

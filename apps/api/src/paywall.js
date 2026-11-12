@@ -29,9 +29,18 @@ import { ExactEvmScheme as EvmServerScheme } from '@x402/evm/exact/server';
 import { ExactEvmScheme as EvmFacilitatorScheme } from '@x402/evm/exact/facilitator';
 
 import { nearSecretKey } from './keys.js';
+import { MONTHS, ROUTE as SUBSCRIBE_ROUTE } from './subscriptions.js';
 
 export const ROUTE = 'POST /eigenbeleg';
 export const DESCRIPTION = 'Eigenbeleg (PDF/A + CSV) for the payments of own blockchain addresses in a period';
+export const SUBSCRIBE_DESCRIPTION = `Subscription: ${MONTHS} monthly Kontoauszüge by mail, paid once`;
+
+/** The subscription's default price: MONTHS times the single price, "$0.10" → "$1.20". @param {string} price */
+export function subscriptionPriceOf(price) {
+	const n = Number(price.replace(/^\$/, ''));
+	if (!Number.isFinite(n) || n < 0) throw new Error(`PRICE ${price}: a USDC amount like $0.10`);
+	return `$${(n * MONTHS).toFixed(2)}`;
+}
 
 /** The networks this server can take USDC on, and what the 402 and GET / call them. */
 export const NETWORKS = {
@@ -46,6 +55,8 @@ export const NETWORKS = {
  * @param {'x402' | 'near' | 'ping' | 'none'} c.mode
  * @param {string} [c.price] e.g. "$0.10" (USDC), for every network without its own
  * @param {Record<string, string>} [c.prices] per network, e.g. { 'eip155:1': '$1.00' }
+ * @param {string} [c.subscriptionPrice] the subscription's price (POST /eigenbeleg/subscribe); default MONTHS × the price
+ * @param {Record<string, string>} [c.subscriptionPrices] per network
  * @param {string[]} [c.networks] the networks to take USDC on (keys of NETWORKS); default: [c.network]
  * @param {'near:testnet' | 'near:mainnet'} [c.network] the old single-network setting
  * @param {string} [c.payTo] NEAR account that receives the USDC
@@ -69,15 +80,16 @@ export async function createPaywall(c) {
 		if (!c.pingApiKey) throw new Error('PAYWALL=ping needs PING_API_KEY');
 		const { agentPayX402 } = await import('@pingpay/agentpay-middleware');
 		const amountOut = c.pingAmountOut ?? '200000';
+		const subscriptionOut = String(Number(amountOut) * MONTHS);
 		return {
 			middleware: /** @type {any} */ (
 				agentPayX402({
 					apiKey: c.pingApiKey,
 					facilitatorUrl: c.pingUrl ?? 'https://pay.pingpay.io/agentpay/x402',
-					routes: { [ROUTE]: { amountOut, description: DESCRIPTION } }
+					routes: { [ROUTE]: { amountOut, description: DESCRIPTION }, [SUBSCRIBE_ROUTE]: { amountOut: subscriptionOut, description: SUBSCRIBE_DESCRIPTION } }
 				})
 			),
-			info: { mode: 'ping', facilitator: c.pingUrl ?? 'https://pay.pingpay.io/agentpay/x402', amountOut, asset: 'USDC (settles to the NEAR recipient set in Ping)', network: 'mainnet' }
+			info: { mode: 'ping', facilitator: c.pingUrl ?? 'https://pay.pingpay.io/agentpay/x402', amountOut, asset: 'USDC (settles to the NEAR recipient set in Ping)', network: 'mainnet', subscription: { amountOut: subscriptionOut, months: MONTHS } }
 		};
 	}
 
@@ -86,6 +98,7 @@ export async function createPaywall(c) {
 	for (const n of networks) if (!Object.hasOwn(NETWORKS, n)) throw new Error(`PAY_NETWORKS: unknown network ${n}; known: ${Object.keys(NETWORKS).join(', ')}`);
 	const price = c.price ?? '$0.10';
 	const priceOf = (/** @type {string} */ n) => c.prices?.[n] ?? price;
+	const subscriptionPriceFor = (/** @type {string} */ n) => c.subscriptionPrices?.[n] ?? c.subscriptionPrice ?? subscriptionPriceOf(priceOf(n));
 	const timeout = c.timeoutSeconds ?? 300;
 
 	const facilitator = new x402Facilitator();
@@ -96,6 +109,8 @@ export async function createPaywall(c) {
 	});
 	/** @type {{ scheme: 'exact', price: string, network: string, payTo: string, maxTimeoutSeconds: number }[]} */
 	const accepts = [];
+	/** The same networks and recipients, at the subscription's price. @type {typeof accepts} */
+	const subscriptionAccepts = [];
 	/** @type {Record<string, string>} */
 	const relayers = {};
 
@@ -109,6 +124,7 @@ export async function createPaywall(c) {
 		facilitator.register(/** @type {any} */ (network), new NearFacilitatorScheme(signer));
 		server.register(/** @type {any} */ (network), new NearServerScheme());
 		accepts.push({ scheme: 'exact', price: priceOf(network), network, payTo: c.payTo, maxTimeoutSeconds: timeout });
+		subscriptionAccepts.push({ scheme: 'exact', price: subscriptionPriceFor(network), network, payTo: c.payTo, maxTimeoutSeconds: timeout });
 		relayers[network] = c.relayerId;
 	}
 
@@ -127,11 +143,12 @@ export async function createPaywall(c) {
 			facilitator.register(/** @type {any} */ (network), new EvmFacilitatorScheme(signer));
 			server.register(/** @type {any} */ (network), new EvmServerScheme());
 			accepts.push({ scheme: 'exact', price: priceOf(network), network, payTo: c.payToEvm, maxTimeoutSeconds: timeout });
+			subscriptionAccepts.push({ scheme: 'exact', price: subscriptionPriceFor(network), network, payTo: c.payToEvm, maxTimeoutSeconds: timeout });
 			relayers[network] = account.address;
 		}
 	}
 
-	const routes = { [ROUTE]: { accepts, description: DESCRIPTION, mimeType: 'application/pdf' } };
+	const routes = { [ROUTE]: { accepts, description: DESCRIPTION, mimeType: 'application/pdf' }, [SUBSCRIBE_ROUTE]: { accepts: subscriptionAccepts, description: SUBSCRIBE_DESCRIPTION, mimeType: 'application/json' } };
 	return {
 		middleware: /** @type {any} */ (paymentMiddleware(/** @type {any} */ (routes), server)),
 		info: {
@@ -146,7 +163,8 @@ export async function createPaywall(c) {
 			accepts: accepts.map((a) => {
 				const meta = NETWORKS[/** @type {keyof typeof NETWORKS} */ (a.network)];
 				return { network: a.network, name: meta.name, asset: meta.asset, price: a.price, payTo: a.payTo, relayer: relayers[a.network], gasless: true };
-			})
+			}),
+			subscription: { months: MONTHS, price: subscriptionAccepts[0].price, accepts: subscriptionAccepts.map((a) => ({ network: a.network, price: a.price })) }
 		}
 	};
 }

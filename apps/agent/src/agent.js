@@ -124,6 +124,50 @@ export async function runJob({ job, api, fetch, paidFetch, outDir, say = console
 	return { status: passed ? 'delivered' : 'check-failed', receipt };
 }
 
+/**
+ * A subscription (#20): one payment, twelve monthly Kontoauszüge by mail. The
+ * answer's cancel link is the only way to end it, so it goes into a receipt.
+ *
+ * @param {object} o
+ * @param {any} o.job the body of POST /eigenbeleg with `email`, without `period`
+ * @param {string} o.api
+ * @param {typeof fetch} o.paidFetch
+ * @param {string} o.outDir
+ * @param {(line: string) => void} [o.say]
+ * @param {() => any} [o.lastPayment]
+ */
+export async function subscribe({ job, api, paidFetch, outDir, say = console.log, lastPayment = () => ({}) }) {
+	await mkdir(outDir, { recursive: true });
+	say(`Subscribing: monthly ${job.document ?? 'kontoauszug'} for ${job.addresses.join(', ')} on ${job.chain} (${job.network}) by mail to ${job.email}`);
+	const res = await paidFetch(`${api}/eigenbeleg/subscribe`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(job) });
+	if (!res.ok) {
+		say(`The API answered ${res.status}: ${(await res.text()).slice(0, 300)}`);
+		return { status: 'failed', http: res.status };
+	}
+	const body = await res.json();
+	const settlement = decodeHeader(res.headers.get('payment-response')) ?? lastPayment().settlement ?? null;
+	const payment = lastPayment().payment;
+	const receipt = {
+		subscription: body.subscription,
+		months: body.months,
+		firstMonth: body.firstMonth,
+		firstMailFrom: body.firstMailFrom,
+		to: job.email,
+		cancel: body.cancel,
+		note: body.note,
+		boughtFrom: api,
+		price: payment ? { amount: payment.amount, asset: payment.asset, network: payment.network, payTo: payment.payTo } : null,
+		transaction: settlement?.transaction ?? null,
+		explorer: settlement?.transaction && settlement.network ? explorerUrl(settlement.network, settlement.transaction) : null,
+		at: new Date().toISOString()
+	};
+	const file = join(outDir, `subscription-${String(body.subscription).replace(/[^0-9a-f]/g, '')}.json`);
+	await writeFile(file, JSON.stringify(receipt, null, 2) + '\n');
+	say(`Subscribed: ${body.months} months from ${body.firstMonth}, first mail from ${body.firstMailFrom}. Cancel link kept in ${file}.`);
+	if (receipt.transaction) say(`Paid: ${receipt.explorer ?? receipt.transaction}`);
+	return { status: 'subscribed', receipt };
+}
+
 /** @param {string | null} h */
 function decodeHeader(h) {
 	if (!h) return null;

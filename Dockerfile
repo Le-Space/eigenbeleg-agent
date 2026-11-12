@@ -4,6 +4,10 @@
 # agent, no Playwright, no video tools.
 # Stage 1: build the web UI (Vite) into apps/web/dist.
 FROM node:22-alpine AS web
+# The Akash CORS proxy's URL (deploy/akash-proxy), baked into the page and its CSP at build time
+# (issue #5); empty: Akash is read as far back as the public node keeps it.
+ARG VITE_AKASH_INDEXER=
+ENV VITE_AKASH_INDEXER=$VITE_AKASH_INDEXER
 WORKDIR /build
 COPY package.json package-lock.json ./
 COPY packages ./packages

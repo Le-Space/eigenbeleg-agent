@@ -46,6 +46,10 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
+          # The Akash proxy's URL for the page (issue #5): the repository variable AKASH_INDEXER,
+          # e.g. https://eigenbeleg-akash-proxy.<account>.workers.dev; unset: no proxy.
+          build-args: |
+            VITE_AKASH_INDEXER=${{ vars.AKASH_INDEXER }}
           tags: |
             ${{ steps.tags.outputs.image }}:main
             ${{ steps.tags.outputs.image }}:${{ steps.tags.outputs.sha }}

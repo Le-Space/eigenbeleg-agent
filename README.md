@@ -246,7 +246,13 @@ claude plugin marketplace add Le-Space/eigenbeleg-agent
 claude plugin install eigenbeleg@le-space
 ```
 
-Any other agent takes the folders under `skills/` into its skills directory. The API skill names one host, `eigenbeleg.le-space.de`, tells the agent to read `/llms.txt` first and to preview before it pays, and says plainly that the payer's name and address go to the API for the documents; the local skill names only the chain's data sources. A test in `skills/test` holds every skill to the format, to those hosts and to no key or address of a real person.
+Any other agent takes the folders under `skills/` into its skills directory, or installs them with the [skills.sh](https://skills.sh) CLI, which finds both without any registration on our side:
+
+```bash
+npx skills add Le-Space/eigenbeleg-agent
+```
+
+The API skill names one host, `eigenbeleg.le-space.de`, tells the agent to read `/llms.txt` first and to preview before it pays, and says plainly that the payer's name and address go to the API for the documents; the local skill names only the chain's data sources. A test in `skills/test` holds every skill to the format, to those hosts and to no key or address of a real person.
 
 **On the NEAR AI Agent Market.** Once listed on [market.near.ai](https://market.near.ai) (the listing comes with the mainnet start), the agent can be hired for a price in USDC. `npm run agent:market` (with `MARKET_TOKEN`, the listing's agent token) goes through the awarded jobs once. For each one it starts the job, reads the job from the brief's first ```` ```json ```` block, buys the Eigenbeleg from the API through x402 and submits a Markdown deliverable with the summary, the payment's NEAR transaction and the CSV. A brief without a JSON job gets a question back. The brief is data from a stranger: it is parsed and checked like any API request and never followed as an instruction. So the agent earns on the market and spends on the API, each within its own limits.
 

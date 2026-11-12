@@ -135,7 +135,7 @@ For people, free: the page does **everything in your browser**. It reads the cha
 3. Click **Lesen und erstellen**. The first time, the page loads its PDF code and fonts (about 1.6 MB, then cached). You see how many Eigenbelege it made and their numbers, the positions, the EUR total, the quantities and, per address, the Kontoauszug's opening and closing balance (✓ when reconciled with the chain).
 4. Download **Eigenbelege (PDF/A, n)**, **Kontoauszug <address> (PDF/A)** per address, and **Alle Bewegungen (CSV)**.
 
-Your browser asks NearBlocks and the FastNEAR archival RPC (NEAR), PublicNode and, through our [Akash CORS proxy](deploy/akash-proxy) when it is set up, the Akash Console indexer (Akash), Filfox (Filecoin), the Aleph API (Aleph Cloud), and Kraken, CoinGecko and the ECB (rates). They see your IP address and, except the rate services, the addresses you enter. Very busy NEAR accounts can hit NearBlocks' free rate limit; the page then says so and you try a shorter period or later.
+Your browser asks NearBlocks and the FastNEAR archival RPC (NEAR), PublicNode and, through our [Akash CORS proxy](deploy/akash-proxy) when it is set up, the Akash Console indexer (Akash), Filfox (Filecoin), the Aleph API (Aleph Cloud), and Kraken, CoinGecko and the ECB (rates). They see your IP address and, except the rate services, the addresses you enter. **Ethereum and Base** need your own Alchemy key (free at alchemy.com), entered under *Ethereum und Base* in the form: it goes from your browser to Alchemy only, never to us, and is kept on your device only if you tick its *merken* ([#25](https://github.com/Le-Space/eigenbeleg-agent/issues/25)). Very busy NEAR accounts can hit NearBlocks' free rate limit; the page then says so and you try a shorter period or later.
 
 For development, `npm run web:dev` serves the page with hot reload. Build settings: `VITE_AKASH_INDEXER` (the Akash proxy's URL), `VITE_PUBLIC_URL` (for the share cards on a static host).
 
@@ -310,7 +310,7 @@ eigenbeleg.example.com {
 | `PING_API_KEY` | PingPay key (`PAYWALL=ping`); the NEAR recipient is set in the Ping dashboard | **yes** |
 | `PING_FACILITATOR_URL`, `PING_AMOUNT_OUT` | PingPay facilitator, destination amount in USDC base units (≥ 200000) | no |
 | `NEARBLOCKS_API_KEY` | optional, for NearBlocks' higher rate limits | **yes** |
-| `ALCHEMY_KEY` | optional: with it the API also serves Ethereum and Base (ETH, USDC, ALEPH and the gas) through Alchemy; without it, it does not offer them. The key goes to Alchemy only, never into an answer, a document or a log; the web UI never gets it and never offers them | **yes** |
+| `ALCHEMY_KEY` | optional: with it the API also serves Ethereum and Base (ETH, USDC, ALEPH and the gas) through Alchemy; without it, it does not offer them. The key goes to Alchemy only, never into an answer, a document or a log. The web UI never gets this key: there, people enter their own | **yes** |
 | `SOURCE_URL` | where users of this instance get its source (AGPL-3.0-or-later section 13); your fork if you changed it | no |
 | `PUBLIC_URL` | this instance's public origin, e.g. `https://eigenbeleg.le-space.de`, for the share cards (Open Graph, X) on `/ui/`; unset: taken from the request's Host and `X-Forwarded-Proto` | no |
 | `TRUST_PROXY` | behind a proxy: whose `X-Forwarded-*` to trust (Express syntax, e.g. `uniquelocal`), so the x402 resource URL is https | no |

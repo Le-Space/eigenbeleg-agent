@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // What the form becomes: the request the pipeline checks (the same check the
 // API runs), with the payer, who never leaves the page. Pure functions, so
-// they are tested without a browser.
+// they are tested without a browser. The person's own Alchemy key (#25) is
+// never part of the request body: it goes to the reads as a dependency.
+
+import { isAlchemyKey } from '@eigenbeleg/pipeline/keyed';
 
 /**
  * @typedef {object} FormValues
@@ -85,6 +88,29 @@ export function rememberedAccounts() {
 		return a && typeof a.chain === 'string' && typeof a.network === 'string' && typeof a.addresses === 'string' ? { chain: a.chain, network: a.network, addresses: a.addresses } : null;
 	} catch {
 		return null;
+	}
+}
+
+/** The person's own Alchemy key, kept in this browser only when they tick its "remember" (#25). */
+const KEY_KEY = 'alchemyKey';
+
+/** @returns {string | null} */
+export function rememberedKey() {
+	try {
+		const k = globalThis.localStorage?.getItem(KEY_KEY);
+		return isAlchemyKey(k) ? /** @type {string} */ (k) : null;
+	} catch {
+		return null;
+	}
+}
+
+/** @param {string | null} k null forgets it; anything that is not a key is not kept */
+export function rememberKey(k) {
+	try {
+		if (isAlchemyKey(k)) globalThis.localStorage?.setItem(KEY_KEY, /** @type {string} */ (k));
+		else globalThis.localStorage?.removeItem(KEY_KEY);
+	} catch {
+		// private mode or blocked storage: nothing is kept
 	}
 }
 

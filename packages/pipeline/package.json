@@ -11,6 +11,7 @@
     "./blocks": "./src/blocks.js",
     "./sources": "./src/sources.js",
     "./generate": "./src/generate.js",
+    "./keyed": "./src/keyed.js",
     "./rates": "./src/rates.js"
   },
   "dependencies": {

@@ -54,6 +54,7 @@ no other host. A test holds the list against every URL in the packages.
 | the Akash proxy (`VITE_AKASH_INDEXER`) | older Akash history (Akash Console indexer) | the addresses |
 | filfox.info | Filecoin | the addresses |
 | api2.aleph.im | Aleph Cloud credits | the addresses |
+| eth-mainnet.g.alchemy.com, base-mainnet.g.alchemy.com | Ethereum and Base, only with the person's own Alchemy key ([#25](https://github.com/Le-Space/eigenbeleg-agent/issues/25)) | the addresses, and the key |
 | data-api.ecb.europa.eu | EUR per USD (Aleph credits) | the currency only |
 | api.coingecko.com, api.kraken.com | EUR rates (the price at 00:00 UTC, `@le-space/rates`) | the currency only |
 
@@ -73,10 +74,15 @@ says so.
 
 - `apps/web`: Vite, plain JS, `base: './'`, so the same `dist/` runs at `/ui/` on
   the API host, on a static host and on an IPFS path gateway.
-- The page loads 106 kB of script; the readers, pdf-lib and fontkit (about 1.2 MB)
+- The page loads about 135 kB of script (the Ethereum and Base reader is in it since #25); the readers, pdf-lib and fontkit (about 1.2 MB)
   and the fonts (DejaVu 1.7 MB, Noto Sans Arabic 0.2 MB) load on the first
-  *Lesen und erstellen*. The bundle holds no Alchemy code (the EVM blocks are
-  the API's only).
+  *Lesen und erstellen*.
+- **Ethereum and Base** (#25) are in the chain list but greyed out until the
+  person enters their own Alchemy key under *Ethereum und Base*. The key is read
+  from the field on each run and handed to the pipeline as a dependency
+  (`blocksFor({ alchemyKey })`, `generate(req, { alchemyKey })`), never put in the
+  request body, and kept in `localStorage` only with its own *merken*. It goes
+  from the browser to Alchemy only; the privacy policy says so.
 - `@le-space/pdf` (under `@le-space/eigenbeleg`) takes its fonts and sRGB
   profile through `#load-asset`: files in Node, `fetch` in the browser
   (package.json `imports`, condition `browser`; Vite copies the files next to
@@ -120,4 +126,8 @@ says so.
 - Reading Belege's books or wallets; sharing the building blocks with Belege is
   #6.
 - Mainnet-scale NEAR accounts beyond NearBlocks' free limit (an own NearBlocks
-  key in the page, or a proxy with ours, is an open question in #5).
+  key in the page, like the Alchemy key, or a proxy with ours, is an open
+  question in #5).
+- Paying the API from the page so that our server reads Alchemy for the user:
+  that would send the addresses and the payer to our server, which the page
+  avoids by design (#25).

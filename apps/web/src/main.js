@@ -4,6 +4,8 @@
 // reads the chain from the data sources directly, values in EUR and draws the
 // PDFs here. No request goes to a server of ours; name and address never
 // leave the page. Text from the chain is only ever set with textContent.
+// Ethereum and Base need an Alchemy key (#25): the person's own, entered in
+// the form, which goes from here to Alchemy only and is never in the request.
 
 // Brand typefaces, bundled and served with the page (SIL Open Font License 1.1); no font CDN.
 import '@fontsource-variable/sora';
@@ -11,10 +13,11 @@ import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 // Only the request check, the list of chains and the data sources load with the page.
 import { RequestError, parseRequest } from '@eigenbeleg/pipeline/request';
-import { describeBlocks } from '@eigenbeleg/pipeline/blocks';
+import { BLOCKS, describeBlocks } from '@eigenbeleg/pipeline/blocks';
+import { KEYED_BLOCKS, blocksFor, isAlchemyKey, keyedSources } from '@eigenbeleg/pipeline/keyed';
 import { dataSources } from '@eigenbeleg/pipeline/sources';
 import { detectLang, lang, locale, setLang, t } from './i18n.js';
-import { fileName, rememberAccounts, rememberPayer, rememberedAccounts, rememberedPayer, requestBody } from './request.js';
+import { fileName, rememberAccounts, rememberKey, rememberPayer, rememberedAccounts, rememberedKey, rememberedPayer, requestBody } from './request.js';
 import { AKASH_INDEXER } from './config.js';
 import { registerServiceWorker } from './pwa.js';
 
@@ -24,8 +27,13 @@ const chainSel = /** @type {HTMLSelectElement} */ ($('chain'));
 const networkSel = /** @type {HTMLSelectElement} */ ($('network'));
 const remember = /** @type {HTMLInputElement} */ ($('remember'));
 const rememberAcc = /** @type {HTMLInputElement} */ ($('remember-accounts'));
+const keyInput = /** @type {HTMLInputElement} */ ($('alchemy-key'));
+const rememberKeyBox = /** @type {HTMLInputElement} */ ($('remember-key'));
 
-const blocks = describeBlocks();
+// Every block, for the form; the ones that need a key are offered only with one (syncKey).
+const blocks = describeBlocks({ ...BLOCKS, ...KEYED_BLOCKS });
+/** The person's own Alchemy key as typed, or undefined when it is none. */
+const alchemyKey = () => (isAlchemyKey(keyInput.value.trim()) ? keyInput.value.trim() : undefined);
 // Akash's older history comes through the CORS proxy; without one, only what the public node keeps.
 const endpoints = { akash: { indexer: AKASH_INDEXER ?? '' } };
 
@@ -68,11 +76,30 @@ function lastMonth() {
 }
 
 /** How the chains are written for people; the value stays the block's id. */
-const CHAIN_NAMES = /** @type {Record<string, string>} */ ({ near: 'NEAR', akash: 'Akash (AKT)', filecoin: 'Filecoin (FIL, USDFC)', aleph: 'Aleph Cloud (Credits)' });
+const CHAIN_NAMES = /** @type {Record<string, string>} */ ({ near: 'NEAR', akash: 'Akash (AKT)', filecoin: 'Filecoin (FIL, USDFC)', aleph: 'Aleph Cloud (Credits)', ethereum: 'Ethereum (ETH, USDC, ALEPH)', base: 'Base (ETH, USDC, ALEPH)' });
 
 function fillChains() {
-	chainSel.replaceChildren(...blocks.map((b) => new Option(CHAIN_NAMES[b.chain] ?? b.chain, b.chain)));
+	chainSel.replaceChildren(...blocks.map((b) => new Option('', b.chain)));
+	labelChains();
+	syncKey();
 	fillNetworks();
+}
+
+/** The chains' names in the chosen language; a keyed one says it needs the key. */
+function labelChains() {
+	for (const o of chainSel.options) o.textContent = (CHAIN_NAMES[o.value] ?? o.value) + (blocks.find((b) => b.chain === o.value)?.needs ? t('withKey') : '');
+}
+
+/** Ethereum and Base can be chosen only with a key that looks like one; a typed key that does not is said so. */
+function syncKey() {
+	const key = alchemyKey();
+	for (const o of chainSel.options) o.disabled = Boolean(blocks.find((b) => b.chain === o.value)?.needs) && !key;
+	say('key-error', keyInput.value.trim() && !key ? t('badKey') : '');
+	// The key went while Ethereum or Base was chosen: back to the first chain that needs none.
+	if (!chainSel.value || chainSel.selectedOptions[0]?.disabled) {
+		chainSel.value = blocks.find((b) => !b.needs)?.chain ?? '';
+		fillNetworks();
+	}
 }
 
 function fillNetworks() {
@@ -111,7 +138,7 @@ function syncChain() {
 
 function showSources() {
 	$('sources-list').replaceChildren(
-		...dataSources({ akashIndexer: AKASH_INDEXER }).map((s) => {
+		...[...dataSources({ akashIndexer: AKASH_INDEXER }), ...keyedSources({ whose: 'your own' })].map((s) => {
 			const li = document.createElement('li');
 			li.textContent = `${new URL(s.origin).host}: ${s.what} – ${s.learns === 'addresses' ? t('learnsAddresses') : t('learnsAssets')}`;
 			return li;
@@ -137,9 +164,14 @@ async function onCreate(e) {
 	if (f.name.trim().length < 2 || f.postal.trim().length < 5) return say('form-error', t('needPayer'));
 	rememberPayer(remember.checked ? { name: f.name.trim(), postal: f.postal.trim() } : null);
 	rememberAccounts(rememberAcc.checked ? { chain: f.chain, network: f.network, addresses: f.addresses.trim() } : null);
+	const key = alchemyKey();
+	rememberKey(rememberKeyBox.checked ? key ?? null : null);
+	if (blocks.find((x) => x.chain === f.chain)?.needs && !key) return say('form-error', t('needKey'));
+	// What this browser can serve now: the keyless blocks, and Ethereum and Base with the key.
+	const served = blocksFor({ alchemyKey: key });
 	let req;
 	try {
-		req = parseRequest(requestBody(f));
+		req = parseRequest(requestBody(f), { blocks: served });
 	} catch (err) {
 		return say('form-error', t('refused', { error: String(/** @type {Error} */ (err).message) }));
 	}
@@ -151,7 +183,7 @@ async function onCreate(e) {
 		const { generate } = await import('@eigenbeleg/pipeline/generate');
 		/** @param {string} a a long address, shortened for the button */
 		const short = (a) => (a.length > 20 ? `${a.slice(0, 10)}…${a.slice(-6)}` : a);
-		const out = await generate(req, { endpoints }, {
+		const out = await generate(req, { endpoints, blocks: served, alchemyKey: key }, {
 			onProgress: (p) => {
 				btn.textContent = p.step === 'read' ? t('progressRead', { account: short(p.account), n: String(p.index + 1), of: String(p.count) }) : p.step === 'rates' ? t('progressRates') : t('progressDraw');
 			}
@@ -162,7 +194,9 @@ async function onCreate(e) {
 		$('step-result').scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 	} catch (err) {
 		const message = String(/** @type {Error} */ (err)?.message ?? err).slice(0, 200);
-		say('form-error', err instanceof RequestError ? t('refused', { error: message }) : t('unreadable', { error: message }));
+		// A refused Alchemy key answers without CORS headers, so a browser sees it as "not reachable": say so.
+		const keyed = Boolean(blocks.find((x) => x.chain === f.chain)?.needs);
+		say('form-error', err instanceof RequestError ? t('refused', { error: message }) : t(keyed ? 'unreadableKeyed' : 'unreadable', { error: message }));
 	} finally {
 		btn.disabled = false;
 		btn.textContent = t('btnCreate');
@@ -253,6 +287,8 @@ function applyLang() {
 	for (const el of document.querySelectorAll('[data-lang]')) /** @type {HTMLElement} */ (el).hidden = /** @type {HTMLElement} */ (el).dataset.lang !== l;
 	/** @type {HTMLAnchorElement} */ ($('link-imprint')).href = l === 'de' ? 'https://le-space.de/#impressum' : 'https://le-space.de/#imprint';
 	/** @type {HTMLTextAreaElement} */ ($('postal')).placeholder = t('postalPlaceholder');
+	labelChains();
+	syncKey();
 	showSources();
 	showResult();
 }
@@ -346,6 +382,14 @@ $('hackathon-close').addEventListener('click', () => {
 		// then it comes back next time
 	}
 });
+// The person's own Alchemy key, before the chains are filled: with it, Ethereum and Base can be chosen.
+const savedKey = rememberedKey();
+if (savedKey) {
+	keyInput.value = savedKey;
+	rememberKeyBox.checked = true;
+}
+keyInput.addEventListener('input', syncKey);
+rememberKeyBox.addEventListener('change', () => rememberKey(rememberKeyBox.checked ? alchemyKey() ?? null : null));
 fillChains();
 chainSel.addEventListener('change', fillNetworks);
 const savedAccounts = rememberedAccounts();

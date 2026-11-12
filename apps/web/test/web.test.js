@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import { parseRequest } from '@eigenbeleg/pipeline';
-import { fileName, rememberAccounts, rememberedAccounts, requestBody, splitAddresses } from '../src/request.js';
+import { fileName, rememberAccounts, rememberKey, rememberedAccounts, rememberedKey, requestBody, splitAddresses } from '../src/request.js';
 
 /** @type {import('../src/request.js').FormValues} */
 const form = {
@@ -48,6 +48,16 @@ test('chain, network and addresses are kept only while their "remember" is ticke
 		rememberAccounts(null);
 		assert.equal(rememberedAccounts(), null);
 		assert.equal(store.size, 0);
+		// The person's own Alchemy key (#25): kept only while ticked, and only when it looks like a key.
+		rememberKey('not a key!');
+		assert.equal(rememberedKey(), null);
+		assert.equal(store.size, 0);
+		rememberKey('abc123_-ABC');
+		assert.equal(rememberedKey(), 'abc123_-ABC');
+		assert.deepEqual([...store.keys()], ['alchemyKey']);
+		rememberKey(null);
+		assert.equal(rememberedKey(), null);
+		assert.equal(store.size, 0);
 	} finally {
 		delete (/** @type {any} */ (globalThis)).localStorage;
 	}
@@ -56,12 +66,17 @@ test('chain, network and addresses are kept only while their "remember" is ticke
 test('the page has no wallet, no payment and no call to an API of ours', async () => {
 	const src = (await Promise.all(['../src/main.js', '../src/request.js', '../src/pwa.js', '../index.html'].map((f) => readFile(new URL(f, import.meta.url), 'utf8')))).join('\n');
 	assert.doesNotMatch(src, /near-connect|@x402|PAYMENT-|\/eigenbeleg\/preview|fetch\(['"`]\//);
-	// No key ever reaches the page: the EVM blocks (Alchemy) are the API's only. The page offers
-	// only keyless blocks, and the pipeline modules it loads never import the keyed ones.
+	// The only key on the page is the person's own Alchemy key (#25): never in the request body, kept
+	// only under its own "remember", and the CSP lets the page reach Alchemy for it.
+	const { requestBody: body } = await import('../src/request.js');
+	assert.ok(!('alchemyKey' in body(form)) && !JSON.stringify(body(form)).includes('lchemy'));
 	const config = await readFile(new URL('../vite.config.js', import.meta.url), 'utf8');
-	assert.doesNotMatch(src + config, /alchemy/i);
+	assert.match(config, /keyedSources\(\)\.map/);
+	assert.match(src, /blocksFor\(\{ alchemyKey: key \}\)/);
+	// Without a key the keyless blocks are what the page serves; the keyed ones are greyed out.
 	const { describeBlocks } = await import('@eigenbeleg/pipeline/blocks');
-	assert.ok(describeBlocks().length > 0 && !describeBlocks().some((b) => b.needs), 'the page offers only blocks without a key');
+	assert.ok(describeBlocks().length > 0 && !describeBlocks().some((b) => b.needs), 'the keyless blocks need no key');
+	// The pipeline modules that load with the page never import the keyed ones; keyed.js is the page's own import.
 	for (const m of ['blocks', 'request', 'generate', 'sources', 'rates']) {
 		const code = await readFile(new URL(`../../../packages/pipeline/src/${m}.js`, import.meta.url), 'utf8');
 		assert.doesNotMatch(code, /^import .*(keyed\.js|readers\/evm\.js|chains\/alchemy)/m, `pipeline/src/${m}.js`);

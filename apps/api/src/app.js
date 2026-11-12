@@ -6,12 +6,15 @@
 //   GET  /health
 //   POST /eigenbeleg   the Eigenbeleg, behind the x402 paywall
 //   POST /eigenbeleg/preview  free: positions and total, never the payer
+//   POST /eigenbeleg/subscribe  twelve monthly Kontoauszüge by mail, paid once (#20)
+//   GET  /eigenbeleg/subscribe/:id/cancel?token=…  the link in each mail; deletes the subscription
 //   GET  /ui/          the web UI (apps/web/dist), when it is built
 //
 // No storage beyond the request: the body (payer's name and address, and an
 // e-mail address when the files are wanted by mail) lives in memory until the
 // response is sent and the mail, if any, is out. Logs carry method, path,
-// status and duration only.
+// status and duration only. The one exception is a subscription, kept
+// encrypted until its last month or its cancellation (subscriptions.js).
 
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -19,6 +22,7 @@ import express from 'express';
 
 import { RequestError, blocksFor, checkBlock, describeBlocks, generate, parseRequest } from '@eigenbeleg/pipeline';
 import { composeMail } from './mail.js';
+import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatches } from './subscriptions.js';
 
 /**
  * @param {object} o
@@ -30,6 +34,7 @@ import { composeMail } from './mail.js';
  * @param {string | null} [o.web] the built web UI (apps/web/dist); null: no UI
  * @param {{ max: number, windowMs: number }} [o.previewLimit] free previews per IP
  * @param {import('./mail.js').Mailer | null} [o.mailer] sends the files by mail when a request asks (`email`); null: not offered here
+ * @param {import('./subscriptions.js').Store | null} [o.subscriptions] where subscriptions are kept (#20); null, or no mailer: not offered here
  * @param {string} [o.publicUrl] this instance's public origin, e.g. https://eigenbeleg.le-space.de, for the share
  *   cards' absolute URLs; unset: taken from the request's Host (and X-Forwarded-Proto)
  */
@@ -41,11 +46,15 @@ export function createApp({
 	web = WEB_DIST,
 	previewLimit = { max: 10, windowMs: 60_000 },
 	mailer = null,
+	subscriptions = null,
 	publicUrl
 }) {
 	// The blocks this instance serves: the keyless ones, and Ethereum and Base where an Alchemy key is set.
 	const blocks = blocksFor(given);
 	const deps = { ...given, blocks };
+	/** Subscriptions need somewhere to keep them and a way to send them. */
+	const subs = mailer && subscriptions ? subscriptions : null;
+	const today = () => (deps.now?.() ?? new Date()).toISOString().slice(0, 10);
 	const app = express();
 	app.disable('x-powered-by');
 	// The paywalls match the exact path: `/eigenbeleg/` or `/EIGENBELEG` must not
@@ -91,8 +100,18 @@ export function createApp({
 				email: mailer ? 'belege@example.org (optional: the files also by mail, for a document management system\'s inbox)' : null
 			},
 			mail: mailer ? 'the files by mail to the request\'s email, once the payment is settled; the address is used for that one mail' : 'not offered by this instance',
+			subscription: subs
+				? {
+						endpoint: 'POST /eigenbeleg/subscribe',
+						what: `${MONTHS} monthly Kontoauszüge (Aleph: Verbrauchsauszüge) by mail, each from the 2nd of the month for the month before, paid once`,
+						request: 'the body of POST /eigenbeleg with email, without period (document: kontoauszug by default; eigenbelege or beide too)',
+						price: /** @type {any} */ (paywall.info).subscription ?? null,
+						cancel: 'the link in every mail deletes the subscription; no refund of the remaining months',
+						privacy: 'chain, addresses, payer, e-mail address and options are kept encrypted until the last statement or the cancellation, then deleted'
+					}
+				: 'not offered by this instance',
 			blocks: describeBlocks(blocks),
-			privacy: 'Nothing is stored beyond the request; logs hold method, path, status and duration only. An e-mail address goes into that one mail and nowhere else.',
+			privacy: `Nothing is stored beyond the request; logs hold method, path, status and duration only. An e-mail address goes into that one mail and nowhere else.${subs ? ' A subscription is the one exception: see subscription.privacy.' : ''}`,
 			data: 'Powered by NearBlocks.io APIs; EUR rates: the price at 00:00 UTC from CoinGecko, else Kraken (@le-space/rates).',
 			license: 'AGPL-3.0-or-later',
 			source
@@ -120,7 +139,7 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
 ## Buy
 
 - POST ${base}/eigenbeleg/preview: free, the same body without \`payer\`; counts and totals, no files. Check here first.
-- POST ${base}/eigenbeleg: ${price}.
+- POST ${base}/eigenbeleg: ${price}.${subs ? `\n- POST ${base}/eigenbeleg/subscribe: a subscription, ${MONTHS} monthly Kontoauszüge by mail, paid once: ${/** @type {any} */ (paywall.info).subscription?.price ?? 'see GET /'} (${MONTHS} × the price, unless set apart). The same body as POST /eigenbeleg with \`email\` and without \`period\`; \`document\` is kontoauszug by default. From the 2nd of each month the statement for the month before goes to that address; the answer and every mail carry the cancel link, which deletes everything (no refund of the remaining months). Chain, addresses, payer, e-mail address and options are kept encrypted until the last statement or the cancellation; everything else this API does stays unstored.` : ''}
   1. Send the body; the answer is 402 with a \`PAYMENT-REQUIRED\` header (base64 JSON, x402 v2, scheme \`exact\`).
   2. Sign what it asks for and send the same request again with \`PAYMENT-SIGNATURE\`. On NEAR: one NEP-366 delegate action with one \`ft_transfer\` of USDC (the payer needs USDC and a USDC storage registration, no NEAR). On Base or Ethereum: one EIP-3009 \`transferWithAuthorization\` of USDC (the payer needs USDC, no ETH).
   3. The answer carries the files and \`PAYMENT-RESPONSE\` (the transaction). If reading the chain fails, nothing is charged.
@@ -154,6 +173,47 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 	app.get('/blocks', (_req, res) => res.json({ blocks: describeBlocks(blocks) }));
 	app.get('/blocks/:chain/check', async (req, res) => res.json(await checkBlock(req.params.chain, deps)));
 	app.get('/health', (_req, res) => res.json({ ok: true, paywall: paywall.info.mode }));
+
+	// The subscription (#20): checked like a paid request before a price is named; stored only once the
+	// payment is settled (the x402 middleware turns an unsettled 200 into a 402 after this handler).
+	/** @type {import('express').RequestHandler} */
+	const validateSubscription = (req, res, next) => {
+		try {
+			if (!subs) throw new RequestError('subscriptions: not offered by this instance; buy each month with POST /eigenbeleg');
+			res.locals.subJob = subscriptionJob(req.body, { today: today(), blocks });
+			next();
+		} catch (e) {
+			if (e instanceof RequestError) res.status(400).json({ error: e.message });
+			else next(e);
+		}
+	};
+	app.post('/eigenbeleg/subscribe', express.json({ limit: '32kb' }), validateSubscription, (req, res, next) => (paywall.middleware ?? ((_r, _s, n) => n()))(req, res, next), (req, res) => {
+		const s = newSubscription(res.locals.subJob, { now: deps.now?.() ?? new Date(), origin: origin(req, publicUrl) });
+		res.on('finish', () => {
+			if (res.statusCode >= 400 || !subs) return;
+			subs.put(s).catch((e) => log(`${new Date().toISOString()} subscription ${s.id}: not stored: ${String(e?.message ?? e).slice(0, 200)}`));
+		});
+		if (paywall.info.mode === 'none') res.setHeader('X-Eigenbeleg-Paywall', 'none (development)');
+		res.json({
+			subscription: s.id,
+			months: MONTHS,
+			firstMonth: s.nextMonth,
+			firstMailFrom: dueDate(s.nextMonth),
+			document: s.job.document,
+			cancel: cancelUrl(s),
+			note: 'The cancel link deletes every detail; the remaining months are not refunded. Keep it: it is in every mail as well.'
+		});
+	});
+	app.get('/eigenbeleg/subscribe/:id/cancel', async (req, res) => {
+		const s = subs ? await subs.get(String(req.params.id)) : null;
+		if (!s || !tokenMatches(s, req.query.token)) {
+			res.status(404).type('text/plain; charset=utf-8').send('Kein solches Abo (oder schon beendet).\nNo such subscription (or already cancelled).\n');
+			return;
+		}
+		await subs?.remove(s.id);
+		log(`${new Date().toISOString()} subscription ${s.id}: cancelled`);
+		res.type('text/plain; charset=utf-8').send(`Abo ${s.id} beendet. Alle Angaben sind gelöscht.\nSubscription ${s.id} cancelled. Every detail is deleted.\n`);
+	});
 
 	/** @type {import('express').RequestHandler} */
 	const validate = (req, res, next) => {

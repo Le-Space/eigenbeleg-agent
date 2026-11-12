@@ -123,6 +123,13 @@ the body.
 - `email`: optional, the files also by mail, once the payment is settled; only
   where `llms.txt` says the instance offers it.
 
+A **subscription** (`POST /eigenbeleg/subscribe`, where `llms.txt` offers it):
+the same body with `email` and without `period`, twelve monthly Kontoauszüge by
+mail for one payment of twelve times the price. Say so before buying: the API
+then keeps chain, addresses, name, address and e-mail address encrypted for a
+year, and the remaining months are not refunded. Keep the answer's cancel link
+for the person; it is also in every mail.
+
 ## Edge cases
 
 - **Aleph Cloud** is keyed by the Ethereum address and takes one finished month

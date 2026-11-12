@@ -31,10 +31,13 @@ services:
     mem_limit: 256m
     pids_limit: 128
     networks: [edge]
-    # Optional, instead of RELAYER_SECRET_KEY: the relayer's near-cli key file,
-    # read only. Set NEAR_CREDENTIALS_DIR=/run/near-credentials then.
-    # volumes:
-    #   - /srv/eigenbeleg/near-credentials:/run/near-credentials:ro
+    volumes:
+      # Subscriptions (#20): one encrypted file each, only with SUBSCRIPTION_KEY in .env. The only
+      # thing the API keeps beyond a request; without the key the volume stays empty.
+      - subscriptions:/var/lib/eigenbeleg
+      # Optional, instead of RELAYER_SECRET_KEY: the relayer's near-cli key file,
+      # read only. Set NEAR_CREDENTIALS_DIR=/run/near-credentials then.
+      # - /srv/eigenbeleg/near-credentials:/run/near-credentials:ro
 
   # Pulls ghcr.io/le-space/eigenbeleg-agent:main every 5 minutes and restarts
   # the API with it if it changed; removes the old image. The maintained fork
@@ -51,6 +54,9 @@ services:
     mem_limit: 64m
     security_opt: ["no-new-privileges:true"]
     network_mode: bridge
+
+volumes:
+  subscriptions:
 
 networks:
   edge:

@@ -200,6 +200,8 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 | `GET /blocks/<chain>/check` | A live check of that block against public data (cached 10 min) |
 | `POST /eigenbeleg` | The Eigenbelege and the Kontoauszug, behind the paywall |
 | `POST /eigenbeleg/preview` | Free: the summary (Eigenbeleg numbers, positions, total, Kontoauszug balances) for the same body **without** `payer` (a body with `payer` is refused); 10 per minute per IP |
+| `POST /eigenbeleg/subscribe` | A subscription ([#20](https://github.com/Le-Space/eigenbeleg-agent/issues/20)): twelve monthly Kontoauszüge by mail, paid once; the same body with `email` and without `period`. Only where the instance offers mail and subscriptions |
+| `GET /eigenbeleg/subscribe/<id>/cancel?token=…` | The link in every subscription mail: deletes the subscription |
 | `GET /ui/` | The web UI (a static PWA that talks to none of these routes), when `npm run web:build` has run |
 | `GET /llms.txt` | For agents: what is sold, the price, the x402 steps and the body, as plain text |
 
@@ -220,6 +222,10 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 ```
 
 `document` says what you get, and you get only that: `eigenbelege` (the default; one page per transaction), `kontoauszug` (one per address), or `beide` when you ask for both. `format`: `pdf` gives one document as the file (a Kontoauszug as PDF for one address); `json` gives what `document` names – the Eigenbelege as `pdf` (base64), the statements as `kontoauszuegePdf` – plus the CSV and a summary (Eigenbeleg numbers, totals, each statement's balances and whether they reconciled); `csv` gives the CSV. `period` is `{ month }` or `{ from, to }`, at most 92 days, finished days only (a period reaching today ends yesterday). `logo` is accepted (`true` or `false`) but has no effect for now: the chain's mark beside the title waits for `@le-space/eigenbeleg` to draw it again. The request is checked **before** a price is named: a wrong chain, address or period gets a `400`, not a `402`.
+
+**By mail.** With `email` in the body the files also go as attachments to that address once the payment is settled (stable names and subject, for a document management system's inbox); the address is used for that one mail. Only where the instance has `SMTP_URL`.
+
+**The subscription** ([#20](https://github.com/Le-Space/eigenbeleg-agent/issues/20)). `POST /eigenbeleg/subscribe` takes the same body with `email` and without `period` (`document` is `kontoauszug` by default; `eigenbelege` or `beide` work too) and sells twelve months at once, at `PRICE_SUBSCRIPTION` or twelve times the price (1.20 USDC at $0.10). From the 2nd of each month the API makes the statement for the month before and mails it; the answer and every mail carry a cancel link that deletes the subscription (no refund of the remaining months). The subscription is the one thing the API keeps: chain, network, addresses, payer, e-mail address and options, one encrypted file each (`SUBSCRIPTION_KEY`, AES-256-GCM) in a volume, until the last statement or the cancellation. A failed run is retried hourly; after three days the subscriber gets a mail about it, once. The agent subscribes with `npm run agent -- --subscribe … --email …` and keeps the cancel link in `subscription-<id>.json`.
 
 ## The agent
 
@@ -298,6 +304,9 @@ eigenbeleg.example.com {
 | `PAYWALL` | `x402` (x402 `exact`, USDC, on the networks in `PAY_NETWORKS`; `near` is its old name), `ping` (PingPay, mainnet only), `none` (development: free, and says so) | no |
 | `PAY_NETWORKS` | where customers may pay, comma-separated: `near:mainnet`, `near:testnet`, `eip155:8453` (Base), `eip155:1` (Ethereum); the 402 offers them all (not which chain is read). `PAY_NETWORK` with one network still works | no |
 | `PRICE` | price per request in USDC, e.g. `$0.10`; `PRICE_EIP155_1` etc. set one network's own price (Ethereum's gas costs the relayer more) | no |
+| `SMTP_URL`, `MAIL_FROM` | optional: the files by mail when a request asks (`email`); the SMTP account as a URL and the sender. Without them the API offers no mail | **yes** |
+| `SUBSCRIPTION_KEY`, `SUBSCRIPTION_DIR` | optional: subscriptions (needs mail). The key (16+ characters) encrypts the one file per subscription in the directory (the compose volume `/var/lib/eigenbeleg`); losing the key loses them. Without the key no subscriptions | **yes** |
+| `PRICE_SUBSCRIPTION` | the subscription's price; default twelve times `PRICE` (per network: `PRICE_SUBSCRIPTION_EIP155_1` etc.) | no |
 | `PAY_TO_EVM` | the 0x address that receives the USDC on Base and Ethereum | no |
 | `EVM_RELAYER_KEY` | 0x private key of the account that submits the payer's EIP-3009 transfer on Base and Ethereum and pays its gas (a little ETH on each) | **yes** |
 | `EVM_RPC_EIP155_8453`, `EVM_RPC_EIP155_1` | an RPC per EVM network; else Alchemy with `ALCHEMY_KEY`, else the chain's public RPC | no |
@@ -344,7 +353,7 @@ The addresses of a request go to the data sources of its chain, and nowhere else
 
 ## Privacy
 
-The payer's name and address live only for the request. Nothing is stored, and logs hold method, path, status and duration only. There are no request bodies in the logs, and there is no database.
+The payer's name and address live only for the request. Nothing is stored, and logs hold method, path, status and duration only. There are no request bodies in the logs, and there is no database. The one exception is a **subscription** ([#20](https://github.com/Le-Space/eigenbeleg-agent/issues/20)), which the API has to keep for a year: chain, network, addresses, payer, e-mail address and options, encrypted on disk, deleted after the last statement or on the cancel link; log lines name its id only.
 
 **In the web UI** nothing reaches this API: the page reads, values and draws in the browser, and asks only the data sources it lists (its Content-Security-Policy allows no other host). Name and postal address never leave the page. The free preview takes no name or address at all. Fixtures are public chain data of protocol accounts; every name and address in examples is made up (*Wolkenfabrik Hosting GmbH*, *Musterstraße 1*).
 

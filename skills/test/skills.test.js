@@ -47,6 +47,7 @@ for (const name of skills) {
 		assert.ok(fields.name.length <= 64);
 		assert.ok(fields.description.length > 0 && fields.description.length <= 1024, 'description 1–1024 characters');
 		if (fields.compatibility) assert.ok(fields.compatibility.length <= 500);
+		assert.match(fields.license ?? '', /^CC-BY-4\.0\b/, 'the text is CC-BY-4.0 (skills/LICENSE.md); the scripts stay AGPL');
 		assert.ok(body.split('\n').length <= 500, 'the body stays under 500 lines');
 		assert.match(body, /^# /m, 'the body has a title');
 	});

@@ -385,4 +385,6 @@ What this means in practice:
 - **Changing it** is allowed; changed versions stay under the AGPL.
 - **Running it as a service for others**: anyone who runs the API, changed or not, for users over a network must offer those users the complete source of the version they run, changes included (AGPL section 13). The API does this itself. `GET /` answers with a `source` link, set with `SOURCE_URL` (default: this repository). Point it at your fork if you changed something.
 
+**The skill texts** (`skills/*/SKILL.md`) are prose, not software, and are under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) instead: copy them, change them, put them into your own skills or directories, as long as you name Le Space as the source ([`skills/LICENSE.md`](skills/LICENSE.md)). Each one says so in its `license` line. The tests under `skills/test` and every script the skills point at stay under the AGPL.
+
 Chain data powered by [NearBlocks.io](https://nearblocks.io) APIs. Rates from CoinGecko and Kraken. Third-party parts keep their own licences: DejaVu fonts (Bitstream Vera licence) and the CC0 sRGB profile; the npm dependencies are MIT or Apache-2.0.

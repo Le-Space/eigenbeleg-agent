@@ -3,7 +3,8 @@
 // host, on any static host and on an IPFS path gateway.
 //
 // The Content-Security-Policy is made here from the pipeline's data sources
-// (@eigenbeleg/pipeline dataSources): the page may connect to exactly those
+// (@eigenbeleg/pipeline dataSources, and keyedSources: Alchemy, asked only
+// with the person's own key, #25): the page may connect to exactly those
 // hosts and nothing else. It goes into index.html as a <meta> (for static
 // hosts) and into dist/csp.txt, which the API sends as a header (adding
 // frame-ancestors, which a <meta> cannot carry).
@@ -15,11 +16,11 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
-import { dataSources } from '@eigenbeleg/pipeline';
+import { dataSources, keyedSources } from '@eigenbeleg/pipeline';
 
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), 'VITE_');
-	const connect = ["'self'", ...dataSources({ akashIndexer: env.VITE_AKASH_INDEXER || null }).map((s) => s.origin)];
+	const connect = ["'self'", ...dataSources({ akashIndexer: env.VITE_AKASH_INDEXER || null }).map((s) => s.origin), ...keyedSources().map((s) => s.origin)];
 	const csp = [
 		"default-src 'self'",
 		"script-src 'self'",

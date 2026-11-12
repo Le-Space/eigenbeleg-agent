@@ -42,12 +42,14 @@ test('dataSources names every host the readers and the rates ask, and only those
 	}
 	const listed = new Set(dataSources().map((s) => s.origin));
 	assert.deepEqual([...listed].sort(), [...expected].sort());
-	// Ethereum and Base (only with the server's Alchemy key): the API's list, never the page's.
+	// Ethereum and Base (only with an Alchemy key) are listed apart, by keyedSources: the API adds them with its
+	// own key, the page with the person's own (#25); dataSources itself names no Alchemy host.
 	assert.deepEqual(
 		keyedSources().map((s) => s.origin),
 		Object.keys(KEYED_BLOCKS).map((id) => new URL(alchemyBaseUrl(/** @type {any} */ (CHAINS[id]).alchemy.network)).origin)
 	);
-	assert.ok(![...listed].some((o) => /alchemy/i.test(o)), 'the page (its list and CSP) has no Alchemy host');
+	assert.ok(![...listed].some((o) => /alchemy/i.test(o)), 'dataSources has no Alchemy host');
+	assert.match(keyedSources({ whose: 'your own' })[0].what, /with your own key/);
 	const proxied = dataSources({ akashIndexer: 'https://akash-proxy.example.workers.dev' }).map((s) => s.origin);
 	assert.ok(proxied.includes('https://akash-proxy.example.workers.dev') && !proxied.includes('https://console-api.akash.network'));
 });

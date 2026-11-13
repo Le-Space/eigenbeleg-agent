@@ -28,13 +28,18 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000
 
+# apps/api/production marks this image as a production build: the API then takes mainnet
+# payments only and refuses to start with a testnet network, PAYWALL=none or the development
+# flag (apps/api/src/release.js). It belongs to root on a read-only filesystem, so .env cannot
+# remove it.
 # The workspace manifests first, so the dependency layer is cached.
 COPY package.json package-lock.json ./
 COPY packages ./packages
 COPY apps ./apps
 RUN npm ci --omit=dev --workspace=apps/api --include-workspace-root=false --ignore-scripts --no-audit --no-fund \
  && npm cache clean --force \
- && rm -rf apps/agent/test apps/api/test apps/web/test packages/*/test
+ && rm -rf apps/agent/test apps/api/test apps/web/test packages/*/test \
+ && echo 'production build: mainnet payments only (apps/api/src/release.js)' > apps/api/production
 COPY --from=web /build/apps/web/dist ./apps/web/dist
 
 USER node

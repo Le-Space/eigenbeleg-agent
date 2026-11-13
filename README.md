@@ -99,7 +99,7 @@ You need two testnet accounts: one for the API (receives USDC, relays) and one f
    ```
    Then the same for the agent account.
 3. Get testnet USDC for the agent from [faucet.circle.com](https://faucet.circle.com) (network NEAR Testnet).
-4. `cp .env.example .env` and set `PAY_TO` and `RELAYER_ACCOUNT_ID` to the API account and `AGENT_ACCOUNT_ID` to the agent account. The keys are read from the near-cli keychain, or from `RELAYER_SECRET_KEY` / `AGENT_SECRET_KEY`. They are never printed or logged.
+4. `cp .env.example .env`, set `PAY_NETWORKS=near:testnet` and `EIGENBELEG_DEV_TESTNET=1` (testnet payments are a development setting; a production build refuses them, see "Deploy"), `PAY_TO` and `RELAYER_ACCOUNT_ID` to the API account and `AGENT_ACCOUNT_ID` to the agent account. The keys are read from the near-cli keychain, or from `RELAYER_SECRET_KEY` / `AGENT_SECRET_KEY`. They are never printed or logged.
 5. Start the API, then run the agent:
    ```bash
    npm run api
@@ -303,7 +303,9 @@ eigenbeleg.example.com {
 | Variable | Meaning | Secret |
 | --- | --- | --- |
 | `PAYWALL` | `x402` (x402 `exact`, USDC, on the networks in `PAY_NETWORKS`; `near` is its old name), `ping` (PingPay, mainnet only), `none` (development: free, and says so) | no |
-| `PAY_NETWORKS` | where customers may pay, comma-separated: `near:mainnet`, `near:testnet`, `eip155:8453` (Base), `eip155:1` (Ethereum); the 402 offers them all (not which chain is read). `PAY_NETWORK` with one network still works | no |
+| `PAY_NETWORKS` | where customers may pay, comma-separated: `near:mainnet`, `eip155:8453` (Base), `eip155:1` (Ethereum), and for development `near:testnet`; the 402 offers them all (not which chain is read). No default: it must be set. `PAY_NETWORK` with one network still works | no |
+| `EIGENBELEG_DEV_TESTNET` | `1`: allow `near:testnet` in `PAY_NETWORKS`. Development and tests only: a production build refuses to start when it is set | no |
+| `EIGENBELEG_PRODUCTION` | `1`: treat this process as a production build outside the image (the image is one anyway). It can only switch production on | no |
 | `PRICE` | price per request in USDC, e.g. `$0.10`; `PRICE_EIP155_1` etc. set one network's own price (Ethereum's gas costs the relayer more) | no |
 | `SMTP_URL`, `MAIL_FROM` | optional: the files by mail when a request asks (`email`); the SMTP account as a URL and the sender. Without them the API offers no mail | **yes** |
 | `SUBSCRIPTION_KEY`, `SUBSCRIPTION_DIR` | optional: subscriptions (needs mail). The key (16+ characters) encrypts the one file per subscription in the directory (the compose volume `/var/lib/eigenbeleg`); losing the key loses them. Without the key no subscriptions | **yes** |
@@ -326,7 +328,11 @@ eigenbeleg.example.com {
 | `TRUST_PROXY` | behind a proxy: whose `X-Forwarded-*` to trust (Express syntax, e.g. `uniquelocal`), so the x402 resource URL is https | no |
 | `HOST`, `PORT` | listen address; the image uses `0.0.0.0:3000` | no |
 
-Testnet vs mainnet: `PAY_NETWORKS` decides where customers pay; the chain data read is chosen per request (`network` in the body). For the hackathon instance: `PAYWALL=x402`, `PAY_NETWORKS=near:testnet`. For production: `PAY_NETWORKS=near:mainnet,eip155:8453,eip155:1` with `PAY_TO`, `PAY_TO_EVM` and both relayers. This API is its own x402 facilitator on every network: the NEAR relayer submits delegate actions, the EVM relayer submits `transferWithAuthorization`; no third party sees or settles the payments.
+Testnet vs mainnet: `PAY_NETWORKS` decides where customers pay; the chain data read is chosen per request (`network` in the body). For production: `PAY_NETWORKS=near:mainnet,eip155:8453,eip155:1` with `PAY_TO`, `PAY_TO_EVM` and both relayers.
+
+**Production takes mainnet payments only.** The image is a production build: its last stage writes `apps/api/production` (owned by root, on a read-only filesystem, so `.env` cannot remove it), and with it the API refuses to start, saying why, when `PAY_NETWORKS` is unset or names `near:testnet`, when `PAYWALL=none`, when `NEAR_RPC_URL` or an `EVM_RPC_*` points at a test network or at this machine, or when `EIGENBELEG_DEV_TESTNET` is set. A checkout is a development build: there `near:testnet` needs `EIGENBELEG_DEV_TESTNET=1`. The rules are in [`apps/api/src/release.js`](apps/api/src/release.js), the test that starts the server as a production build with a testnet network and sees it refuse in [`apps/api/test/release.test.js`](apps/api/test/release.test.js). See: `docker logs eigenbeleg` starts with `production (mainnet payments only)`.
+
+This API is its own x402 facilitator on every network: the NEAR relayer submits delegate actions, the EVM relayer submits `transferWithAuthorization`; no third party sees or settles the payments.
 
 **Outbound hosts** the API calls (HTTPS only):
 

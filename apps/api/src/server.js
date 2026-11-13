@@ -5,6 +5,7 @@ import { blocksFor } from '@eigenbeleg/pipeline';
 import { createApp } from './app.js';
 import { createMailer } from './mail.js';
 import { createPaywall } from './paywall.js';
+import { DEV_TESTNET_FLAG, isProduction } from './release.js';
 import { createStore, startScheduler } from './subscriptions.js';
 
 // A .env next to the repository root, if there is one (no dependency for it).
@@ -25,13 +26,17 @@ const perNetwork = (/** @type {string} */ prefix) =>
 			.filter(([k, v]) => k.startsWith(prefix) && v)
 			.map(([k, v]) => [k.slice(prefix.length).toLowerCase().replace('_', ':'), /** @type {string} */ (v)])
 	);
+// A production build takes mainnet payments only and refuses to start otherwise (release.js).
+const production = isProduction(env);
 const paywall = await createPaywall({
+	production,
+	allowTestnet: env[DEV_TESTNET_FLAG] === '1',
 	mode: /** @type {any} */ (env.PAYWALL ?? 'x402'),
 	price: env.PRICE,
 	prices: perNetwork('PRICE_'),
 	subscriptionPrice: env.PRICE_SUBSCRIPTION,
 	subscriptionPrices: perNetwork('PRICE_SUBSCRIPTION_'),
-	networks: (env.PAY_NETWORKS ?? env.PAY_NETWORK ?? 'near:testnet').split(',').map((n) => n.trim()).filter(Boolean),
+	networks: (env.PAY_NETWORKS ?? env.PAY_NETWORK ?? '').split(',').map((n) => n.trim()).filter(Boolean),
 	payTo: env.PAY_TO,
 	relayerId: env.RELAYER_ACCOUNT_ID,
 	relayerKey: env.RELAYER_SECRET_KEY,
@@ -44,6 +49,9 @@ const paywall = await createPaywall({
 	pingApiKey: env.PING_API_KEY,
 	pingUrl: env.PING_FACILITATOR_URL,
 	pingAmountOut: env.PING_AMOUNT_OUT
+}).catch((/** @type {Error} */ e) => {
+	console.error(`eigenbeleg API not started: ${e.message}`);
+	process.exit(1);
 });
 // The files by mail, when a request asks: SMTP_URL and MAIL_FROM; without them the API offers no mail.
 const mailer = createMailer({ smtpUrl: env.SMTP_URL, from: env.MAIL_FROM });
@@ -57,6 +65,6 @@ if (env.TRUST_PROXY) app.set('trust proxy', env.TRUST_PROXY);
 const host = env.HOST ?? '127.0.0.1';
 const port = Number(env.PORT ?? 4402);
 app.listen(port, host, () => {
-	console.log(`eigenbeleg API on http://${host}:${port} – paywall: ${JSON.stringify(paywall.info)}, mail: ${mailer ? 'on' : 'off'}, subscriptions: ${subscriptions ? 'on' : 'off'}`);
+	console.log(`eigenbeleg API on http://${host}:${port} – ${production ? 'production (mainnet payments only)' : 'development'}, paywall: ${JSON.stringify(paywall.info)}, mail: ${mailer ? 'on' : 'off'}, subscriptions: ${subscriptions ? 'on' : 'off'}`);
 	if (subscriptions && mailer) startScheduler({ store: subscriptions, deps: { ...deps, blocks: blocksFor(deps) }, mailer, log: (l) => console.log(l), source: env.SOURCE_URL });
 });

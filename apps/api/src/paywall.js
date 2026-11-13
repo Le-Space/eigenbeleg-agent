@@ -29,6 +29,7 @@ import { ExactEvmScheme as EvmServerScheme } from '@x402/evm/exact/server';
 import { ExactEvmScheme as EvmFacilitatorScheme } from '@x402/evm/exact/facilitator';
 
 import { nearSecretKey } from './keys.js';
+import { checkPayments } from './release.js';
 import { MONTHS, MONTH_CHOICES, ROUTE as SUBSCRIBE_ROUTE, routeFor } from './subscriptions.js';
 
 export const ROUTE = 'POST /eigenbeleg';
@@ -54,7 +55,8 @@ export function subscriptionPriceOf(price, months = MONTHS) {
 /** The networks this server can take USDC on, and what the 402 and GET / call them. */
 export const NETWORKS = {
 	'near:mainnet': { name: 'NEAR', asset: 'USDC (NEP-141)', family: 'near' },
-	'near:testnet': { name: 'NEAR testnet', asset: 'USDC (NEP-141, testnet)', family: 'near' },
+	// Development and tests only: needs EIGENBELEG_DEV_TESTNET=1, and a production build refuses it (release.js).
+	'near:testnet': { name: 'NEAR testnet', asset: 'USDC (NEP-141, testnet)', family: 'near', testnet: true },
 	'eip155:8453': { name: 'Base', asset: 'USDC (ERC-20, EIP-3009)', family: 'evm', chain: 'base', alchemy: 'base-mainnet' },
 	'eip155:1': { name: 'Ethereum', asset: 'USDC (ERC-20, EIP-3009)', family: 'evm', chain: 'mainnet', alchemy: 'eth-mainnet' }
 };
@@ -80,9 +82,14 @@ export const NETWORKS = {
  * @param {string} [c.pingApiKey]
  * @param {string} [c.pingUrl]
  * @param {string} [c.pingAmountOut] destination USDC base units (>= 200000)
+ * @param {boolean} [c.production] a production build (release.js): mainnet payments only
+ * @param {boolean} [c.allowTestnet] EIGENBELEG_DEV_TESTNET=1: testnet payments, outside production only
  * @returns {Promise<{ middleware: import('express').RequestHandler | null, info: Record<string, unknown> }>}
  */
 export async function createPaywall(c) {
+	const given = c.networks?.length ? c.networks : c.network ? [c.network] : [];
+	const rpcUrls = [c.rpcUrl, ...Object.values(c.evmRpcUrls ?? {})].filter((u) => typeof u === 'string' && u !== '');
+	checkPayments({ production: !!c.production, allowTestnet: !!c.allowTestnet, mode: c.mode, networks: c.mode === 'ping' ? [] : given, rpcUrls: /** @type {string[]} */ (rpcUrls) });
 	if (c.mode === 'none') return { middleware: null, info: { mode: 'none', note: 'no payment: development mode' } };
 
 	if (c.mode === 'ping') {
@@ -107,7 +114,8 @@ export async function createPaywall(c) {
 	}
 
 	if (c.mode !== 'x402' && c.mode !== 'near') throw new Error(`unknown PAYWALL ${c.mode}`);
-	const networks = [...new Set(c.networks?.length ? c.networks : [c.network ?? 'near:testnet'])];
+	if (!given.length) throw new Error('PAY_NETWORKS: name the networks to take USDC on, e.g. near:mainnet,eip155:8453');
+	const networks = [...new Set(given)];
 	for (const n of networks) if (!Object.hasOwn(NETWORKS, n)) throw new Error(`PAY_NETWORKS: unknown network ${n}; known: ${Object.keys(NETWORKS).join(', ')}`);
 	const price = c.price ?? '$0.10';
 	const priceOf = (/** @type {string} */ n) => c.prices?.[n] ?? price;

@@ -1,0 +1,154 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Production takes mainnet payments only (apps/api/src/release.js).
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { generatePrivateKey } from 'viem/accounts';
+
+import { createPaywall, NETWORKS } from '../src/paywall.js';
+import { checkPayments, isProduction, PRODUCTION_MARKER, TESTNET_NETWORKS } from '../src/release.js';
+
+const root = fileURLToPath(new URL('../../../', import.meta.url));
+const server = join(root, 'apps/api/src/server.js');
+const payToEvm = '0x1111111111111111111111111111111111111111';
+
+/**
+ * Starts the API as a child process and waits until it listens or exits.
+ * @param {Record<string, string>} extra
+ * @returns {Promise<{ code: number | null, out: string }>}
+ */
+function start(extra) {
+	// Only what the test sets: nothing from the developer's shell or .env decides the outcome
+	// (the .env loader fills only variables that are undefined, so each one is set here).
+	const env = {
+		PATH: process.env.PATH ?? '',
+		HOME: process.env.HOME ?? '',
+		HOST: '127.0.0.1',
+		PORT: '0',
+		PAYWALL: 'x402',
+		PAY_NETWORKS: '',
+		PAY_NETWORK: '',
+		PAY_TO: '',
+		RELAYER_ACCOUNT_ID: '',
+		RELAYER_SECRET_KEY: '',
+		PAY_TO_EVM: '',
+		EVM_RELAYER_KEY: '',
+		NEAR_RPC_URL: '',
+		ALCHEMY_KEY: '',
+		SMTP_URL: '',
+		SUBSCRIPTION_KEY: '',
+		EIGENBELEG_PRODUCTION: '',
+		EIGENBELEG_DEV_TESTNET: '',
+		...extra
+	};
+	return new Promise((resolve, reject) => {
+		const child = spawn(process.execPath, [server], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+		let out = '';
+		const timer = setTimeout(() => (child.kill(), reject(new Error(`no answer from server.js: ${out}`))), 20_000);
+		const onData = (/** @type {Buffer} */ d) => {
+			out += d;
+			if (out.includes('eigenbeleg API on')) child.kill();
+		};
+		child.stdout.on('data', onData);
+		child.stderr.on('data', onData);
+		child.on('exit', (code) => (clearTimeout(timer), resolve({ code, out })));
+	});
+}
+
+test('a production build refuses to start with a testnet payment network, even with the development flag', async () => {
+	const r = await start({ EIGENBELEG_PRODUCTION: '1', PAY_NETWORKS: 'near:testnet', PAY_TO: 'eigenbeleg.testnet', RELAYER_ACCOUNT_ID: 'eigenbeleg.testnet', EIGENBELEG_DEV_TESTNET: '1' });
+	assert.equal(r.code, 1, r.out);
+	assert.match(r.out, /eigenbeleg API not started: production build: .*mainnet payments only/);
+	assert.doesNotMatch(r.out, /eigenbeleg API on/);
+});
+
+test('a production build refuses to start with a testnet network next to mainnet ones', async () => {
+	const r = await start({ EIGENBELEG_PRODUCTION: '1', PAY_NETWORKS: 'eip155:8453,near:testnet', PAY_TO_EVM: payToEvm, EVM_RELAYER_KEY: generatePrivateKey(), PAY_TO: 'eigenbeleg.testnet', RELAYER_ACCOUNT_ID: 'eigenbeleg.testnet' });
+	assert.equal(r.code, 1, r.out);
+	assert.match(r.out, /testnet network near:testnet/);
+});
+
+test('a production build refuses PAYWALL=none and a missing PAY_NETWORKS', async () => {
+	const free = await start({ EIGENBELEG_PRODUCTION: '1', PAYWALL: 'none' });
+	assert.equal(free.code, 1, free.out);
+	assert.match(free.out, /PAYWALL=none/);
+	const unset = await start({ EIGENBELEG_PRODUCTION: '1' });
+	assert.equal(unset.code, 1, unset.out);
+	assert.match(unset.out, /PAY_NETWORKS is not set/);
+});
+
+test('a production build starts with mainnet networks only', async () => {
+	const r = await start({ EIGENBELEG_PRODUCTION: '1', PAY_NETWORKS: 'eip155:8453', PAY_TO_EVM: payToEvm, EVM_RELAYER_KEY: generatePrivateKey() });
+	assert.match(r.out, /eigenbeleg API on .* production \(mainnet payments only\)/, r.out);
+});
+
+test('outside production, testnet payments need the development flag', async () => {
+	const without = await start({ PAY_NETWORKS: 'near:testnet', PAY_TO: 'eigenbeleg.testnet', RELAYER_ACCOUNT_ID: 'eigenbeleg.testnet' });
+	assert.equal(without.code, 1, without.out);
+	assert.match(without.out, /set EIGENBELEG_DEV_TESTNET=1/);
+});
+
+test('the rules, one by one', () => {
+	const ok = { production: true, allowTestnet: false, mode: 'x402', networks: ['near:mainnet', 'eip155:8453', 'eip155:1'] };
+	assert.doesNotThrow(() => checkPayments(ok));
+	assert.doesNotThrow(() => checkPayments({ ...ok, mode: 'ping', networks: [] }), 'PingPay is mainnet only');
+	assert.throws(() => checkPayments({ ...ok, networks: ['near:mainnet', 'near:testnet'] }), /near:testnet/);
+	assert.throws(() => checkPayments({ ...ok, allowTestnet: true }), /EIGENBELEG_DEV_TESTNET is set/);
+	assert.throws(() => checkPayments({ ...ok, mode: 'none', networks: [] }), /PAYWALL=none/);
+	assert.throws(() => checkPayments({ ...ok, networks: [] }), /PAY_NETWORKS is not set/);
+	for (const url of ['https://rpc.testnet.fastnear.com', 'https://base-sepolia.g.alchemy.com/v2/k', 'http://127.0.0.1:8545']) {
+		assert.throws(() => checkPayments({ ...ok, rpcUrls: [url] }), /payment RPC points at a test network/);
+	}
+	// The error names no URL: an RPC URL may carry an API key.
+	assert.throws(() => checkPayments({ ...ok, rpcUrls: ['https://base-sepolia.g.alchemy.com/v2/SECRETKEY'] }), (e) => !String(e).includes('SECRETKEY'));
+	assert.doesNotThrow(() => checkPayments({ ...ok, rpcUrls: ['https://rpc.mainnet.fastnear.com', 'https://base-mainnet.g.alchemy.com/v2/k'] }));
+
+	const dev = { production: false, allowTestnet: false, mode: 'x402', networks: ['near:testnet'] };
+	assert.throws(() => checkPayments(dev), /EIGENBELEG_DEV_TESTNET=1/);
+	assert.doesNotThrow(() => checkPayments({ ...dev, allowTestnet: true }));
+	assert.doesNotThrow(() => checkPayments({ ...dev, mode: 'none', networks: [] }));
+});
+
+test('every testnet network the paywall knows is on the list production refuses', () => {
+	const marked = Object.entries(NETWORKS).filter(([, m]) => /** @type {any} */ (m).testnet).map(([n]) => n);
+	assert.deepEqual(marked, [...TESTNET_NETWORKS]);
+	for (const n of Object.keys(NETWORKS)) if (/test|sepolia|goerli|holesky/i.test(n)) assert.ok(TESTNET_NETWORKS.has(n), n);
+});
+
+test('createPaywall applies the rules', async () => {
+	await assert.rejects(createPaywall({ mode: 'x402', networks: ['near:testnet'], production: true }), /production build/);
+	await assert.rejects(createPaywall({ mode: 'x402', networks: ['near:testnet'] }), /EIGENBELEG_DEV_TESTNET=1/);
+	await assert.rejects(createPaywall({ mode: 'none', production: true }), /PAYWALL=none/);
+	await assert.rejects(createPaywall({ mode: 'x402' }), /PAY_NETWORKS/);
+	const pw = await createPaywall({ mode: 'x402', production: true, networks: ['eip155:8453'], payToEvm, evmRelayerKey: generatePrivateKey() });
+	assert.deepEqual(/** @type {any[]} */ (pw.info.accepts).map((a) => a.network), ['eip155:8453']);
+});
+
+test('the marker file or EIGENBELEG_PRODUCTION=1 makes production; the environment cannot switch it off', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'eigenbeleg-release-'));
+	const marker = join(dir, 'production');
+	assert.equal(isProduction({}, marker), false);
+	assert.equal(isProduction({ EIGENBELEG_PRODUCTION: '1' }, marker), true);
+	writeFileSync(marker, 'x');
+	assert.equal(isProduction({}, marker), true);
+	assert.equal(isProduction({ EIGENBELEG_PRODUCTION: '0' }, marker), true);
+	assert.equal(isProduction({ EIGENBELEG_PRODUCTION: '' }, marker), true);
+	// The marker is not in the repository: a checkout is a development build.
+	assert.equal(isProduction({}), false, `${PRODUCTION_MARKER} exists in this checkout`);
+});
+
+test('the image is a production build: its final stage writes the marker', () => {
+	const dockerfile = readFileSync(join(root, 'Dockerfile'), 'utf8');
+	const final = dockerfile.slice(dockerfile.lastIndexOf('\nFROM '));
+	assert.match(final, /> apps\/api\/production/, 'the final stage writes apps/api/production');
+	assert.equal(join(root, 'apps/api/production'), PRODUCTION_MARKER);
+	assert.ok(final.indexOf('apps/api/production') < final.indexOf('USER node'), 'written as root, before USER node');
+	// Nothing in the image or the compose file sets the development flag.
+	assert.doesNotMatch(dockerfile, /EIGENBELEG_DEV_TESTNET/);
+	assert.doesNotMatch(readFileSync(join(root, 'deploy/compose.yaml'), 'utf8'), /EIGENBELEG_DEV_TESTNET/);
+});

@@ -6,3 +6,5 @@ out/
 *.log
 .DS_Store
 apps/web/dist/
+# the production marker; only the image writes it (Dockerfile)
+apps/api/production

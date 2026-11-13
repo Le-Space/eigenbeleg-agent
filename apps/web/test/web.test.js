@@ -114,6 +114,34 @@ test('German and English have the same texts and placeholders; German is the def
 	assert.match(html, /href="https:\/\/le-space\.de\/#impressum"/);
 });
 
+test('the footer names the version, the commit and its instant, in the reader\'s terms', async () => {
+	const { buildStamp } = await import('../build-info.js');
+	const { localStamp, parseBuild, utcStamp } = await import('../src/build.js');
+	// From git or from SOURCE_COMMIT: a commit and its instant, else nothing (the build clock never).
+	assert.deepEqual(buildStamp({ commit: 'ABCDEF0123456789ABCDEF0123456789ABCDEF01', date: '2026-11-13T10:15:00+01:00', version: '0.1.0' }), { release: 'v0.1.0', commit: 'abcdef0123456789abcdef0123456789abcdef01', date: '2026-11-13T09:15:00.000Z' });
+	assert.deepEqual(buildStamp({ commit: '', date: '2026-11-13T10:15:00+01:00', version: '0.1.0' }), { release: 'v0.1.0', commit: '', date: '' });
+	assert.deepEqual(buildStamp({ commit: 'abcdef0', date: 'yesterday' }), { release: '', commit: '', date: '' });
+	// The page: the placeholders are filled by the build; unfilled ones hide the stamp.
+	assert.equal(parseBuild({ release: '__BUILD_RELEASE__', commit: '__BUILD_COMMIT__', date: '__BUILD_DATE__' }), null);
+	const build = parseBuild({ release: 'v0.1.0', commit: 'abcdef0123456789abcdef0123456789abcdef01', date: '2026-11-13T09:15:00.000Z' });
+	assert.ok(build);
+	assert.equal(build.short, 'abcdef0');
+	assert.equal(utcStamp(build.when), '2026-11-13 09:15 UTC');
+	assert.equal(localStamp(build.when, 'de-DE', 'Europe/Berlin'), '13.11.2026, 10:15 MEZ');
+	assert.equal(localStamp(build.when, 'en-US', 'America/New_York'), '11/13/2026, 04:15 AM EST');
+	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+	assert.match(html, /id="build" data-release="__BUILD_RELEASE__" data-commit="__BUILD_COMMIT__" data-date="__BUILD_DATE__"/);
+	const config = await readFile(new URL('../vite.config.js', import.meta.url), 'utf8');
+	for (const m of ['__BUILD_RELEASE__', '__BUILD_COMMIT__', '__BUILD_DATE__']) assert.ok(config.includes(`'${m}'`), `vite.config.js fills ${m}`);
+	// The container build copies no .git: the image workflow hands the commit in.
+	const docker = await readFile(new URL('../../../Dockerfile', import.meta.url), 'utf8');
+	const image = await readFile(new URL('../../../.github/workflows/image.yml', import.meta.url), 'utf8');
+	for (const v of ['SOURCE_COMMIT', 'SOURCE_COMMIT_DATE']) {
+		assert.match(docker, new RegExp(`ARG ${v}=`));
+		assert.match(image, new RegExp(`${v}=`));
+	}
+});
+
 test('the service worker keeps the placeholders the build fills with every file to precache', async () => {
 	const sw = await readFile(new URL('../public/sw.js', import.meta.url), 'utf8');
 	const config = await readFile(new URL('../vite.config.js', import.meta.url), 'utf8');

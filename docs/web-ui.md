@@ -83,6 +83,11 @@ says so.
   (`blocksFor({ alchemyKey })`, `generate(req, { alchemyKey })`), never put in the
   request body, and kept in `localStorage` only with its own *merken*. It goes
   from the browser to Alchemy only; the privacy policy says so.
+- **A NearBlocks key of the person's own** (#5), the same way, under *NEAR:
+  eigener NearBlocks-Schlüssel* (shown for NEAR only): `generate(req,
+  { nearblocksKey })` puts it in the `Authorization` header of the NearBlocks
+  requests (NearBlocks allows that header for browsers), for a month beyond
+  the free limit per IP.
 - `@le-space/pdf` (under `@le-space/eigenbeleg`) takes its fonts and sRGB
   profile through `#load-asset`: files in Node, `fetch` in the browser
   (package.json `imports`, condition `browser`; Vite copies the files next to
@@ -125,9 +130,8 @@ says so.
 
 - Reading Belege's books or wallets; sharing the building blocks with Belege is
   #6.
-- Mainnet-scale NEAR accounts beyond NearBlocks' free limit (an own NearBlocks
-  key in the page, like the Alchemy key, or a proxy with ours, is an open
-  question in #5).
+- A proxy that reads NearBlocks with our key for everyone (open question 3 in
+  #5); the page takes the person's own key instead.
 - Paying the API from the page so that our server reads Alchemy for the user:
   that would send the addresses and the payer to our server, which the page
   avoids by design (#25).

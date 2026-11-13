@@ -17,7 +17,7 @@ import { BLOCKS, describeBlocks } from '@eigenbeleg/pipeline/blocks';
 import { KEYED_BLOCKS, blocksFor, isAlchemyKey, keyedSources } from '@eigenbeleg/pipeline/keyed';
 import { dataSources } from '@eigenbeleg/pipeline/sources';
 import { detectLang, lang, locale, setLang, t } from './i18n.js';
-import { fileName, rememberAccounts, rememberKey, rememberPayer, rememberedAccounts, rememberedKey, rememberedPayer, requestBody } from './request.js';
+import { fileName, isNearblocksKey, rememberAccounts, rememberKey, rememberNearblocksKey, rememberPayer, rememberedAccounts, rememberedKey, rememberedNearblocksKey, rememberedPayer, requestBody } from './request.js';
 import { AKASH_INDEXER } from './config.js';
 import { registerServiceWorker } from './pwa.js';
 
@@ -29,11 +29,17 @@ const remember = /** @type {HTMLInputElement} */ ($('remember'));
 const rememberAcc = /** @type {HTMLInputElement} */ ($('remember-accounts'));
 const keyInput = /** @type {HTMLInputElement} */ ($('alchemy-key'));
 const rememberKeyBox = /** @type {HTMLInputElement} */ ($('remember-key'));
+const nbInput = /** @type {HTMLInputElement} */ ($('nearblocks-key'));
+const rememberNbBox = /** @type {HTMLInputElement} */ ($('remember-nb-key'));
 
 // Every block, for the form; the ones that need a key are offered only with one (syncKey).
 const blocks = describeBlocks({ ...BLOCKS, ...KEYED_BLOCKS });
 /** The person's own Alchemy key as typed, or undefined when it is none. */
 const alchemyKey = () => (isAlchemyKey(keyInput.value.trim()) ? keyInput.value.trim() : undefined);
+/** The person's own NearBlocks key as typed (#5), or undefined when it is none. */
+const nearblocksKey = () => (isNearblocksKey(nbInput.value.trim()) ? nbInput.value.trim() : undefined);
+/** A typed NearBlocks key that does not look like one is said so, and not sent. */
+const syncNbKey = () => say('nb-key-error', nbInput.value.trim() && !nearblocksKey() ? t('badNbKey') : '');
 // Akash's older history comes through the CORS proxy; without one, only what the public node keeps.
 const endpoints = { akash: { indexer: AKASH_INDEXER ?? '' } };
 
@@ -123,6 +129,7 @@ function syncChain() {
 		if (monthly) r.checked = r.value === 'month';
 	}
 	$('chain-note').hidden = !monthly;
+	$('nb-keys').hidden = chainSel.value !== 'near';
 	// Only the kinds this chain has; a box that comes back gets its default again.
 	const kinds = b?.kinds ?? [];
 	for (const c of /** @type {NodeListOf<HTMLInputElement>} */ (form.querySelectorAll('input[name="includeKinds"]'))) {
@@ -166,6 +173,8 @@ async function onCreate(e) {
 	rememberAccounts(rememberAcc.checked ? { chain: f.chain, network: f.network, addresses: f.addresses.trim() } : null);
 	const key = alchemyKey();
 	rememberKey(rememberKeyBox.checked ? key ?? null : null);
+	const nbKey = nearblocksKey();
+	rememberNearblocksKey(rememberNbBox.checked ? nbKey ?? null : null);
 	if (blocks.find((x) => x.chain === f.chain)?.needs && !key) return say('form-error', t('needKey'));
 	// What this browser can serve now: the keyless blocks, and Ethereum and Base with the key.
 	const served = blocksFor({ alchemyKey: key });
@@ -183,7 +192,7 @@ async function onCreate(e) {
 		const { generate } = await import('@eigenbeleg/pipeline/generate');
 		/** @param {string} a a long address, shortened for the button */
 		const short = (a) => (a.length > 20 ? `${a.slice(0, 10)}…${a.slice(-6)}` : a);
-		const out = await generate(req, { endpoints, blocks: served, alchemyKey: key }, {
+		const out = await generate(req, { endpoints, blocks: served, alchemyKey: key, nearblocksKey: nbKey }, {
 			onProgress: (p) => {
 				btn.textContent = p.step === 'read' ? t('progressRead', { account: short(p.account), n: String(p.index + 1), of: String(p.count) }) : p.step === 'rates' ? t('progressRates') : t('progressDraw');
 			}
@@ -289,6 +298,7 @@ function applyLang() {
 	/** @type {HTMLTextAreaElement} */ ($('postal')).placeholder = t('postalPlaceholder');
 	labelChains();
 	syncKey();
+	syncNbKey();
 	showSources();
 	showResult();
 }
@@ -390,6 +400,13 @@ if (savedKey) {
 }
 keyInput.addEventListener('input', syncKey);
 rememberKeyBox.addEventListener('change', () => rememberKey(rememberKeyBox.checked ? alchemyKey() ?? null : null));
+const savedNbKey = rememberedNearblocksKey();
+if (savedNbKey) {
+	nbInput.value = savedNbKey;
+	rememberNbBox.checked = true;
+}
+nbInput.addEventListener('input', syncNbKey);
+rememberNbBox.addEventListener('change', () => rememberNearblocksKey(rememberNbBox.checked ? nearblocksKey() ?? null : null));
 fillChains();
 chainSel.addEventListener('change', fillNetworks);
 const savedAccounts = rememberedAccounts();

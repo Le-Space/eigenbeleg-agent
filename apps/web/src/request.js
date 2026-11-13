@@ -114,6 +114,32 @@ export function rememberKey(k) {
 	}
 }
 
+/** What a NearBlocks key looks like: a token without spaces. Anything else is not sent anywhere. */
+export const isNearblocksKey = (/** @type {unknown} */ k) => typeof k === 'string' && /^[A-Za-z0-9._-]{8,200}$/.test(k);
+
+/** The person's own NearBlocks key (#5), kept in this browser only when they tick its "remember". */
+const NB_KEY = 'nearblocksKey';
+
+/** @returns {string | null} */
+export function rememberedNearblocksKey() {
+	try {
+		const k = globalThis.localStorage?.getItem(NB_KEY);
+		return isNearblocksKey(k) ? /** @type {string} */ (k) : null;
+	} catch {
+		return null;
+	}
+}
+
+/** @param {string | null} k null forgets it; anything that is not a key is not kept */
+export function rememberNearblocksKey(k) {
+	try {
+		if (isNearblocksKey(k)) globalThis.localStorage?.setItem(NB_KEY, /** @type {string} */ (k));
+		else globalThis.localStorage?.removeItem(NB_KEY);
+	} catch {
+		// private mode or blocked storage: nothing is kept
+	}
+}
+
 /** @param {Accounts | null} a null forgets them */
 export function rememberAccounts(a) {
 	try {

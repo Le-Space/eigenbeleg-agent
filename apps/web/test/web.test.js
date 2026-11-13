@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import { parseRequest } from '@eigenbeleg/pipeline';
-import { fileName, rememberAccounts, rememberKey, rememberedAccounts, rememberedKey, requestBody, splitAddresses } from '../src/request.js';
+import { fileName, isNearblocksKey, rememberAccounts, rememberKey, rememberNearblocksKey, rememberedAccounts, rememberedKey, rememberedNearblocksKey, requestBody, splitAddresses } from '../src/request.js';
 
 /** @type {import('../src/request.js').FormValues} */
 const form = {
@@ -58,6 +58,13 @@ test('chain, network and addresses are kept only while their "remember" is ticke
 		rememberKey(null);
 		assert.equal(rememberedKey(), null);
 		assert.equal(store.size, 0);
+		// The person's own NearBlocks key (#5): the same.
+		assert.ok(!isNearblocksKey('has space') && !isNearblocksKey('short') && isNearblocksKey('nb_key-0123.4567'));
+		rememberNearblocksKey('nb_key-0123.4567');
+		assert.deepEqual([...store.keys()], ['nearblocksKey']);
+		assert.equal(rememberedNearblocksKey(), 'nb_key-0123.4567');
+		rememberNearblocksKey(null);
+		assert.equal(store.size, 0);
 	} finally {
 		delete (/** @type {any} */ (globalThis)).localStorage;
 	}
@@ -69,7 +76,7 @@ test('the page has no wallet, no payment and no call to an API of ours', async (
 	// The only key on the page is the person's own Alchemy key (#25): never in the request body, kept
 	// only under its own "remember", and the CSP lets the page reach Alchemy for it.
 	const { requestBody: body } = await import('../src/request.js');
-	assert.ok(!('alchemyKey' in body(form)) && !JSON.stringify(body(form)).includes('lchemy'));
+	assert.ok(!('alchemyKey' in body(form)) && !('nearblocksKey' in body(form)) && !/lchemy|earblocks/.test(JSON.stringify(body(form))));
 	const config = await readFile(new URL('../vite.config.js', import.meta.url), 'utf8');
 	assert.match(config, /keyedSources\(\)\.map/);
 	assert.match(src, /blocksFor\(\{ alchemyKey: key \}\)/);

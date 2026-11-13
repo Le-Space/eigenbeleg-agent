@@ -146,7 +146,7 @@ export function subscriptionJob(body, { today, blocks, months = MONTHS }) {
 	if (body.format !== undefined && body.format !== 'json') throw new RequestError('format: a subscription has none; the files go by mail');
 	const probe = parseRequest({ ...body, period: { month: today.slice(0, 7) }, format: 'json', document: body.document ?? 'kontoauszug' }, { today, blocks });
 	if (!probe.email) throw new RequestError('email: needed for a subscription; the statements go by mail, like belege@example.org');
-	return { chain: probe.chain, network: probe.network, addresses: probe.addresses, payer: { name: probe.payer.name, address: probe.payer.address }, email: probe.email, includeKinds: probe.includeKinds, logo: probe.logo, document: probe.document };
+	return { chain: probe.chain, network: probe.network, addresses: probe.addresses, payer: { name: probe.payer.name, address: probe.payer.address }, email: probe.email, includeKinds: probe.includeKinds, logo: probe.logo, document: probe.document, language: probe.language };
 }
 
 /**
@@ -171,12 +171,13 @@ export function tokenMatches(s, token) {
 	return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** The lines every subscription mail ends with. @param {Subscription} s */
+/** The lines a subscription's notice ends with, in the subscription's language (en unless it says de). @param {Subscription} s */
 function footer(s) {
 	return [
 		'',
-		`Abo ${s.id}: noch ${s.monthsLeft} Monat(e) nach diesem. Beenden (löscht alle Angaben, keine Erstattung der Restmonate): ${cancelUrl(s)}`,
-		`Subscription ${s.id}: ${s.monthsLeft} month(s) left after this one. Cancel (deletes every detail, no refund of the remaining months): ${cancelUrl(s)}`
+		s.job.language === 'de'
+			? `Abo ${s.id}: noch ${s.monthsLeft} Monat(e) nach diesem. Beenden (löscht alle Angaben, keine Erstattung der Restmonate): ${cancelUrl(s)}`
+			: `Subscription ${s.id}: ${s.monthsLeft} month(s) left after this one. Cancel (deletes every detail, no refund of the remaining months): ${cancelUrl(s)}`
 	];
 }
 
@@ -190,9 +191,10 @@ function footer(s) {
  * @param {import('./mail.js').Mailer} o.mailer
  * @param {(line: string) => void} [o.log]
  * @param {() => Date} [o.now] the clock; default deps.now, else the real one
+ * @param {string} [o.source] where the source of this running version is, for the mail's footer
  * @returns {Promise<{ made: string[], failed: string[] }>} ids
  */
-export async function runDue({ store, deps, mailer, log = () => {}, now }) {
+export async function runDue({ store, deps, mailer, log = () => {}, now, source }) {
 	const clock = now ?? deps?.now ?? (() => new Date());
 	/** @type {{ made: string[], failed: string[] }} */
 	const result = { made: [], failed: [] };
@@ -202,10 +204,9 @@ export async function runDue({ store, deps, mailer, log = () => {}, now }) {
 		try {
 			const req = parseRequest({ ...s.job, period: { month: s.nextMonth }, format: 'json' }, { today: ymd(at), blocks: deps?.blocks });
 			const out = await generate(req, deps);
-			const mail = composeMail(req, out);
 			// The statement's mail says what this is, and how to end it.
 			const next = { ...s, monthsLeft: s.monthsLeft - 1, nextMonth: nextMonthOf(s.nextMonth), failingSince: null, reported: false };
-			mail.text = [mail.text.split('\n').slice(0, -2).join('\n'), 'Aus Ihrem Abo der Eigenbeleg-API. Diese Mail wird nicht gespeichert; Ihre Angaben bleiben verschlüsselt bis zum letzten Auszug oder bis Sie beenden.', 'From your Eigenbeleg API subscription. This mail is not kept; your details stay encrypted until the last statement or until you cancel.', ...footer(next)].join('\n');
+			const mail = composeMail(req, out, { origin: s.origin, source, subscription: { id: s.id, monthsLeft: next.monthsLeft, cancel: cancelUrl(next) } });
 			await mailer.send(mail);
 			if (next.monthsLeft <= 0) await store.remove(s.id);
 			else await store.put(next);
@@ -218,10 +219,11 @@ export async function runDue({ store, deps, mailer, log = () => {}, now }) {
 				try {
 					await mailer.send({
 						to: s.job.email,
-						subject: `Eigenbeleg-Abo ${s.id}: Auszug ${s.nextMonth} verzögert sich`,
+						subject: s.job.language === 'de' ? `Eigenbeleg-Abo ${s.id}: Auszug ${s.nextMonth} verzögert sich` : `Eigenbeleg subscription ${s.id}: statement ${s.nextMonth} delayed`,
 						text: [
-							`Der ${s.job.chain === 'aleph' ? 'Verbrauchsauszug' : 'Kontoauszug'} für ${s.nextMonth} konnte seit ${failing.failingSince.slice(0, 10)} nicht erstellt werden (${message}). Es wird stündlich weiter versucht; sobald es klappt, kommt die Mail.`,
-							`The statement for ${s.nextMonth} could not be made since ${failing.failingSince.slice(0, 10)} (${message}). Retrying hourly; the mail comes as soon as it works.`,
+							s.job.language === 'de'
+								? `Der ${s.job.chain === 'aleph' ? 'Verbrauchsauszug' : 'Kontoauszug'} für ${s.nextMonth} konnte seit ${failing.failingSince.slice(0, 10)} nicht erstellt werden (${message}). Es wird stündlich weiter versucht; sobald es klappt, kommt die Mail.`
+								: `The statement for ${s.nextMonth} could not be made since ${failing.failingSince.slice(0, 10)} (${message}). Retrying hourly; the mail comes as soon as it works.`,
 							...footer(s)
 						].join('\n'),
 						attachments: []

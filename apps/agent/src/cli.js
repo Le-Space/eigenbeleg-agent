@@ -39,6 +39,7 @@ Options: --chain, --network, --address (repeatable), --month YYYY-MM or --from/-
   --name and --postal (the payer, printed on the documents), --number, --statement,
   --include fee,storage,transfer,call, --document eigenbelege|kontoauszug|beide,
   --email belege@example.org (the API also mails the files, e.g. to a document management system),
+  --language de (the mail's language, default en; the documents are German),
   --api URL (else API_URL), --out DIR (else OUT_DIR, default ./out).
 A subscription costs twelve times the price (1.20 USDC at $0.10): raise AGENT_BUDGET for it.
 Environment (.env): API_URL, AGENT_ACCOUNT_ID and AGENT_SECRET_KEY (or the near-cli keychain),
@@ -65,6 +66,7 @@ const { values: v } = parseArgs({
 		include: { type: 'string' },
 		document: { type: 'string' },
 		email: { type: 'string' },
+		language: { type: 'string' },
 		api: { type: 'string' },
 		out: { type: 'string' }
 	}
@@ -87,7 +89,8 @@ const job = v.market ? null : v.job
 			...(v.statement ? { statementNumber: v.statement } : {}),
 			...(v.include ? { includeKinds: v.include.split(',') } : {}),
 			...(v.document ? { document: v.document } : {}),
-			...(v.email ? { email: v.email } : {})
+			...(v.email ? { email: v.email } : {}),
+			...(v.language ? { language: v.language } : {})
 		};
 
 const env = process.env;

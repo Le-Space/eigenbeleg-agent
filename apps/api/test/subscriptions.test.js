@@ -73,7 +73,7 @@ test('the request is checked like a paid one, without a period and with an e-mai
 	assert.equal(newSubscription(job, { now: NOV, origin: 'x', months: 3 }).monthsLeft, 3);
 	assert.equal(subscriptionPriceOf('$0.10', 3), '$0.30');
 	assert.equal(subscriptionPriceOf('$1.00', 1), '$1.00');
-	assert.deepEqual(job, { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], payer, email: 'belege@example.org', includeKinds: ['fee'], logo: true, document: 'kontoauszug' });
+	assert.deepEqual(job, { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], payer, email: 'belege@example.org', includeKinds: ['fee'], logo: true, document: 'kontoauszug', language: 'en' });
 	assert.equal(subscriptionJob({ ...body, document: 'beide' }, { today: '2026-11-12', blocks }).document, 'beide');
 	for (const [bad, why] of [
 		[{ ...body, period: { month: '2026-10' } }, /period/],
@@ -213,10 +213,14 @@ test('when due, the month before is made and mailed with the cancel link; the la
 	assert.equal(sent.length, 1);
 	const [m] = sent;
 	assert.equal(m.to, 'belege@example.org');
-	assert.match(m.subject, /^Eigenbelege EB-.* · near mainnet · 2026-11-01 bis 2026-11-30$/);
+	assert.match(m.subject, /^Eigenbelege EB-.* · near mainnet · 2026-11-01 to 2026-11-30$/, 'English unless the subscription says de');
 	assert.deepEqual(m.attachments.map((/** @type {any} */ a) => a.filename.replace(/EB-[^.]*/, 'EB-…')), ['EB-….pdf', 'KA-2026-11-01.pdf', 'EB-….csv']);
-	assert.match(m.text, /Abo [0-9a-f]{16}: noch 1 Monat\(e\) nach diesem/);
-	assert.ok(m.text.includes(`https://eigenbeleg.example.org/eigenbeleg/subscribe/${s.id}/cancel?token=${s.token}`), 'the cancel link');
+	assert.match(m.text, /^Hello,\n\nattached the Eigenbelege and the account statement for near \(mainnet\)/);
+	assert.match(m.text, new RegExp(`From your Eigenbeleg API subscription \\(${s.id}\\): 1 month\\(s\\) left after this one`));
+	assert.doesNotMatch(m.text, /Abo |Aus Ihrem Abo|Guten Tag/, 'one language per mail');
+	assert.ok(m.text.includes(`Cancel the subscription (deletes every detail, no refund of the remaining months): https://eigenbeleg.example.org/eigenbeleg/subscribe/${s.id}/cancel?token=${s.token}`), 'the cancel link');
+	assert.ok(m.html?.includes(`href="https://eigenbeleg.example.org/eigenbeleg/subscribe/${s.id}/cancel?token=${s.token}"`), 'the cancel link in the HTML too');
+	assert.match(m.text, /For people, free, in the browser: https:\/\/eigenbeleg\.example\.org\/ui\//);
 	assert.doesNotMatch(m.text, /Musterstraße/);
 	const after = await store.get(s.id);
 	assert.equal(after?.monthsLeft, 1);
@@ -227,7 +231,7 @@ test('when due, the month before is made and mailed with the cancel link; the la
 	// 2 January: the last month, then the file is gone.
 	assert.deepEqual(await runDue({ store, deps: depsAt(new Date('2027-01-02T03:00:00Z')), mailer, log: (l) => lines.push(l) }), { made: [s.id], failed: [] });
 	assert.equal(sent.length, 2);
-	assert.match(sent[1].text, /noch 0 Monat/);
+	assert.match(sent[1].text, /0 month\(s\) left/);
 	assert.deepEqual(await store.list(), []);
 	assert.ok(lines.every((l) => !/Wolkenfabrik|belege@|relay\.aurora|token/.test(l)));
 	assert.ok(lines.some((l) => /last one; deleted/.test(l)));
@@ -252,8 +256,8 @@ test('a failed run is retried; after three days the subscriber hears about it on
 	assert.equal(sent.length, 0);
 	await runDue({ store, deps: down(new Date('2026-12-05T04:00:00Z')), mailer, log: () => {} });
 	assert.equal(sent.length, 1, 'told after three days');
-	assert.match(sent[0].subject, /verzögert/);
-	assert.match(sent[0].text, /2026-11 .*seit 2026-12-02/);
+	assert.match(sent[0].subject, /delayed/);
+	assert.match(sent[0].text, /2026-11 .*since 2026-12-02/);
 	assert.ok(sent[0].text.includes(`/subscribe/${s.id}/cancel?token=`));
 	await runDue({ store, deps: down(new Date('2026-12-06T04:00:00Z')), mailer, log: () => {} });
 	assert.equal(sent.length, 1, 'told once');

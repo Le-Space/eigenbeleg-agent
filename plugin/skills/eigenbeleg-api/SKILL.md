@@ -122,6 +122,8 @@ the body.
 - `logo`: optional, the chain's mark beside the title.
 - `email`: optional, the files also by mail, once the payment is settled; only
   where `llms.txt` says the instance offers it.
+- `language`: optional, `en` (the default) or `de`: the language of that mail
+  and of a subscription's mails. The documents are German either way.
 
 A **subscription** (`POST /eigenbeleg/subscribe`, where `llms.txt` offers it):
 the same body with `email` and without `period`, twelve monthly Kontoauszüge by

@@ -201,6 +201,7 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 | `POST /eigenbeleg` | The Eigenbelege and the Kontoauszug, behind the paywall |
 | `POST /eigenbeleg/preview` | Free: the summary (Eigenbeleg numbers, positions, total, Kontoauszug balances) for the same body **without** `payer` (a body with `payer` is refused); 10 per minute per IP |
 | `POST /eigenbeleg/subscribe` | A subscription ([#20](https://github.com/Le-Space/eigenbeleg-agent/issues/20)): twelve monthly Kontoauszüge by mail, paid once; the same body with `email` and without `period`. Only where the instance offers mail and subscriptions |
+| `POST /eigenbeleg/subscribe/<months>` | The same for 1 to 12 months in advance, at months × the price of one request |
 | `GET /eigenbeleg/subscribe/<id>/cancel?token=…` | The link in every subscription mail: deletes the subscription |
 | `GET /ui/` | The web UI (a static PWA that talks to none of these routes), when `npm run web:build` has run |
 | `GET /llms.txt` | For agents: what is sold, the price, the x402 steps and the body, as plain text |
@@ -225,7 +226,7 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 
 **By mail.** With `email` in the body the files also go as attachments to that address once the payment is settled (stable names and subject, for a document management system's inbox); the address is used for that one mail. Only where the instance has `SMTP_URL`.
 
-**The subscription** ([#20](https://github.com/Le-Space/eigenbeleg-agent/issues/20)). `POST /eigenbeleg/subscribe` takes the same body with `email` and without `period` (`document` is `kontoauszug` by default; `eigenbelege` or `beide` work too) and sells twelve months at once, at `PRICE_SUBSCRIPTION` or twelve times the price (1.20 USDC at $0.10). From the 2nd of each month the API makes the statement for the month before and mails it; the answer and every mail carry a cancel link that deletes the subscription (no refund of the remaining months). The subscription is the one thing the API keeps: chain, network, addresses, payer, e-mail address and options, one encrypted file each (`SUBSCRIPTION_KEY`, AES-256-GCM) in a volume, until the last statement or the cancellation. A failed run is retried hourly; after three days the subscriber gets a mail about it, once. The agent subscribes with `npm run agent -- --subscribe … --email …` and keeps the cancel link in `subscription-<id>.json`.
+**The subscription** ([#20](https://github.com/Le-Space/eigenbeleg-agent/issues/20)). `POST /eigenbeleg/subscribe` takes the same body with `email` and without `period` (`document` is `kontoauszug` by default; `eigenbelege` or `beide` work too) and sells twelve months at once, at `PRICE_SUBSCRIPTION` or twelve times the price (1.20 USDC at $0.10); `POST /eigenbeleg/subscribe/<months>` sells 1 to 12 months in advance, always at months × the price of one request. From the 2nd of each month the API makes the statement for the month before and mails it; the answer and every mail carry a cancel link that deletes the subscription (no refund of the remaining months). The subscription is the one thing the API keeps: chain, network, addresses, payer, e-mail address and options, one encrypted file each (`SUBSCRIPTION_KEY`, AES-256-GCM) in a volume, until the last statement or the cancellation. A failed run is retried hourly; after three days the subscriber gets a mail about it, once. The agent subscribes with `npm run agent -- --subscribe … --email …` (`--months 3` for three months in advance) and keeps the cancel link in `subscription-<id>.json`.
 
 ## The agent
 
@@ -306,7 +307,7 @@ eigenbeleg.example.com {
 | `PRICE` | price per request in USDC, e.g. `$0.10`; `PRICE_EIP155_1` etc. set one network's own price (Ethereum's gas costs the relayer more) | no |
 | `SMTP_URL`, `MAIL_FROM` | optional: the files by mail when a request asks (`email`); the SMTP account as a URL and the sender. Without them the API offers no mail | **yes** |
 | `SUBSCRIPTION_KEY`, `SUBSCRIPTION_DIR` | optional: subscriptions (needs mail). The key (16+ characters) encrypts the one file per subscription in the directory (the compose volume `/var/lib/eigenbeleg`); losing the key loses them. Without the key no subscriptions | **yes** |
-| `PRICE_SUBSCRIPTION` | the subscription's price; default twelve times `PRICE` (per network: `PRICE_SUBSCRIPTION_EIP155_1` etc.) | no |
+| `PRICE_SUBSCRIPTION` | the year's price on `POST /eigenbeleg/subscribe`; default twelve times `PRICE` (per network: `PRICE_SUBSCRIPTION_EIP155_1` etc.). The route per months is always months × `PRICE` | no |
 | `PAY_TO_EVM` | the 0x address that receives the USDC on Base and Ethereum | no |
 | `EVM_RELAYER_KEY` | 0x private key of the account that submits the payer's EIP-3009 transfer on Base and Ethereum and pays its gas (a little ETH on each) | **yes** |
 | `EVM_RPC_EIP155_8453`, `EVM_RPC_EIP155_1` | an RPC per EVM network; else Alchemy with `ALCHEMY_KEY`, else the chain's public RPC | no |

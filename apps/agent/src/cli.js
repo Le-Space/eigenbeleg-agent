@@ -32,7 +32,8 @@ const HELP = `The Eigenbeleg agent: buys Eigenbelege and Kontoauszüge from the 
   npm run agent -- --job job.json          the request body from a file
   npm run agent -- --market                one pass over the NEAR AI Agent Market (MARKET_TOKEN)
   npm run agent -- --subscribe --chain near --address me.near --name … --postal … --email belege@example.org
-                                           a subscription: twelve monthly Kontoauszüge by mail, paid once (no period)
+                                           a subscription: twelve monthly Kontoauszüge by mail, paid once (no period);
+                                           --months 3 buys 1 to 12 months in advance at months × the price
 
 Options: --chain, --network, --address (repeatable), --month YYYY-MM or --from/--to YYYY-MM-DD,
   --name and --postal (the payer, printed on the documents), --number, --statement,
@@ -50,6 +51,7 @@ const { values: v } = parseArgs({
 		job: { type: 'string' },
 		market: { type: 'boolean', default: false },
 		subscribe: { type: 'boolean', default: false },
+		months: { type: 'string' },
 		chain: { type: 'string', default: 'near' },
 		network: { type: 'string', default: 'mainnet' },
 		address: { type: 'string', multiple: true },
@@ -115,7 +117,7 @@ if (v.market) {
 	const done = await marketPass({ token: env.MARKET_TOKEN, api, fetch, paidFetch, lastPayment, outDir });
 	console.log(`Market pass done: ${JSON.stringify(done)}`);
 } else if (v.subscribe) {
-	const result = await subscribe({ job: /** @type {any} */ (job), api, paidFetch, lastPayment, outDir });
+	const result = await subscribe({ job: /** @type {any} */ (job), api, paidFetch, lastPayment, outDir, months: v.months ? Number(v.months) : undefined });
 	process.exitCode = result.status === 'subscribed' ? 0 : 1;
 } else {
 	const result = await runJob({ job: /** @type {any} */ (job), api, fetch, paidFetch, lastPayment, outDir });

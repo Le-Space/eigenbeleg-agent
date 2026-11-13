@@ -29,17 +29,26 @@ import { ExactEvmScheme as EvmServerScheme } from '@x402/evm/exact/server';
 import { ExactEvmScheme as EvmFacilitatorScheme } from '@x402/evm/exact/facilitator';
 
 import { nearSecretKey } from './keys.js';
-import { MONTHS, ROUTE as SUBSCRIBE_ROUTE } from './subscriptions.js';
+import { MONTHS, MONTH_CHOICES, ROUTE as SUBSCRIBE_ROUTE, routeFor } from './subscriptions.js';
 
 export const ROUTE = 'POST /eigenbeleg';
 export const DESCRIPTION = 'Eigenbeleg (PDF/A + CSV) for the payments of own blockchain addresses in a period';
 export const SUBSCRIBE_DESCRIPTION = `Subscription: ${MONTHS} monthly Kontoauszüge by mail, paid once`;
+/** @param {number} months */
+export const subscribeDescription = (months) => `Subscription: ${months} monthly Kontoauszüge by mail, paid once`;
 
-/** The subscription's default price: MONTHS times the single price, "$0.10" → "$1.20". @param {string} price */
-export function subscriptionPriceOf(price) {
+/**
+ * The subscription's price: `months` times the single price, "$0.10" → "$1.20" for a year.
+ * The plain route sells MONTHS (PRICE_SUBSCRIPTION may set it apart); the route per months
+ * always sells at months × the price.
+ *
+ * @param {string} price
+ * @param {number} [months]
+ */
+export function subscriptionPriceOf(price, months = MONTHS) {
 	const n = Number(price.replace(/^\$/, ''));
 	if (!Number.isFinite(n) || n < 0) throw new Error(`PRICE ${price}: a USDC amount like $0.10`);
-	return `$${(n * MONTHS).toFixed(2)}`;
+	return `$${(n * months).toFixed(2)}`;
 }
 
 /** The networks this server can take USDC on, and what the 402 and GET / call them. */
@@ -86,10 +95,14 @@ export async function createPaywall(c) {
 				agentPayX402({
 					apiKey: c.pingApiKey,
 					facilitatorUrl: c.pingUrl ?? 'https://pay.pingpay.io/agentpay/x402',
-					routes: { [ROUTE]: { amountOut, description: DESCRIPTION }, [SUBSCRIBE_ROUTE]: { amountOut: subscriptionOut, description: SUBSCRIBE_DESCRIPTION } }
+					routes: {
+						[ROUTE]: { amountOut, description: DESCRIPTION },
+						[SUBSCRIBE_ROUTE]: { amountOut: subscriptionOut, description: SUBSCRIBE_DESCRIPTION },
+						...Object.fromEntries(MONTH_CHOICES.map((m) => [routeFor(m), { amountOut: String(Number(amountOut) * m), description: subscribeDescription(m) }]))
+					}
 				})
 			),
-			info: { mode: 'ping', facilitator: c.pingUrl ?? 'https://pay.pingpay.io/agentpay/x402', amountOut, asset: 'USDC (settles to the NEAR recipient set in Ping)', network: 'mainnet', subscription: { amountOut: subscriptionOut, months: MONTHS } }
+			info: { mode: 'ping', facilitator: c.pingUrl ?? 'https://pay.pingpay.io/agentpay/x402', amountOut, asset: 'USDC (settles to the NEAR recipient set in Ping)', network: 'mainnet', subscription: { amountOut: subscriptionOut, months: MONTHS, perMonths: { route: `${SUBSCRIBE_ROUTE}/<months>`, months: `1 to ${MONTHS}`, amountOut: 'months × amountOut' } } }
 		};
 	}
 
@@ -148,7 +161,11 @@ export async function createPaywall(c) {
 		}
 	}
 
-	const routes = { [ROUTE]: { accepts, description: DESCRIPTION, mimeType: 'application/pdf' }, [SUBSCRIBE_ROUTE]: { accepts: subscriptionAccepts, description: SUBSCRIBE_DESCRIPTION, mimeType: 'application/json' } };
+	// The route per months (1 to MONTHS) always sells at months × the price: the same networks and recipients.
+	const monthRoutes = Object.fromEntries(
+		MONTH_CHOICES.map((m) => [routeFor(m), { accepts: accepts.map((a) => ({ ...a, price: subscriptionPriceOf(a.price, m) })), description: subscribeDescription(m), mimeType: 'application/json' }])
+	);
+	const routes = { [ROUTE]: { accepts, description: DESCRIPTION, mimeType: 'application/pdf' }, [SUBSCRIBE_ROUTE]: { accepts: subscriptionAccepts, description: SUBSCRIBE_DESCRIPTION, mimeType: 'application/json' }, ...monthRoutes };
 	return {
 		middleware: /** @type {any} */ (paymentMiddleware(/** @type {any} */ (routes), server)),
 		info: {
@@ -164,7 +181,12 @@ export async function createPaywall(c) {
 				const meta = NETWORKS[/** @type {keyof typeof NETWORKS} */ (a.network)];
 				return { network: a.network, name: meta.name, asset: meta.asset, price: a.price, payTo: a.payTo, relayer: relayers[a.network], gasless: true };
 			}),
-			subscription: { months: MONTHS, price: subscriptionAccepts[0].price, accepts: subscriptionAccepts.map((a) => ({ network: a.network, price: a.price })) }
+			subscription: {
+				months: MONTHS,
+				price: subscriptionAccepts[0].price,
+				accepts: subscriptionAccepts.map((a) => ({ network: a.network, price: a.price })),
+				perMonths: { route: `${SUBSCRIBE_ROUTE}/<months>`, months: `1 to ${MONTHS}`, price: `months × the price (${subscriptionPriceOf(accepts[0].price, 1)} per month on ${accepts[0].network})` }
+			}
 		}
 	};
 }

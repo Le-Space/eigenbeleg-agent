@@ -135,11 +135,14 @@ export async function runJob({ job, api, fetch, paidFetch, outDir, say = console
  * @param {string} o.outDir
  * @param {(line: string) => void} [o.say]
  * @param {() => any} [o.lastPayment]
+ * @param {number} [o.months] 1 to 12 months in advance; left out: the instance's year
  */
-export async function subscribe({ job, api, paidFetch, outDir, say = console.log, lastPayment = () => ({}) }) {
+export async function subscribe({ job, api, paidFetch, outDir, say = console.log, lastPayment = () => ({}), months }) {
+	if (months !== undefined && (!Number.isInteger(months) || months < 1 || months > 12)) throw new Error(`--months ${months}: 1 to 12`);
 	await mkdir(outDir, { recursive: true });
-	say(`Subscribing: monthly ${job.document ?? 'kontoauszug'} for ${job.addresses.join(', ')} on ${job.chain} (${job.network}) by mail to ${job.email}`);
-	const res = await paidFetch(`${api}/eigenbeleg/subscribe`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(job) });
+	say(`Subscribing: ${months ?? 12} months of ${job.document ?? 'kontoauszug'} for ${job.addresses.join(', ')} on ${job.chain} (${job.network}) by mail to ${job.email}`);
+	// The plain route sells a year (the instance may price it apart); /subscribe/<months> sells months × the price.
+	const res = await paidFetch(`${api}/eigenbeleg/subscribe${months === undefined ? '' : `/${months}`}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(job) });
 	if (!res.ok) {
 		say(`The API answered ${res.status}: ${(await res.text()).slice(0, 300)}`);
 		return { status: 'failed', http: res.status };

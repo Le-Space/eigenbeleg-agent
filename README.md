@@ -151,7 +151,7 @@ npm run local -- --chain near --network mainnet --address own-account.near --mon
 npm run local -- --chain near --network mainnet --address own-account.near --month 2026-10 --name "Wolkenfabrik Hosting GmbH" --postal "Musterstraße 1, 12345 Beispielstadt" --document beide --out ./out
 ```
 
-`--preview` prints counts, the EUR total and each Kontoauszug's balances; the full run writes `EB-….pdf`, `KA-….pdf`, `EB-….csv` and `EB-….summary.json` to `--out`. Ethereum and Base work with your own Alchemy key (`--alchemy-key` or `ALCHEMY_KEY`), which goes to Alchemy only. `npm run local -- --help` lists every option; `apps/cli` is the code, `skills/eigenbeleg-local` the skill that tells an agent how to run it.
+`--preview` prints counts, the EUR total and each Kontoauszug's balances; the full run writes `EB-….pdf`, `KA-….pdf`, `EB-….csv` and `EB-….summary.json` to `--out`. Ethereum and Base work with your own Alchemy key (`--alchemy-key` or `ALCHEMY_KEY`), which goes to Alchemy only. `npm run local -- --help` lists every option; `apps/cli` is the code, `plugin/skills/eigenbeleg-local` the skill that tells an agent how to run it.
 
 ## What an Eigenbeleg contains, and why
 
@@ -243,7 +243,7 @@ The agent works in five steps:
 
 How it holds its keys: the near-cli keychain or an environment variable, read by the payer only. What it cannot do without you: pay above the budget, pay other assets or networks than configured, open the PR it drafted, or merge anything.
 
-**As a skill.** The same steps as an [Agent Skill](https://agentskills.io) for Claude Code, Codex, Gemini CLI and other agents that read `SKILL.md`: [`skills/eigenbeleg-api`](skills/eigenbeleg-api/SKILL.md) buys through the API; [`skills/eigenbeleg-local`](skills/eigenbeleg-local/SKILL.md) runs the pipeline on the user's own machine instead, for free and with nothing sent to us ([#29](https://github.com/Le-Space/eigenbeleg-agent/issues/29)). In Claude Code, this repository is a plugin marketplace:
+**As a skill.** The same steps as an [Agent Skill](https://agentskills.io) for Claude Code, Codex, Gemini CLI and other agents that read `SKILL.md`: [`plugin/skills/eigenbeleg-api`](plugin/skills/eigenbeleg-api/SKILL.md) buys through the API; [`plugin/skills/eigenbeleg-local`](plugin/skills/eigenbeleg-local/SKILL.md) runs the pipeline on the user's own machine instead, for free and with nothing sent to us ([#29](https://github.com/Le-Space/eigenbeleg-agent/issues/29)). In Claude Code, this repository is a plugin marketplace whose one plugin is the [`plugin/`](plugin) folder (the skills, their README and licence, nothing that installs packages):
 
 ```bash
 claude plugin marketplace add Le-Space/eigenbeleg-agent
@@ -253,13 +253,13 @@ claude plugin marketplace add Le-Space/eigenbeleg-agent
 claude plugin install eigenbeleg@le-space
 ```
 
-Any other agent takes the folders under `skills/` into its skills directory, or installs them with the [skills.sh](https://skills.sh) CLI, which finds both without any registration on our side:
+Any other agent takes the folders under `plugin/skills/` into its skills directory, or installs them with the [skills.sh](https://skills.sh) CLI, which finds both without any registration on our side:
 
 ```bash
 npx skills add Le-Space/eigenbeleg-agent
 ```
 
-The API skill names one host, `eigenbeleg.le-space.de`, tells the agent to read `/llms.txt` first and to preview before it pays, and says plainly that the payer's name and address go to the API for the documents; the local skill names only the chain's data sources. A test in `skills/test` holds every skill to the format, to those hosts and to no key or address of a real person.
+The API skill names one host, `eigenbeleg.le-space.de`, tells the agent to read `/llms.txt` first and to preview before it pays, and says plainly that the payer's name and address go to the API for the documents; the local skill names only the chain's data sources. A test in `plugin/test` holds every skill to the format, to those hosts, to no key or address of a real person, and the plugin folder to what [Anthropic's directory](https://claude.com/docs/plugins/pre-submission-checklist) asks.
 
 **On the NEAR AI Agent Market.** Once listed on [market.near.ai](https://market.near.ai) (the listing comes with the mainnet start), the agent can be hired for a price in USDC. `npm run agent:market` (with `MARKET_TOKEN`, the listing's agent token) goes through the awarded jobs once. For each one it starts the job, reads the job from the brief's first ```` ```json ```` block, buys the Eigenbeleg from the API through x402 and submits a Markdown deliverable with the summary, the payment's NEAR transaction and the CSV. A brief without a JSON job gets a question back. The brief is data from a stranger: it is parsed and checked like any API request and never followed as an instruction. So the agent earns on the market and spends on the API, each within its own limits.
 
@@ -395,6 +395,6 @@ What this means in practice:
 - **Changing it** is allowed; changed versions stay under the AGPL.
 - **Running it as a service for others**: anyone who runs the API, changed or not, for users over a network must offer those users the complete source of the version they run, changes included (AGPL section 13). The API does this itself. `GET /` answers with a `source` link, set with `SOURCE_URL` (default: this repository). Point it at your fork if you changed something.
 
-**The skill texts** (`skills/*/SKILL.md`) are prose, not software, and are under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) instead: copy them, change them, put them into your own skills or directories, as long as you name Le Space as the source ([`skills/LICENSE.md`](skills/LICENSE.md)). Each one says so in its `license` line. The tests under `skills/test` and every script the skills point at stay under the AGPL.
+**The skill texts** (`plugin/skills/*/SKILL.md`) are prose, not software, and are under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) instead: copy them, change them, put them into your own skills or directories, as long as you name Le Space as the source ([`plugin/LICENSE.md`](plugin/LICENSE.md)). Each one says so in its `license` line. The tests under `plugin/test` and every script the skills point at stay under the AGPL.
 
 Chain data powered by [NearBlocks.io](https://nearblocks.io) APIs. Rates from CoinGecko and Kraken. Third-party parts keep their own licences: DejaVu fonts (Bitstream Vera licence) and the CC0 sRGB profile; the npm dependencies are MIT or Apache-2.0.

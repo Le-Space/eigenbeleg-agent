@@ -10,8 +10,10 @@ import { join } from 'node:path';
 
 import { dataSources } from '@eigenbeleg/pipeline';
 
+/** The repository, the plugin folder (what `claude plugin install` copies) and its skills. */
 const root = new URL('../../', import.meta.url);
-const skillsDir = new URL('../', import.meta.url);
+const pluginDir = new URL('../', import.meta.url);
+const skillsDir = new URL('skills/', pluginDir);
 
 /**
  * The hosts a skill may name: the API with its web UI, the source, the format's own site, and the
@@ -47,7 +49,7 @@ for (const name of skills) {
 		assert.ok(fields.name.length <= 64);
 		assert.ok(fields.description.length > 0 && fields.description.length <= 1024, 'description 1–1024 characters');
 		if (fields.compatibility) assert.ok(fields.compatibility.length <= 500);
-		assert.match(fields.license ?? '', /^CC-BY-4\.0\b/, 'the text is CC-BY-4.0 (skills/LICENSE.md); the scripts stay AGPL');
+		assert.match(fields.license ?? '', /^CC-BY-4\.0\b/, 'the text is CC-BY-4.0 (plugin/LICENSE.md); the scripts stay AGPL');
 		assert.ok(body.split('\n').length <= 500, 'the body stays under 500 lines');
 		assert.match(body, /^# /m, 'the body has a title');
 	});
@@ -65,18 +67,26 @@ for (const name of skills) {
 }
 
 test('the plugin manifest and the marketplace point at the skills', async () => {
-	const plugin = JSON.parse(await readFile(new URL('.claude-plugin/plugin.json', root), 'utf8'));
+	const plugin = JSON.parse(await readFile(new URL('.claude-plugin/plugin.json', pluginDir), 'utf8'));
 	assert.equal(plugin.name, 'eigenbeleg');
 	assert.match(plugin.version, /^\d+\.\d+\.\d+$/);
+	assert.equal(plugin.license, 'CC-BY-4.0', 'the plugin folder holds the skill texts only');
+	// What the directory asks of the plugin folder (claude.com/docs/plugins/pre-submission-checklist): a
+	// README of 40 words or more, a licence, and no package.json beside a lockfile (that would make
+	// `claude plugin install` run npm for the whole workspace).
+	const readme = await readFile(new URL('README.md', pluginDir), 'utf8');
+	assert.ok(readme.replace(/```[\s\S]*?```/g, '').split(/\s+/).length >= 40);
+	await stat(new URL('LICENSE.md', pluginDir));
+	for (const f of ['package.json', 'package-lock.json', '.npmrc']) await assert.rejects(stat(new URL(f, pluginDir)), `${f} is not in the plugin folder`);
 	const market = JSON.parse(await readFile(new URL('.claude-plugin/marketplace.json', root), 'utf8'));
 	assert.equal(market.name, 'le-space');
 	assert.ok(market.owner?.name);
 	assert.ok(Array.isArray(market.plugins) && market.plugins.length >= 1);
 	for (const p of market.plugins) {
 		assert.match(p.name, /^[A-Za-z0-9][A-Za-z0-9._-]*$/);
-		assert.match(p.source, /^\.\//, 'a relative source inside this repository');
-		// The plugin's directory holds the skills directory.
+		assert.match(p.source, /^\.\/plugin$/, 'the plugin folder, not the repository (its lockfile would be installed)');
 		const dir = join(root.pathname, p.source);
 		assert.ok((await stat(join(dir, 'skills'))).isDirectory(), `${p.source} has skills/`);
+		assert.ok((await stat(join(dir, '.claude-plugin/plugin.json'))).isFile());
 	}
 });

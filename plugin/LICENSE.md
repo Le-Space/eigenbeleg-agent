@@ -9,5 +9,5 @@ directories, as long as you name Le Space as the source and say what you changed
 The full licence text: https://creativecommons.org/licenses/by/4.0/legalcode
 
 Everything the skills point at, the scripts, the pipeline and the API of this
-repository, and the tests under `skills/test`, stay under the AGPL-3.0-or-later of
+repository, and the tests under `plugin/test`, stay under the AGPL-3.0-or-later of
 the repository's [LICENSE](../LICENSE).

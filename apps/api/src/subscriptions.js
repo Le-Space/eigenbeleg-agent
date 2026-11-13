@@ -23,13 +23,17 @@ import { join } from 'node:path';
 import { RequestError, generate, parseRequest } from '@eigenbeleg/pipeline';
 import { composeMail } from './mail.js';
 
-/** How many months one subscription buys: fixed, so the paywall has one price for it. */
+/** How many months a subscription buys by default, and at most: a year. */
 export const MONTHS = 12;
+/** The months a subscription may buy: 1 to MONTHS, each its own route, so the paywall has one price per route. */
+export const MONTH_CHOICES = Array.from({ length: MONTHS }, (_, i) => i + 1);
 /** The day of the month from which the previous month's statement is made. */
 export const FROM_DAY = 2;
 /** After this long of failed runs, the subscriber is told once. */
 export const REPORT_AFTER_MS = 3 * 24 * 3600_000;
 export const ROUTE = 'POST /eigenbeleg/subscribe';
+/** The route that buys `months` months at months × the price (the plain ROUTE buys MONTHS). @param {number} months */
+export const routeFor = (months) => `${ROUTE}/${months}`;
 
 /**
  * @typedef {object} Subscription
@@ -127,18 +131,18 @@ export const isDue = (s, now) => ymd(now) >= dueDate(s.nextMonth);
 
 /**
  * Checks a subscription request: the body of POST /eigenbeleg plus `email`,
- * without `period` (`months`, if given, must be MONTHS). The same checks as
- * the paid route, with the current month as the period, so chain, addresses
+ * without `period` (`months`, if given, must be the route's). The same checks
+ * as the paid route, with the current month as the period, so chain, addresses
  * and payer are refused here before a price is named.
  *
  * @param {any} body
- * @param {{ today: string, blocks: Record<string, any> }} o
+ * @param {{ today: string, blocks: Record<string, any>, months?: number }} o months: the route's, default MONTHS
  * @returns {Subscription['job']}
  */
-export function subscriptionJob(body, { today, blocks }) {
+export function subscriptionJob(body, { today, blocks, months = MONTHS }) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
 	if (body.period !== undefined) throw new RequestError('period: a subscription has none; each month is made for the month before');
-	if (body.months !== undefined && body.months !== MONTHS) throw new RequestError(`months: this API sells ${MONTHS} months at once`);
+	if (body.months !== undefined && body.months !== months) throw new RequestError(`months: this route sells ${months}; POST /eigenbeleg/subscribe/<months> sells 1 to ${MONTHS}`);
 	if (body.format !== undefined && body.format !== 'json') throw new RequestError('format: a subscription has none; the files go by mail');
 	const probe = parseRequest({ ...body, period: { month: today.slice(0, 7) }, format: 'json', document: body.document ?? 'kontoauszug' }, { today, blocks });
 	if (!probe.email) throw new RequestError('email: needed for a subscription; the statements go by mail, like belege@example.org');
@@ -150,11 +154,11 @@ export function subscriptionJob(body, { today, blocks }) {
  * delivered from FROM_DAY of the next.
  *
  * @param {Subscription['job']} job
- * @param {{ now: Date, origin: string }} o
+ * @param {{ now: Date, origin: string, months?: number }} o months bought, default MONTHS
  * @returns {Subscription}
  */
-export function newSubscription(job, { now, origin }) {
-	return { id: randomBytes(8).toString('hex'), createdAt: now.toISOString(), origin, token: randomBytes(24).toString('hex'), job, monthsLeft: MONTHS, nextMonth: ym(now), failingSince: null, reported: false };
+export function newSubscription(job, { now, origin, months = MONTHS }) {
+	return { id: randomBytes(8).toString('hex'), createdAt: now.toISOString(), origin, token: randomBytes(24).toString('hex'), job, monthsLeft: months, nextMonth: ym(now), failingSince: null, reported: false };
 }
 
 /** The cancel link that goes into every mail. @param {Subscription} s */

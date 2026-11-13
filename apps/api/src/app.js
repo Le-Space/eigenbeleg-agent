@@ -7,6 +7,7 @@
 //   POST /eigenbeleg   the Eigenbeleg, behind the x402 paywall
 //   POST /eigenbeleg/preview  free: positions and total, never the payer
 //   POST /eigenbeleg/subscribe  twelve monthly Kontoauszüge by mail, paid once (#20)
+//   POST /eigenbeleg/subscribe/:months  the same for 1 to 12 months, at months × the price
 //   GET  /eigenbeleg/subscribe/:id/cancel?token=…  the link in each mail; deletes the subscription
 //   GET  /ui/          the web UI (apps/web/dist), when it is built
 //
@@ -104,6 +105,7 @@ export function createApp({
 				? {
 						endpoint: 'POST /eigenbeleg/subscribe',
 						what: `${MONTHS} monthly Kontoauszüge (Aleph: Verbrauchsauszüge) by mail, each from the 2nd of the month for the month before, paid once`,
+						months: `POST /eigenbeleg/subscribe/<months>: the same for 1 to ${MONTHS} months in advance, at months × the price of one request`,
 						request: 'the body of POST /eigenbeleg with email, without period (document: kontoauszug by default; eigenbelege or beide too)',
 						price: /** @type {any} */ (paywall.info).subscription ?? null,
 						cancel: 'the link in every mail deletes the subscription; no refund of the remaining months',
@@ -139,7 +141,7 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
 ## Buy
 
 - POST ${base}/eigenbeleg/preview: free, the same body without \`payer\`; counts and totals, no files. Check here first.
-- POST ${base}/eigenbeleg: ${price}.${subs ? `\n- POST ${base}/eigenbeleg/subscribe: a subscription, ${MONTHS} monthly Kontoauszüge by mail, paid once: ${/** @type {any} */ (paywall.info).subscription?.price ?? 'see GET /'} (${MONTHS} × the price, unless set apart). The same body as POST /eigenbeleg with \`email\` and without \`period\`; \`document\` is kontoauszug by default. From the 2nd of each month the statement for the month before goes to that address; the answer and every mail carry the cancel link, which deletes everything (no refund of the remaining months). Chain, addresses, payer, e-mail address and options are kept encrypted until the last statement or the cancellation; everything else this API does stays unstored.` : ''}
+- POST ${base}/eigenbeleg: ${price}.${subs ? `\n- POST ${base}/eigenbeleg/subscribe: a subscription, ${MONTHS} monthly Kontoauszüge by mail, paid once: ${/** @type {any} */ (paywall.info).subscription?.price ?? 'see GET /'} (${MONTHS} × the price, unless set apart); POST ${base}/eigenbeleg/subscribe/<months> buys 1 to ${MONTHS} months in advance at months × the price of one request. The same body as POST /eigenbeleg with \`email\` and without \`period\`; \`document\` is kontoauszug by default. From the 2nd of each month the statement for the month before goes to that address; the answer and every mail carry the cancel link, which deletes everything (no refund of the remaining months). Chain, addresses, payer, e-mail address and options are kept encrypted until the last statement or the cancellation; everything else this API does stays unstored.` : ''}
   1. Send the body; the answer is 402 with a \`PAYMENT-REQUIRED\` header (base64 JSON, x402 v2, scheme \`exact\`).
   2. Sign what it asks for and send the same request again with \`PAYMENT-SIGNATURE\`. On NEAR: one NEP-366 delegate action with one \`ft_transfer\` of USDC (the payer needs USDC and a USDC storage registration, no NEAR). On Base or Ethereum: one EIP-3009 \`transferWithAuthorization\` of USDC (the payer needs USDC, no ETH).
   3. The answer carries the files and \`PAYMENT-RESPONSE\` (the transaction). If reading the chain fails, nothing is charged.
@@ -180,15 +182,19 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 	const validateSubscription = (req, res, next) => {
 		try {
 			if (!subs) throw new RequestError('subscriptions: not offered by this instance; buy each month with POST /eigenbeleg');
-			res.locals.subJob = subscriptionJob(req.body, { today: today(), blocks });
+			// The plain route sells MONTHS; /subscribe/<months> sells 1 to MONTHS at months × the price.
+			const months = req.params.months === undefined ? MONTHS : Number(req.params.months);
+			if (!Number.isInteger(months) || months < 1 || months > MONTHS) throw new RequestError(`months: 1 to ${MONTHS} (POST /eigenbeleg/subscribe/<months>)`);
+			res.locals.months = months;
+			res.locals.subJob = subscriptionJob(req.body, { today: today(), blocks, months });
 			next();
 		} catch (e) {
 			if (e instanceof RequestError) res.status(400).json({ error: e.message });
 			else next(e);
 		}
 	};
-	app.post('/eigenbeleg/subscribe', express.json({ limit: '32kb' }), validateSubscription, (req, res, next) => (paywall.middleware ?? ((_r, _s, n) => n()))(req, res, next), (req, res) => {
-		const s = newSubscription(res.locals.subJob, { now: deps.now?.() ?? new Date(), origin: origin(req, publicUrl) });
+	app.post(['/eigenbeleg/subscribe', '/eigenbeleg/subscribe/:months'], express.json({ limit: '32kb' }), validateSubscription, (req, res, next) => (paywall.middleware ?? ((_r, _s, n) => n()))(req, res, next), (req, res) => {
+		const s = newSubscription(res.locals.subJob, { now: deps.now?.() ?? new Date(), origin: origin(req, publicUrl), months: res.locals.months });
 		res.on('finish', () => {
 			if (res.statusCode >= 400 || !subs) return;
 			subs.put(s).catch((e) => log(`${new Date().toISOString()} subscription ${s.id}: not stored: ${String(e?.message ?? e).slice(0, 200)}`));
@@ -196,7 +202,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 		if (paywall.info.mode === 'none') res.setHeader('X-Eigenbeleg-Paywall', 'none (development)');
 		res.json({
 			subscription: s.id,
-			months: MONTHS,
+			months: s.monthsLeft,
 			firstMonth: s.nextMonth,
 			firstMailFrom: dueDate(s.nextMonth),
 			document: s.job.document,

@@ -125,10 +125,12 @@ the body.
 
 A **subscription** (`POST /eigenbeleg/subscribe`, where `llms.txt` offers it):
 the same body with `email` and without `period`, twelve monthly Kontoauszüge by
-mail for one payment of twelve times the price. Say so before buying: the API
-then keeps chain, addresses, name, address and e-mail address encrypted for a
-year, and the remaining months are not refunded. Keep the answer's cancel link
-for the person; it is also in every mail.
+mail for one payment of twelve times the price. `POST /eigenbeleg/subscribe/<months>`
+buys 1 to 12 months in advance at months × the price of one request (the answer's
+`months` says how many). Say so before buying: the API then keeps chain,
+addresses, name, address and e-mail address encrypted until the last statement,
+and the remaining months are not refunded. Keep the answer's cancel link for the
+person; it is also in every mail.
 
 ## Edge cases
 

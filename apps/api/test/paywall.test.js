@@ -13,6 +13,9 @@ test('x402 on Base and Ethereum: the 402 offers USDC on each, with its own price
 	const pw = await createPaywall({ mode: 'x402', networks: ['eip155:8453', 'eip155:1'], payToEvm: payTo, evmRelayerKey: key, prices: { 'eip155:1': '$1.00' } });
 	assert.equal(pw.info.mode, 'x402');
 	const accepts = /** @type {any[]} */ (pw.info.accepts);
+	// A year on the plain route at twelve times the price; 1 to 12 months on the route per months, at months × the price.
+	assert.deepEqual(/** @type {any} */ (pw.info).subscription.accepts, [{ network: 'eip155:8453', price: '$1.20' }, { network: 'eip155:1', price: '$12.00' }]);
+	assert.equal(/** @type {any} */ (pw.info).subscription.perMonths.months, '1 to 12');
 	assert.deepEqual(
 		accepts.map((a) => [a.network, a.name, a.price, a.payTo, a.relayer, a.gasless]),
 		[

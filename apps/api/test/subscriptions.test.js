@@ -35,7 +35,8 @@ async function serve(app) {
 	const { port } = /** @type {any} */ (server.address());
 	return { base: `http://127.0.0.1:${port}`, close: () => server.close() };
 }
-const subscribe = (/** @type {string} */ base, /** @type {unknown} */ b, headers = {}) => globalThis.fetch(`${base}/eigenbeleg/subscribe`, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(b) });
+/** @param {string} base @param {unknown} b @param {Record<string, string>} [headers] @param {string} [months] the route per months, e.g. '/3' */
+const subscribe = (base, b, headers = {}, months = '') => globalThis.fetch(`${base}/eigenbeleg/subscribe${months}`, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(b) });
 const tick = () => new Promise((r) => setTimeout(r, 30));
 const noPay = { middleware: null, info: { mode: 'none' } };
 
@@ -63,9 +64,15 @@ test('the store: one encrypted file per subscription, nothing readable without t
 	assert.deepEqual(await readdir(dir), []);
 });
 
-test('the request is checked like a paid one, without a period and with an e-mail address; months is twelve', () => {
+test('the request is checked like a paid one, without a period and with an e-mail address; months is the route\'s, twelve by default', () => {
 	const blocks = blocksFor({});
 	const job = subscriptionJob({ ...body, months: 12, logo: true, includeKinds: ['fee'] }, { today: '2026-11-12', blocks });
+	// The route per months: the body may name them, and must then agree with the route.
+	assert.deepEqual(subscriptionJob({ ...body, months: 3 }, { today: '2026-11-12', blocks, months: 3 }).addresses, ['relay.aurora']);
+	assert.throws(() => subscriptionJob({ ...body, months: 3 }, { today: '2026-11-12', blocks, months: 6 }), /months: this route sells 6/);
+	assert.equal(newSubscription(job, { now: NOV, origin: 'x', months: 3 }).monthsLeft, 3);
+	assert.equal(subscriptionPriceOf('$0.10', 3), '$0.30');
+	assert.equal(subscriptionPriceOf('$1.00', 1), '$1.00');
 	assert.deepEqual(job, { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], payer, email: 'belege@example.org', includeKinds: ['fee'], logo: true, document: 'kontoauszug' });
 	assert.equal(subscriptionJob({ ...body, document: 'beide' }, { today: '2026-11-12', blocks }).document, 'beide');
 	for (const [bad, why] of [
@@ -99,10 +106,19 @@ test('POST /eigenbeleg/subscribe: checked before a price, stored once answered, 
 	const home = await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json();
 	assert.equal(home.subscription.endpoint, 'POST /eigenbeleg/subscribe');
 	assert.match(home.privacy, /subscription/);
-	assert.match(await (await globalThis.fetch(base + '/llms.txt')).text(), /POST .*\/eigenbeleg\/subscribe: a subscription, 12 monthly/);
+	assert.equal(home.subscription.months, 'POST /eigenbeleg/subscribe/<months>: the same for 1 to 12 months in advance, at months × the price of one request');
+	assert.match(await (await globalThis.fetch(base + '/llms.txt')).text(), /POST .*\/eigenbeleg\/subscribe: a subscription, 12 monthly[^\n]*\/eigenbeleg\/subscribe\/<months> buys 1 to 12 months in advance at months × the price/);
 
 	for (const bad of [{ ...body, period: { month: '2026-10' } }, { ...body, email: undefined }, { ...body, months: 3 }, { ...body, chain: 'x' }]) assert.equal((await subscribe(base, bad)).status, 400);
+	// The route per months: 1 to 12, and the body's months must agree.
+	for (const path of ['/0', '/13', '/x', '/1.5']) assert.equal((await subscribe(base, body, {}, path)).status, 400, path);
+	assert.equal((await subscribe(base, { ...body, months: 6 }, {}, '/3')).status, 400);
 	assert.deepEqual(await store.list(), [], 'a refused request stores nothing');
+	const three = await (await subscribe(base, { ...body, months: 3 }, {}, '/3')).json();
+	assert.equal(three.months, 3);
+	await tick();
+	assert.equal((await store.list()).find((x) => x.id === three.subscription)?.monthsLeft, 3);
+	assert.equal((await globalThis.fetch(three.cancel.replace('https://eigenbeleg.example.org', base))).status, 200);
 
 	const r = await subscribe(base, body);
 	assert.equal(r.status, 200);

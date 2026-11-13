@@ -1,6 +1,6 @@
 # Components: what runs where, and what it talks to
 
-Status: 6 Nov 2026, testnet payments. Hosted at https://eigenbeleg.le-space.de.
+Status: 13 Nov 2026, mainnet payments only (a production build refuses testnet, `apps/api/src/release.js`). Hosted at https://eigenbeleg.le-space.de. The testnet accounts below are from the development setup.
 The web UI runs the same pipeline in the browser and talks to none of this (see below and [web-ui.md](web-ui.md)).
 
 ## One process on our side

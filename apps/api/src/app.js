@@ -98,7 +98,8 @@ export function createApp({
 				number: 'EB-2026-001 (optional, from your own range)',
 				includeKinds: ['fee', 'storage'],
 				logo: 'true | false (optional: the chain\'s mark, small, beside the title)',
-				email: mailer ? 'belege@example.org (optional: the files also by mail, for a document management system\'s inbox)' : null
+				email: mailer ? 'belege@example.org (optional: the files also by mail, for a document management system\'s inbox)' : null,
+				language: 'en | de (optional, default en: the language of the mail; the documents are German either way)'
 			},
 			mail: mailer ? 'the files by mail to the request\'s email, once the payment is settled; the address is used for that one mail' : 'not offered by this instance',
 			subscription: subs
@@ -160,7 +161,8 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
   "number": "EB-2026-001",                    optional, first number of the payer's own range,
   "includeKinds": ["fee", "storage"],         optional: of the chain's kinds in GET /blocks (fee, storage, transfer, call; storage is NEAR's)
   "logo": false,                              optional: the chain's mark, small, beside the title
-  "email": "belege@example.org"               optional${mailer ? '' : ' (not offered by this instance)'}: the files also by mail, once the payment is settled
+  "email": "belege@example.org",              optional${mailer ? '' : ' (not offered by this instance)'}: the files also by mail, once the payment is settled
+  "language": "en" | "de"                     optional, default en: the language of the mail (the documents are German either way)
 }
 
 ## Notes
@@ -291,7 +293,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 				}
 			: (_req, _res, next) => next();
 
-	app.post('/eigenbeleg', express.json({ limit: '32kb' }), validate, workFirst, pay, async (_req, res) => {
+	app.post('/eigenbeleg', express.json({ limit: '32kb' }), validate, workFirst, pay, async (req, res) => {
 		const job = res.locals.job;
 		let out = res.locals.out;
 		if (!out) {
@@ -308,7 +310,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 		// unsettled 200 into a 402 after this handler), so it cannot be awaited here:
 		// the answer says `queued`. A failure is logged without the address.
 		if (job.email && mailer) {
-			const mail = composeMail(job, out);
+			const mail = composeMail(job, out, { origin: origin(req, publicUrl), source });
 			res.on('finish', () => {
 				if (res.statusCode >= 400) return;
 				mailer.send(mail).catch((e) => log(`${new Date().toISOString()} mail failed: ${String(e?.message ?? e).slice(0, 200)}`));
@@ -341,6 +343,8 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 
 	app.use((/** @type {any} */ err, /** @type {any} */ _req, /** @type {any} */ res, /** @type {any} */ _next) => {
 		const status = err?.type === 'entity.too.large' ? 413 : err?.type === 'entity.parse.failed' ? 400 : err?.status === 404 ? 404 : 500;
+		// A 500 is a bug: its message goes to the log (never a request body or an address), not to the caller.
+		if (status === 500) log(`${new Date().toISOString()} internal error: ${String(err?.stack ?? err).slice(0, 400)}`);
 		res.status(status).json({ error: status === 500 ? 'internal error' : status === 404 ? 'not found' : String(err.message) });
 	});
 	return app;

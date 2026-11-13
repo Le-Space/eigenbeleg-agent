@@ -31,7 +31,7 @@ function isDate(d) {
  * @param {{ preview?: boolean, today?: string, blocks?: Record<string, import('./blocks.js').Block> }} [opts] today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
  *   must not get the payer's name and address (a body with `payer` is refused) and has no format; blocks: what this side serves
  *   (the API with an Alchemy key: `blocksFor(deps)`, keyed.js), the keyless BLOCKS when not given
- * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean, email: string | null }}
+ * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean, email: string | null, language: 'de' | 'en' }}
  */
 export function parseRequest(body, { preview = false, today, blocks = BLOCKS } = {}) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
@@ -99,6 +99,9 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	if (preview && body.email !== undefined) throw new RequestError('the preview takes no email: the files go only with the paid POST /eigenbeleg');
 	const email = body.email === undefined || body.email === null ? null : body.email;
 	if (email !== null && !(typeof email === 'string' && EMAIL.test(email) && email.length <= 254)) throw new RequestError('email: one address to mail the files to, like belege@example.org');
+	// The language of the mail (and of what else is said to the person); the documents are German either way.
+	const language = body.language ?? 'en';
+	if (language !== 'de' && language !== 'en') throw new RequestError('language: "de" or "en" (the language of the mail; the documents are German)');
 	// Only the kinds the chain has (storage deposits are NEAR's); the default is what the chain has of fee
 	// and storage, or the block's own default (Aleph: its credit purchases).
 	const kindsOffered = block.kinds ?? [...KINDS];
@@ -119,6 +122,7 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 		number: String(number),
 		includeKinds,
 		logo,
-		email
+		email,
+		language
 	};
 }

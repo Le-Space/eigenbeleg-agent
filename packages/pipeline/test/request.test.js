@@ -42,6 +42,10 @@ test('the logo is off unless asked for, and only true or false', () => {
 	assert.equal(parseRequest(ok).logo, false);
 	assert.equal(parseRequest({ ...ok, logo: true }).logo, true);
 	refused({ logo: 'yes' });
+	// The mail's language: en unless asked for de; the documents are German either way.
+	assert.equal(parseRequest(ok).language, 'en');
+	assert.equal(parseRequest({ ...ok, language: 'de' }).language, 'de');
+	refused({ language: 'fr' });
 });
 
 test('a chain offers only its own kinds; the default is what it has of fee and storage', () => {

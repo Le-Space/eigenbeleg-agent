@@ -404,9 +404,9 @@ test('the files by mail: queued once the answer is out, stable subject and file 
 		const home = await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json();
 		assert.match(home.mail, /^the files by mail/);
 		assert.match(home.request.email, /^belege@example\.org/);
-		assert.match(await (await globalThis.fetch(base + '/llms.txt')).text(), /"email": "belege@example\.org"\s+optional: the files also by mail/);
+		assert.match(await (await globalThis.fetch(base + '/llms.txt')).text(), /"email": "belege@example\.org",\s+optional: the files also by mail/);
 
-		const r = await post(base, { ...job, format: 'json', document: 'beide', email: 'belege@example.org' });
+		const r = await post(base, { ...job, format: 'json', document: 'beide', email: 'belege@example.org', language: 'de' });
 		assert.equal(r.status, 200);
 		assert.equal(r.headers.get('x-eigenbeleg-mail'), 'queued');
 		const body = await r.json();
@@ -419,9 +419,35 @@ test('the files by mail: queued once the answer is out, stable subject and file 
 		assert.equal(m.subject, 'Eigenbelege EB-2026-042 – EB-2026-066 · near mainnet · 2026-11-01');
 		assert.deepEqual(m.attachments.map((a) => a.filename), ['EB-2026-042.pdf', 'KA-2026-11-01.pdf', 'EB-2026-042.csv']);
 		assert.equal(m.attachments[0].content.subarray(0, 8).toString(), '%PDF-1.7');
-		assert.match(m.text, /Eigenbelege: \d+ \(\d+ Positionen, [\d.]+ EUR\)/);
-		assert.match(m.text, /NEAR: Anfangsbestand .*, Endbestand .*, abgestimmt/);
+		// A friendly note: greeting, what is attached (file by file), what to do, where it came from; HTML with the same words.
+		assert.match(m.text, /^Guten Tag,\n\nanbei die Eigenbelege und den Kontoauszug für near \(mainnet\), 2026-11-01, als PDF\/A/);
+		assert.match(m.text, /- EB-2026-042\.pdf: \d+ Eigenbelege \(\d+ Positionen, [\d.]+ EUR\)/);
+		assert.match(m.text, /- KA-2026-11-01\.pdf: Kontoauszug für relay\.aurora – NEAR: Anfangsbestand .*, Endbestand .*, mit der Chain abgestimmt/);
+		assert.match(m.text, /- EB-2026-042\.csv: alle Bewegungen/);
+		assert.match(m.text, /So geht es weiter:\n- Eigenbelege ausdrucken, prüfen und unterschreiben/);
+		assert.match(m.text, /Erstellt von der Eigenbeleg-API.*\nFür Menschen, kostenlos im Browser: https:\/\/eigenbeleg\.example\.org\/ui\/\nQuellcode \(AGPL-3\.0-or-later\): https:\/\/github\.com\/Le-Space\/eigenbeleg-agent$/);
 		assert.doesNotMatch(m.text, /Musterstraße/, 'the postal address is on the documents, not in the mail');
+		assert.doesNotMatch(m.text, /Made by the Eigenbeleg API|Abo/, 'one language per mail, and no subscription note on a single purchase');
+		assert.match(m.html, /<!doctype html>/);
+		assert.match(m.html, /Guten Tag,<\/p>/);
+		assert.match(m.html, /<td[^>]*>KA-2026-11-01\.pdf<\/td><td[^>]*>Kontoauszug für relay\.aurora/);
+		assert.match(m.html, /href="https:\/\/eigenbeleg\.example\.org\/ui\/"/);
+		// English is the default; the language is checked like every field.
+		assert.equal((await post(base, { ...job, language: 'fr' })).status, 400);
+		const { composeMail } = await import('../src/mail.js');
+		const summary = { eigenbelege: ['EB-2026-042'], number: 'EB-2026-042', period: { from: '2026-11-01', to: '2026-11-30' }, chain: 'near', network: 'mainnet', transactions: 1, positions: 1, totalEur: '0.01', kontoauszuege: [{ number: 'KA-2026-11-01', account: 'relay.aurora', assets: [{ asset: 'NEAR', opening: '1', closing: '1', reconciled: true }] }] };
+		const en = composeMail({ ...job, email: 'belege@example.org', language: 'en', document: 'kontoauszug' }, { summary, pdf: null, csv: null, statements: [] });
+		assert.equal(en.subject, 'Kontoauszug KA-2026-11-01 · near mainnet · 2026-11-01 to 2026-11-30');
+		assert.match(en.text, /^Hello,\n\nattached the account statement \(Kontoauszug\) for near \(mainnet\), 2026-11-01 to 2026-11-30, as PDF\/A for the books\. The documents are in German/);
+		assert.match(en.text, /- KA-2026-11-01\.pdf: account statement \(Kontoauszug\) for relay\.aurora – NEAR: opening balance 1, closing balance 1, reconciled with the chain/);
+		assert.match(en.text, /What to do next:\n- File the statement like a bank statement/);
+		assert.doesNotMatch(en.text, /sign the Eigenbelege/, 'no signing hint without Eigenbelege');
+		assert.match(en.text, /Made by the Eigenbeleg API/);
+		assert.doesNotMatch(en.text, /Erstellt von|Guten Tag/);
+		// What comes from the chain or the request is escaped in the HTML.
+		const hostile = composeMail({ ...job, email: 'belege@example.org', language: 'en', document: 'kontoauszug' }, { summary: { ...summary, kontoauszuege: [{ ...summary.kontoauszuege[0], account: '<img src=x onerror=alert(1)>' }] }, pdf: null, csv: null, statements: [] });
+		assert.doesNotMatch(hostile.html, /<img/);
+		assert.match(hostile.html, /&lt;img src=x onerror=alert\(1\)&gt;/);
 
 		const pdf = await post(base, { ...job, email: 'belege@example.org' });
 		assert.equal(pdf.status, 200);

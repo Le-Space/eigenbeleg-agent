@@ -20,6 +20,7 @@ import { detectLang, lang, locale, setLang, t } from './i18n.js';
 import { fileName, isNearblocksKey, rememberAccounts, rememberKey, rememberNearblocksKey, rememberPayer, rememberedAccounts, rememberedKey, rememberedNearblocksKey, rememberedPayer, requestBody } from './request.js';
 import { AKASH_INDEXER } from './config.js';
 import { registerServiceWorker } from './pwa.js';
+import { SOURCE_URL, localStamp, parseBuild, utcStamp } from './build.js';
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
 const form = /** @type {HTMLFormElement} */ ($('form'));
@@ -281,6 +282,29 @@ function syncPeriod() {
 	$('l-to').hidden = !range;
 }
 
+/**
+ * The footer's build stamp: version, the commit's instant in the reader's locale and zone (UTC on
+ * hover), the commit linked on GitHub. Left out where the build knew no commit.
+ */
+function showBuild() {
+	const el = $('build');
+	const build = parseBuild(el.dataset);
+	el.replaceChildren();
+	el.hidden = !build;
+	if (!build) return;
+	const sep = () => document.createTextNode(' · ');
+	const time = document.createElement('time');
+	time.dateTime = build.when.toISOString();
+	time.title = utcStamp(build.when);
+	time.textContent = localStamp(build.when, locale());
+	const link = document.createElement('a');
+	link.href = `${SOURCE_URL}/commit/${build.commit}`;
+	link.rel = 'noopener noreferrer';
+	link.className = 'mono';
+	link.textContent = build.short;
+	el.append(sep(), ...(build.release ? [document.createTextNode(build.release), sep()] : []), document.createTextNode(`${t('build')} `), time, document.createTextNode(' '), link);
+}
+
 /** Sets every static text, then draws what is on screen again in the chosen language. */
 function applyLang() {
 	const l = lang();
@@ -301,6 +325,7 @@ function applyLang() {
 	syncNbKey();
 	showSources();
 	showResult();
+	showBuild();
 }
 
 setLang(detectLang());

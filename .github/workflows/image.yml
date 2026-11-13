@@ -41,6 +41,8 @@ jobs:
           sha="${{ github.event.workflow_run.head_sha || github.sha }}"
           echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
           echo "sha=${sha::12}" >> "$GITHUB_OUTPUT"
+          # the commit's instant, for the footer's build stamp (never the build clock)
+          echo "date=$(git show -s --format=%cI "$sha")" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -50,6 +52,8 @@ jobs:
           # e.g. https://eigenbeleg-akash-proxy.<account>.workers.dev; unset: no proxy.
           build-args: |
             VITE_AKASH_INDEXER=${{ vars.AKASH_INDEXER }}
+            SOURCE_COMMIT=${{ github.event.workflow_run.head_sha || github.sha }}
+            SOURCE_COMMIT_DATE=${{ steps.tags.outputs.date }}
           tags: |
             ${{ steps.tags.outputs.image }}:main
             ${{ steps.tags.outputs.image }}:${{ steps.tags.outputs.sha }}

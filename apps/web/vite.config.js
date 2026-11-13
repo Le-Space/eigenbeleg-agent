@@ -12,11 +12,13 @@
 // Settings (env at build time):
 //   VITE_AKASH_INDEXER  the Akash CORS proxy (deploy/akash-proxy), e.g. https://….workers.dev
 //   VITE_PUBLIC_URL     the public origin for the share cards when no API fills it in
+//   SOURCE_COMMIT, SOURCE_COMMIT_DATE  the commit the footer names where there is no git (the container build)
 import { createHash } from 'node:crypto';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
 import { dataSources, keyedSources } from '@eigenbeleg/pipeline';
+import { buildInfo } from './build-info.js';
 
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), 'VITE_');
@@ -45,7 +47,8 @@ export default defineConfig(({ mode }) => {
 					outDir = c.build.outDir.startsWith('/') ? c.build.outDir : join(c.root, c.build.outDir);
 				},
 				transformIndexHtml(html) {
-					const out = html.replace('__CSP__', csp);
+					const built = buildInfo();
+					const out = html.replace('__CSP__', csp).replace('__BUILD_RELEASE__', built.release).replace('__BUILD_COMMIT__', built.commit).replace('__BUILD_DATE__', built.date);
 					return env.VITE_PUBLIC_URL ? out.replaceAll('__PUBLIC_URL__', env.VITE_PUBLIC_URL.replace(/\/+$/, '')) : out;
 				},
 				async writeBundle() {

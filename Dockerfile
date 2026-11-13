@@ -8,6 +8,11 @@ FROM node:22-alpine AS web
 # (issue #5); empty: Akash is read as far back as the public node keeps it.
 ARG VITE_AKASH_INDEXER=
 ENV VITE_AKASH_INDEXER=$VITE_AKASH_INDEXER
+# The commit the footer names and its instant; no .git is copied, so the
+# image workflow hands them in. Left empty, the footer leaves the stamp out.
+ARG SOURCE_COMMIT=
+ARG SOURCE_COMMIT_DATE=
+ENV SOURCE_COMMIT=$SOURCE_COMMIT SOURCE_COMMIT_DATE=$SOURCE_COMMIT_DATE
 WORKDIR /build
 COPY package.json package-lock.json ./
 COPY packages ./packages

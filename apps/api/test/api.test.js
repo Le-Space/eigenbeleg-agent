@@ -495,3 +495,89 @@ test('llms.txt and GET / say the paid API is for businesses only and link the te
 		server.close();
 	}
 });
+
+test('the test route: testnet data only, its own testnet 402, TEST- files, limits; the main 402 never offers testnet', async () => {
+	const { TESTNET_MAX_DAYS } = await import('../src/app.js');
+	/** A fake facilitator for one network, and the 402 accept it gives. */
+	const fakePaywall = (/** @type {string} */ network, /** @type {string} */ route, /** @type {string} */ payTo) => {
+		const facilitator = {
+			verify: async () => ({ isValid: true, payer: 'agent.testnet' }),
+			settle: async () => ({ success: true, transaction: 'TXHASH', network, payer: 'agent.testnet' }),
+			getSupported: async () => ({ kinds: [{ x402Version: 2, scheme: 'exact', network }], extensions: [], signers: {} })
+		};
+		const server = new x402ResourceServer(/** @type {any} */ (facilitator)).register(/** @type {any} */ (network), new ExactNearScheme());
+		return paymentMiddleware(/** @type {any} */ ({ [route]: { accepts: [{ scheme: 'exact', price: '$0.10', network, payTo, maxTimeoutSeconds: 120 }] } }), server);
+	};
+	const sent = [];
+	const mailer = { send: async (m) => void sent.push(m) };
+	const testnet = { middleware: fakePaywall('near:testnet', 'POST /testnet/eigenbeleg', 'wolkenfabrik-test.testnet'), info: { mode: 'x402', testnet: true, accepts: [{ network: 'near:testnet', price: '$0.10', payTo: 'wolkenfabrik-test.testnet' }] } };
+	const paywall = { middleware: fakePaywall('near:mainnet', 'POST /eigenbeleg', 'wolkenfabrik.near'), info: { mode: 'x402' } };
+	const { base, close } = await serve(createApp({ paywall, testnet, deps, log: () => {}, mailer, testnetLimit: { max: 8, windowMs: 60_000 }, testnetMailsPerDay: 1 }));
+	const tpost = (body, headers = {}) => globalThis.fetch(`${base}/testnet/eigenbeleg`, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
+	const required = (/** @type {Response} */ r) => JSON.parse(Buffer.from(r.headers.get('payment-required') ?? '', 'base64').toString());
+	const paid = (/** @type {Response} */ r) => ({ 'PAYMENT-SIGNATURE': Buffer.from(JSON.stringify({ x402Version: 2, resource: required(r).resource, accepted: required(r).accepts[0], payload: { signedDelegateAction: 'AAAA' } })).toString('base64') });
+	const tjob = { ...job, network: 'testnet' };
+	try {
+		// 1: mainnet data is refused before any price is named: testnet USDC never buys a mainnet document.
+		const mainnet = await tpost(job);
+		assert.equal(mainnet.status, 400);
+		assert.match((await mainnet.json()).error, /testnet addresses only/);
+		// 2: a chain without a testnet here, 3: a period longer than the test route's.
+		assert.equal((await tpost({ ...tjob, chain: 'aleph', addresses: ['0x1111111111111111111111111111111111111111'], period: { month: '2026-10' } })).status, 400);
+		const long = await tpost({ ...tjob, period: { from: '2026-09-01', to: '2026-10-31' } });
+		assert.equal(long.status, 400);
+		assert.match((await long.json()).error, new RegExp(`at most ${TESTNET_MAX_DAYS} days`));
+
+		// 4: the test route's 402 offers testnet USDC only, to its own recipient.
+		const unpaid = await tpost(tjob);
+		assert.equal(unpaid.status, 402);
+		assert.equal(unpaid.headers.get('x-eigenbeleg-testnet'), 'test only, no value');
+		assert.deepEqual(required(unpaid).accepts.map((a) => [a.network, a.payTo]), [['near:testnet', 'wolkenfabrik-test.testnet']]);
+		// The main route's 402 offers no testnet network.
+		const main = await post(base, job);
+		assert.equal(main.status, 402);
+		assert.deepEqual(required(main).accepts.map((a) => a.network), ['near:mainnet']);
+
+		// 5: paid: TEST- file name; the JSON says what it is; the mail's subject says [TESTNET].
+		const pdf = await tpost(tjob, paid(unpaid));
+		assert.equal(pdf.status, 200);
+		assert.match(pdf.headers.get('content-disposition') ?? '', /filename="TEST-EB-2026-042\.pdf"/);
+		const r6 = await tpost({ ...tjob, format: 'json', email: 'belege@example.org' });
+		const j = await (await tpost({ ...tjob, format: 'json', email: 'belege@example.org' }, paid(r6))).json();
+		assert.equal(j.network, 'testnet');
+		assert.match(j.testnet, /test only, no value/);
+		await new Promise((r) => setTimeout(r, 20));
+		assert.equal(sent.length, 1);
+		assert.match(sent[0].subject, /^\[TESTNET\] /);
+		// 6: one mail a day here; the next asks are refused, without mail they go on.
+		const over = await tpost({ ...tjob, email: 'belege@example.org' });
+		assert.equal(over.status, 400);
+		assert.match((await over.json()).error, /at most 1 mails a day/);
+
+		// 7: GET / and llms.txt say what the test route is.
+		const home = await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json();
+		assert.equal(home.testnet.endpoint ?? 'POST /testnet/eigenbeleg', 'POST /testnet/eigenbeleg');
+		assert.match(home.testnet.what, /testnet addresses only/);
+		assert.match(await (await globalThis.fetch(base + '/llms.txt')).text(), /## Test \(testnet\)\n\n- POST http:\/\/127\.0\.0\.1:\d+\/testnet\/eigenbeleg: the same documents for testnet addresses only/);
+
+		assert.ok((await (await globalThis.fetch(base + '/testnet/blocks')).json()).blocks.length, 'the API base /testnet has the blocks too');
+		// 8: the per-IP limit counts the 402s too (8 above, so the 9th is too many).
+		const limited = await tpost(tjob);
+		assert.equal(limited.status, 429);
+		assert.ok(Number(limited.headers.get('retry-after')) > 0);
+	} finally {
+		close();
+	}
+});
+
+test('without a testnet paywall the test route is off: 404, and GET / and llms.txt say so', async () => {
+	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {} }));
+	try {
+		const r = await globalThis.fetch(`${base}/testnet/eigenbeleg`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...job, network: 'testnet' }) });
+		assert.equal(r.status, 404);
+		assert.equal((await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json()).testnet, 'not offered by this instance');
+		assert.doesNotMatch(await (await globalThis.fetch(base + '/llms.txt')).text(), /## Test/);
+	} finally {
+		close();
+	}
+});

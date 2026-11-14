@@ -14,6 +14,12 @@
 //   - a payment RPC (NEAR_RPC_URL, EVM_RPC_*) that names a test network,
 //   - the development flag EIGENBELEG_DEV_TESTNET.
 // Outside production a testnet payment network needs EIGENBELEG_DEV_TESTNET=1.
+//
+// The one place testnet USDC is taken in production is the test route,
+// POST /testnet/eigenbeleg (paywall.js, createTestnetPaywall; TESTNET_PAY_TO):
+// its own paywall with near:testnet only, its own recipient and relayer, and
+// it sells testnet data only, every PDF marked TESTNET. It never shares a 402
+// with the main route, so testnet USDC never buys a mainnet document.
 // (Which chain and network a request *reads* is a different matter: the body's
 // `network`; this file is about where customers pay.)
 

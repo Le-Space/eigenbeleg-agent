@@ -54,3 +54,18 @@ test('settings are checked before anything listens', async () => {
 	await assert.rejects(createPaywall({ mode: /** @type {any} */ ('stripe') }), /unknown PAYWALL/);
 	assert.deepEqual(Object.keys(NETWORKS), ['near:mainnet', 'near:testnet', 'eip155:8453', 'eip155:1']);
 });
+
+test('the test route\'s paywall: near:testnet only, testnet accounts only, off without TESTNET_PAY_TO', async () => {
+	const { createTestnetPaywall, TESTNET_ROUTE } = await import('../src/paywall.js');
+	const { KeyPair } = await import('@near-js/crypto');
+	const relayerKey = KeyPair.fromRandom('ed25519').toString();
+	assert.equal(await createTestnetPaywall({}), null, 'off');
+	await assert.rejects(createTestnetPaywall({ payTo: 'wolkenfabrik.near', relayerId: 'relayer.testnet', relayerKey }), /TESTNET_PAY_TO must be a NEAR testnet account/);
+	await assert.rejects(createTestnetPaywall({ payTo: 'wolkenfabrik.testnet', relayerId: 'relayer.near', relayerKey }), /TESTNET_RELAYER_ACCOUNT_ID/);
+	await assert.rejects(createTestnetPaywall({ payTo: 'wolkenfabrik.testnet', relayerId: 'relayer.testnet', relayerKey, rpcUrl: 'https://rpc.mainnet.near.org' }), /testnet RPC/);
+	const pw = await createTestnetPaywall({ payTo: 'wolkenfabrik.testnet', relayerId: 'relayer.testnet', relayerKey });
+	assert.ok(pw?.middleware);
+	assert.equal(TESTNET_ROUTE, 'POST /testnet/eigenbeleg');
+	assert.deepEqual(pw?.info.accepts.map((/** @type {any} */ a) => [a.network, a.price, a.payTo, a.relayer]), [['near:testnet', '$0.10', 'wolkenfabrik.testnet', 'relayer.testnet']]);
+	assert.ok(!JSON.stringify(pw?.info).includes(relayerKey.slice(8, 30)), 'the key is in no answer');
+});

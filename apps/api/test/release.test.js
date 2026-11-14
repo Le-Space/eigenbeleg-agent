@@ -44,6 +44,10 @@ function start(extra) {
 		SUBSCRIPTION_KEY: '',
 		EIGENBELEG_PRODUCTION: '',
 		EIGENBELEG_DEV_TESTNET: '',
+		TESTNET_PAY_TO: '',
+		TESTNET_RELAYER_ACCOUNT_ID: '',
+		TESTNET_RELAYER_SECRET_KEY: '',
+		TESTNET_NEAR_RPC_URL: '',
 		...extra
 	};
 	return new Promise((resolve, reject) => {
@@ -170,4 +174,24 @@ test('a production build charges the published prices only', async () => {
 	await createPaywall({ ...base, price: PRICES.default, prices: { 'eip155:1': PRICES['eip155:1'] } });
 	// Development may set others.
 	await createPaywall({ ...base, production: false, price: '$0.05' });
+});
+
+test('production takes testnet USDC on the test route only: it starts with it, the main paywall stays mainnet-only', async () => {
+	const { KeyPair } = await import('@near-js/crypto');
+	const key = () => KeyPair.fromRandom('ed25519').toString();
+	const prod = { EIGENBELEG_PRODUCTION: '1', PAY_NETWORKS: 'eip155:8453', PAY_TO_EVM: payToEvm, EVM_RELAYER_KEY: generatePrivateKey() };
+	const test = { TESTNET_PAY_TO: 'wolkenfabrik-test.testnet', TESTNET_RELAYER_ACCOUNT_ID: 'relayer-test.testnet', TESTNET_RELAYER_SECRET_KEY: key() };
+	const on = await start({ ...prod, ...test });
+	assert.match(on.out, /production \(mainnet payments only\)/);
+	assert.match(on.out, /test route: \[\{"network":"near:testnet"/);
+	assert.ok(!on.out.includes(test.TESTNET_RELAYER_SECRET_KEY.slice(8, 30)), 'the key is in no log line');
+	// The test route never makes testnet a main payment network, and takes testnet accounts only.
+	const mixed = await start({ ...prod, ...test, PAY_NETWORKS: 'eip155:8453,near:testnet' });
+	assert.equal(mixed.code, 1);
+	assert.match(mixed.out, /PAY_NETWORKS has the testnet network near:testnet/);
+	const mainnetTo = await start({ ...prod, ...test, TESTNET_PAY_TO: 'le-space.near' });
+	assert.equal(mainnetTo.code, 1);
+	assert.match(mainnetTo.out, /TESTNET_PAY_TO must be a NEAR testnet account/);
+	// Without TESTNET_PAY_TO it is off.
+	assert.match((await start(prod)).out, /test route: off/);
 });

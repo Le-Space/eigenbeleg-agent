@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { blocksFor } from '@eigenbeleg/pipeline';
 import { createApp } from './app.js';
 import { createMailer } from './mail.js';
-import { createPaywall } from './paywall.js';
+import { createPaywall, createTestnetPaywall } from './paywall.js';
 import { DEV_TESTNET_FLAG, isProduction } from './release.js';
 import { createStore, startScheduler } from './subscriptions.js';
 
@@ -53,18 +53,30 @@ const paywall = await createPaywall({
 	console.error(`eigenbeleg API not started: ${e.message}`);
 	process.exit(1);
 });
+// The test route (POST /testnet/eigenbeleg): testnet data for testnet USDC, beside the main
+// paywall, in production too; only with TESTNET_PAY_TO (paywall.js, createTestnetPaywall).
+const testnet = await createTestnetPaywall({
+	payTo: env.TESTNET_PAY_TO,
+	relayerId: env.TESTNET_RELAYER_ACCOUNT_ID,
+	relayerKey: env.TESTNET_RELAYER_SECRET_KEY,
+	rpcUrl: env.TESTNET_NEAR_RPC_URL,
+	timeoutSeconds: env.PAY_TIMEOUT_SECONDS ? Number(env.PAY_TIMEOUT_SECONDS) : undefined
+}).catch((/** @type {Error} */ e) => {
+	console.error(`eigenbeleg API not started: ${e.message}`);
+	process.exit(1);
+});
 // The files by mail, when a request asks: SMTP_URL and MAIL_FROM; without them the API offers no mail.
 const mailer = createMailer({ smtpUrl: env.SMTP_URL, from: env.MAIL_FROM });
 const deps = { nearblocksKey: env.NEARBLOCKS_API_KEY, alchemyKey: env.ALCHEMY_KEY };
 // Subscriptions (#20): only with mail and SUBSCRIPTION_KEY; the files live in SUBSCRIPTION_DIR (a volume).
 const subscriptions = mailer && env.SUBSCRIPTION_KEY ? createStore({ dir: env.SUBSCRIPTION_DIR ?? '/var/lib/eigenbeleg', key: env.SUBSCRIPTION_KEY }) : null;
-const app = createApp({ paywall, deps, source: env.SOURCE_URL, publicUrl: env.PUBLIC_URL, mailer, subscriptions });
+const app = createApp({ paywall, testnet, deps, source: env.SOURCE_URL, publicUrl: env.PUBLIC_URL, mailer, subscriptions });
 // Behind a reverse proxy (Caddy): trust its X-Forwarded-Proto, so the x402
 // resource URL says https. Express's syntax: e.g. "uniquelocal" or a subnet.
 if (env.TRUST_PROXY) app.set('trust proxy', env.TRUST_PROXY);
 const host = env.HOST ?? '127.0.0.1';
 const port = Number(env.PORT ?? 4402);
 app.listen(port, host, () => {
-	console.log(`eigenbeleg API on http://${host}:${port} – ${production ? 'production (mainnet payments only)' : 'development'}, paywall: ${JSON.stringify(paywall.info)}, mail: ${mailer ? 'on' : 'off'}, subscriptions: ${subscriptions ? 'on' : 'off'}`);
+	console.log(`eigenbeleg API on http://${host}:${port} – ${production ? 'production (mainnet payments only)' : 'development'}, paywall: ${JSON.stringify(paywall.info)}, mail: ${mailer ? 'on' : 'off'}, subscriptions: ${subscriptions ? 'on' : 'off'}, test route: ${testnet ? JSON.stringify(testnet.info.accepts) : 'off'}`);
 	if (subscriptions && mailer) startScheduler({ store: subscriptions, deps: { ...deps, blocks: blocksFor(deps) }, mailer, log: (l) => console.log(l), source: env.SOURCE_URL });
 });

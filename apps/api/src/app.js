@@ -9,6 +9,8 @@
 //   POST /eigenbeleg/subscribe  twelve monthly Kontoauszüge by mail, paid once (#20)
 //   POST /eigenbeleg/subscribe/:months  the same for 1 to 12 months, at months × the price
 //   GET  /eigenbeleg/subscribe/:id/cancel?token=…  the link in each mail; deletes the subscription
+//   POST /testnet/eigenbeleg  the test route: testnet data only, paid in testnet USDC, every PDF
+//        marked TESTNET; a few per hour per IP; on only with a testnet paywall (TESTNET_PAY_TO)
 //   GET  /ui/          the web UI (apps/web/dist), when it is built
 //
 // No storage beyond the request: the body (payer's name and address, and an
@@ -37,6 +39,10 @@ import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatc
  * @param {{ max: number, windowMs: number }} [o.previewLimit] free previews per IP
  * @param {import('./mail.js').Mailer | null} [o.mailer] sends the files by mail when a request asks (`email`); null: not offered here
  * @param {import('./subscriptions.js').Store | null} [o.subscriptions] where subscriptions are kept (#20); null, or no mailer: not offered here
+ * @param {{ middleware: import('express').RequestHandler | null, info: Record<string, unknown> } | null} [o.testnet] the test
+ *   route's paywall (paywall.js, createTestnetPaywall); null: the test route is off
+ * @param {{ max: number, windowMs: number }} [o.testnetLimit] requests to the test route per IP, the 402s included
+ * @param {number} [o.testnetMailsPerDay] the test route's mails per day, all callers together
  * @param {string} [o.publicUrl] this instance's public origin, e.g. https://eigenbeleg.le-space.de, for the share
  *   cards' absolute URLs; unset: taken from the request's Host (and X-Forwarded-Proto)
  */
@@ -52,6 +58,9 @@ export function createApp({
 	previewLimit = { max: 10, windowMs: 60_000 },
 	mailer = null,
 	subscriptions = null,
+	testnet = null,
+	testnetLimit = { max: 30, windowMs: 3_600_000 },
+	testnetMailsPerDay = TESTNET_MAILS_PER_DAY,
 	publicUrl
 }) {
 	// The blocks this instance serves: the keyless ones, and Ethereum and Base where an Alchemy key is set.
@@ -119,6 +128,9 @@ export function createApp({
 						privacy: 'chain, addresses, payer, e-mail address and options are kept encrypted until the last statement or the cancellation, then deleted'
 					}
 				: 'not offered by this instance',
+			testnet: testnet
+				? { ...testnet.info, what: TESTNET_WHAT, limits: testnetLimits(testnetLimit, testnetMailsPerDay) }
+				: 'not offered by this instance',
 			blocks: describeBlocks(blocks),
 			privacy: `Nothing is stored beyond the request; logs hold method, path, status and duration only. An e-mail address goes into that one mail and nowhere else.${subs ? ' A subscription is the one exception: see subscription.privacy.' : ''}`,
 			data: 'Powered by NearBlocks.io APIs; EUR rates: the price at 00:00 UTC from CoinGecko, else Kraken (@le-space/rates).',
@@ -155,7 +167,7 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
   2. Sign what it asks for and send the same request again with \`PAYMENT-SIGNATURE\`. On NEAR: one NEP-366 delegate action with one \`ft_transfer\` of USDC (the payer needs USDC and a USDC storage registration, no NEAR). On Base or Ethereum: one EIP-3009 \`transferWithAuthorization\` of USDC (the payer needs USDC, no ETH).
   3. The answer carries the files and \`PAYMENT-RESPONSE\` (the transaction). If reading the chain fails, nothing is charged.
   Clients: @x402/fetch with @x402/near or @x402/evm (JavaScript), or this repository's agent: npm run agent -- --help.
-
+${testnet ? `\n## Test (testnet)\n\n- POST ${base}/testnet/eigenbeleg: ${TESTNET_WHAT}. GET ${base}/testnet/blocks as well, so a client takes ${base}/testnet as its API base (this repository's agent: --api ${base}/testnet --network testnet). Paid like POST /eigenbeleg, with USDC on NEAR testnet (near:testnet): ${testnetPrice(testnet)}. ${testnetLimits(testnetLimit, testnetMailsPerDay)}. For developing and testing clients; no contract, no invoice, no value.\n` : ''}
 ## Body
 
 {
@@ -182,8 +194,10 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 - Nothing is stored beyond the request. Source (AGPL-3.0-or-later): ${source}
 `);
 	});
-	app.get('/blocks', (_req, res) => res.json({ blocks: describeBlocks(blocks) }));
-	app.get('/blocks/:chain/check', async (req, res) => res.json(await checkBlock(req.params.chain, deps)));
+	// Also under /testnet/ when the test route is on, so a client takes https://…/testnet as its API base.
+	const under = (/** @type {string} */ path) => (testnet ? [path, `/testnet${path}`] : path);
+	app.get(under('/blocks'), (_req, res) => res.json({ blocks: describeBlocks(blocks) }));
+	app.get(under('/blocks/:chain/check'), async (req, res) => res.json(await checkBlock(req.params.chain, deps)));
 	app.get('/health', (_req, res) => res.json({ ok: true, paywall: paywall.info.mode }));
 
 	// The subscription (#20): checked like a paid request before a price is named; stored only once the
@@ -249,20 +263,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 	// The free preview: same checks and the same reading as the paid route,
 	// but no payer, no files, and a few per minute per IP (it costs the data
 	// sources as much as a paid run).
-	/** @type {Map<string, { n: number, since: number }>} */
-	const previews = new Map();
-	app.post('/eigenbeleg/preview', express.json({ limit: '32kb' }), async (req, res) => {
-		const now = Date.now();
-		for (const [ip, w] of previews) if (now - w.since > previewLimit.windowMs) previews.delete(ip);
-		const key = req.ip ?? '';
-		const w = previews.get(key) ?? { n: 0, since: now };
-		w.n += 1;
-		previews.set(key, w);
-		if (w.n > previewLimit.max) {
-			res.setHeader('Retry-After', String(Math.ceil((w.since + previewLimit.windowMs - now) / 1000)));
-			res.status(429).json({ error: 'too many previews; try again in a minute' });
-			return;
-		}
+	app.post('/eigenbeleg/preview', express.json({ limit: '32kb' }), perIp(previewLimit, 'too many previews; try again in a minute'), async (req, res) => {
 		let job;
 		try {
 			job = parseRequest(req.body, { preview: true, blocks });
@@ -301,7 +302,10 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 				}
 			: (_req, _res, next) => next();
 
-	app.post('/eigenbeleg', express.json({ limit: '32kb' }), validate, workFirst, pay, async (req, res) => {
+	/** Mails sent by the test route today: at most TESTNET_MAILS_PER_DAY, so it is no free mail relay. */
+	const testMails = { day: '', n: 0 };
+	/** @param {{ test?: boolean }} [o] test: the test route's answer (TEST- file names, a [TESTNET] mail) */
+	const deliver = ({ test = false } = {}) => /** @type {import('express').RequestHandler} */ (async (req, res) => {
 		const job = res.locals.job;
 		let out = res.locals.out;
 		if (!out) {
@@ -313,21 +317,23 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 				return;
 			}
 		}
-		if (paywall.info.mode === 'none') res.setHeader('X-Eigenbeleg-Paywall', 'none (development)');
+		if (!test && paywall.info.mode === 'none') res.setHeader('X-Eigenbeleg-Paywall', 'none (development)');
 		// The mail goes out once the response is settled (the x402 middleware turns an
 		// unsettled 200 into a 402 after this handler), so it cannot be awaited here:
 		// the answer says `queued`. A failure is logged without the address.
 		if (job.email && mailer) {
 			const mail = composeMail(job, out, { origin: origin(req, publicUrl), source });
+			if (test) mail.subject = `[TESTNET] ${mail.subject}`;
 			res.on('finish', () => {
 				if (res.statusCode >= 400) return;
+				if (test) testMails.n += 1;
 				mailer.send(mail).catch((e) => log(`${new Date().toISOString()} mail failed: ${String(e?.message ?? e).slice(0, 200)}`));
 			});
 			res.setHeader('X-Eigenbeleg-Mail', 'queued');
 		}
 		// No summary in a header: headers set here would stay on the 402 that a
 		// failed settlement sends. The JSON format carries the summary.
-		const name = (/** @type {string} */ n) => n.replace(/[^A-Za-z0-9._-]/g, '_');
+		const name = (/** @type {string} */ n) => `${test ? 'TEST-' : ''}${n.replace(/[^A-Za-z0-9._-]/g, '_')}`;
 		if (job.format === 'pdf' && job.document === 'eigenbelege') {
 			res.setHeader('Content-Disposition', `attachment; filename="${name(out.summary.eigenbelege[0] ?? out.summary.number)}.pdf"`);
 			res.type('application/pdf').send(Buffer.from(/** @type {Uint8Array} */ (out.pdf)));
@@ -344,10 +350,38 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 				...(out.pdf ? { pdf: Buffer.from(out.pdf).toString('base64') } : {}),
 				...(out.statements.length ? { kontoauszuegePdf: out.statements.map((s) => ({ account: s.account, number: s.number, pdf: Buffer.from(s.pdf).toString('base64') })) } : {}),
 				csv: out.csv,
-				...(job.email ? { mail: 'queued' } : {})
+				...(job.email ? { mail: 'queued' } : {}),
+				...(test ? { testnet: TESTNET_WHAT } : {})
 			});
 		}
 	});
+	app.post('/eigenbeleg', express.json({ limit: '32kb' }), validate, workFirst, pay, deliver());
+
+	// The test route: the same work, for testnet addresses only, paid in testnet USDC on its own
+	// paywall. Anything else is refused before the 402, so testnet USDC never buys a mainnet document.
+	if (testnet) {
+		/** @type {import('express').RequestHandler} */
+		const testnetOnly = (req, res, next) => {
+			const job = res.locals.job;
+			if (testMails.day !== today()) Object.assign(testMails, { day: today(), n: 0 });
+			res.setHeader('X-Eigenbeleg-Testnet', 'test only, no value');
+			const days = (Date.parse(job.period.to) - Date.parse(job.period.from)) / 86_400_000 + 1;
+			const why =
+				job.network !== 'testnet'
+					? 'network: the test route reads testnet addresses only ("network": "testnet"); mainnet documents are bought at POST /eigenbeleg, or made free in the web UI'
+					: !blocks[job.chain]?.networks?.includes('testnet')
+						? `chain: ${job.chain} has no testnet here`
+						: days > TESTNET_MAX_DAYS
+							? `period: at most ${TESTNET_MAX_DAYS} days on the test route`
+							: job.email && testMails.n >= testnetMailsPerDay
+								? `email: the test route sends at most ${testnetMailsPerDay} mails a day, and today's are out; leave email out`
+								: null;
+			if (why) res.status(400).json({ error: why });
+			else next();
+		};
+		const testPay = testnet.middleware ?? ((_req, _res, next) => next());
+		app.post('/testnet/eigenbeleg', perIp(testnetLimit, 'too many test requests; try again later'), express.json({ limit: '32kb' }), validate, testnetOnly, testPay, deliver({ test: true }));
+	} else app.post('/testnet/eigenbeleg', (_req, res) => res.status(404).json({ error: 'the test route is off on this instance' }));
 
 	app.use((/** @type {any} */ err, /** @type {any} */ _req, /** @type {any} */ res, /** @type {any} */ _next) => {
 		const status = err?.type === 'entity.too.large' ? 413 : err?.type === 'entity.parse.failed' ? 400 : err?.status === 404 ? 404 : 500;
@@ -356,6 +390,45 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 		res.status(status).json({ error: status === 500 ? 'internal error' : status === 404 ? 'not found' : String(err.message) });
 	});
 	return app;
+}
+
+/** What the test route sells. */
+export const TESTNET_WHAT = 'the same documents for testnet addresses only (network: testnet), every PDF marked TESTNET and every file name TEST-; test only, no value, no booking document';
+/** The longest period on the test route. */
+export const TESTNET_MAX_DAYS = 31;
+/** The test route's mails, all callers together, per day. */
+export const TESTNET_MAILS_PER_DAY = 20;
+
+/** @param {{ max: number, windowMs: number }} l @param {number} mails */
+const testnetLimits = (l, mails) => `at most ${l.max} requests per ${Math.round(l.windowMs / 60_000)} minutes per IP (402s included), periods up to ${TESTNET_MAX_DAYS} days, at most ${mails} mails a day in all (subject [TESTNET]), no subscription`;
+
+/** @param {{ info: Record<string, unknown> }} t */
+const testnetPrice = (t) => /** @type {{ price: string, payTo: string }[]} */ (t.info.accepts ?? []).map((a) => `${a.price} in testnet USDC to ${a.payTo}`).join('; ') || 'see GET /';
+
+/**
+ * A few requests per window per IP; then 429 with Retry-After.
+ *
+ * @param {{ max: number, windowMs: number }} limit
+ * @param {string} message
+ * @returns {import('express').RequestHandler}
+ */
+function perIp(limit, message) {
+	/** @type {Map<string, { n: number, since: number }>} */
+	const seen = new Map();
+	return (req, res, next) => {
+		const now = Date.now();
+		for (const [ip, w] of seen) if (now - w.since > limit.windowMs) seen.delete(ip);
+		const key = req.ip ?? '';
+		const w = seen.get(key) ?? { n: 0, since: now };
+		w.n += 1;
+		seen.set(key, w);
+		if (w.n > limit.max) {
+			res.setHeader('Retry-After', String(Math.ceil((w.since + limit.windowMs - now) / 1000)));
+			res.status(429).json({ error: message });
+			return;
+		}
+		next();
+	};
 }
 
 /**

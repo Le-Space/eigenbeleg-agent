@@ -31,6 +31,23 @@ import { proposeBlock } from './propose.js';
  */
 
 /**
+ * GET a JSON endpoint of the API; anything else (a 404 page, a proxy's error) is a plain error
+ * that names the URL and the status, not a JSON parse error.
+ *
+ * @param {typeof fetch} fetch
+ * @param {string} url
+ */
+export async function getJson(fetch, url) {
+	const res = await fetch(url);
+	const type = res.headers.get('content-type') ?? '';
+	if (!res.ok || !type.includes('json')) {
+		const hint = res.status === 404 ? ' (is --api the API\'s base URL, and is that route on there?)' : '';
+		throw new Error(`the API answered ${res.status}${type ? ` ${type.split(';')[0]}` : ''} at ${url}${hint}`);
+	}
+	return res.json();
+}
+
+/**
  * @param {object} o
  * @param {Job} o.job
  * @param {string} o.api base URL of the Eigenbeleg API
@@ -45,7 +62,7 @@ export async function runJob({ job, api, fetch, paidFetch, outDir, say = console
 	say(`Job: Eigenbeleg for ${job.addresses.join(', ')} on ${job.chain} (${job.network}), ${job.period.month ?? `${job.period.from} – ${job.period.to}`}`);
 
 	// 1. the building block
-	const { blocks } = await (await fetch(`${api}/blocks`)).json();
+	const { blocks } = await getJson(fetch, `${api}/blocks`);
 	const block = blocks.find((/** @type {any} */ b) => b.chain === job.chain);
 	if (!block) {
 		say(`No building block for "${job.chain}". Nothing is bought; drafting one as a pull request instead.`);
@@ -53,7 +70,7 @@ export async function runJob({ job, api, fetch, paidFetch, outDir, say = console
 		return { status: 'proposed', proposal };
 	}
 	say(`Building block: ${block.name} ${block.version} (${block.source}); checking it (GET /blocks/${job.chain}/check) …`);
-	const check = await (await fetch(`${api}/blocks/${encodeURIComponent(job.chain)}/check`)).json();
+	const check = await getJson(fetch, `${api}/blocks/${encodeURIComponent(job.chain)}/check`);
 	if (!check.ok) {
 		say(`The block failed its check (${check.error ?? 'unknown'}). Nothing is bought; drafting a fix.`);
 		const proposal = await proposeBlock({ chain: job.chain, outDir, say, reason: check.error });

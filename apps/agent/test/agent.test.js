@@ -54,3 +54,11 @@ test('a job on a chain without a block: nothing bought, a draft PR with failing 
 	assert.match(plan, /AGPL-3.0-or-later/);
 	assert.ok(lines.some((l) => l.includes('gh pr create --draft')));
 });
+
+test('an API that answers HTML or 404 is a plain error naming the URL, not a JSON parse error', async () => {
+	const { getJson } = await import('../src/agent.js');
+	const page = /** @type {typeof fetch} */ (async () => new Response('<!DOCTYPE html><p>Cannot GET</p>', { status: 404, headers: { 'content-type': 'text/html; charset=utf-8' } }));
+	await assert.rejects(getJson(page, 'https://api.example.org/testnet/blocks'), /the API answered 404 text\/html at https:\/\/api\.example\.org\/testnet\/blocks \(is --api the API's base URL/);
+	const json = /** @type {typeof fetch} */ (async () => new Response('{"blocks":[]}', { headers: { 'content-type': 'application/json' } }));
+	assert.deepEqual(await getJson(json, 'https://api.example.org/blocks'), { blocks: [] });
+});

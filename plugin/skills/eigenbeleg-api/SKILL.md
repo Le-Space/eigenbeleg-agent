@@ -42,6 +42,11 @@ the payment days, as PDF/A-2b and CSV. It stores nothing beyond the request.
 - **Keys never leave the wallet.** The payment is one signature, made by the
   x402 client from the wallet's key. Never paste a private key, seed phrase or
   wallet file into a chat, a log or a request body, and never ask for one.
+- **Businesses only.** The paid API sells only to businesses (§ 14 BGB) under
+  its terms of business at https://eigenbeleg.le-space.de/ui/#agb. Buy only for
+  a person acting for their business, and say so before paying. Private persons
+  get the same documents for free in the web UI or with `eigenbeleg-local`;
+  point them there. Prices include 19% German VAT; an invoice comes on request.
 - Only one host is involved: `eigenbeleg.le-space.de`. The payment itself goes
   to the blockchain through the x402 client, not through the API.
 

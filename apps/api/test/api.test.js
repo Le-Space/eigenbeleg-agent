@@ -476,3 +476,22 @@ test('without SMTP the API offers no mail: email is refused before any payment, 
 		close();
 	}
 });
+
+test('llms.txt and GET / say the paid API is for businesses only and link the terms', async () => {
+	const { createApp, TERMS_PATH } = await import('../src/app.js');
+	const app = createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {}, web: null });
+	const server = app.listen(0, '127.0.0.1');
+	await new Promise((r) => server.once('listening', r));
+	try {
+		const { port } = /** @type {any} */ (server.address());
+		const text = await (await globalThis.fetch(`http://127.0.0.1:${port}/llms.txt`)).text();
+		assert.match(text, /\*\*Businesses only\.\*\* The paid API sells to businesses \(§ 14 BGB/);
+		assert.ok(text.includes(`http://127.0.0.1:${port}${TERMS_PATH}`), 'the terms URL');
+		assert.match(text, /19% German VAT/);
+		const root = await (await globalThis.fetch(`http://127.0.0.1:${port}/`, { headers: { accept: 'application/json' } })).json();
+		assert.equal(root.terms, TERMS_PATH);
+		assert.match(root.customers, /^businesses only \(§ 14 BGB\)/);
+	} finally {
+		server.close();
+	}
+});

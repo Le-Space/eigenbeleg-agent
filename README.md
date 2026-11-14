@@ -46,7 +46,7 @@ The demo's EUR rate is fixed (1.92 €/NEAR); the API itself uses the day's rate
 
 ## Try the hosted API
 
-A public instance runs at **https://eigenbeleg.le-space.de** (mainnet payments in real USDC, open source, AGPL). Prices: 0.10 USDC per request on NEAR and Base, 1.00 USDC on Ethereum; a year's subscription 12 × that ([`packages/pipeline/src/prices.js`](packages/pipeline/src/prices.js), the one list the API, `/llms.txt` and the page use).
+A public instance runs at **https://eigenbeleg.le-space.de** (mainnet payments in real USDC, open source, AGPL). The paid API is for **businesses only** (§ 14 BGB), under the terms of business at [`/ui/#agb`](https://eigenbeleg.le-space.de/ui/#agb); prices include 19% German VAT, an invoice comes on request. Private persons use the web UI, free. Prices: 0.10 USDC per request on NEAR and Base, 1.00 USDC on Ethereum; a year's subscription 12 × that ([`packages/pipeline/src/prices.js`](packages/pipeline/src/prices.js), the one list the API, `/llms.txt` and the page use).
 
 ```bash
 curl -s https://eigenbeleg.le-space.de/

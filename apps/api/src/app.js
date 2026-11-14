@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 
 import { RequestError, blocksFor, checkBlock, describeBlocks, generate, parseRequest } from '@eigenbeleg/pipeline';
+import { VAT } from '@eigenbeleg/pipeline/prices';
 import { composeMail } from './mail.js';
 import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatches } from './subscriptions.js';
 
@@ -39,6 +40,9 @@ import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatc
  * @param {string} [o.publicUrl] this instance's public origin, e.g. https://eigenbeleg.le-space.de, for the share
  *   cards' absolute URLs; unset: taken from the request's Host (and X-Forwarded-Proto)
  */
+/** Where the terms of business are: a folded section of the web UI. */
+export const TERMS_PATH = '/ui/#agb';
+
 export function createApp({
 	paywall,
 	deps: given = {},
@@ -85,6 +89,8 @@ export function createApp({
 			preview: 'POST /eigenbeleg/preview (free; the same body without payer)',
 			ui: hasUi ? '/ui/' : null,
 			people: 'the web UI does everything in the browser, free; nothing is sent to this API',
+			customers: `businesses only (§ 14 BGB): the paid API sells to businesses under its terms of business, ${TERMS_PATH} on this host; prices include ${VAT}% German VAT; invoice on request (contact@le-space.de, with the transaction hash). Private persons use the web UI, free.`,
+			terms: TERMS_PATH,
 			agents: '/llms.txt',
 			payment: paywall.info,
 			request: {
@@ -138,6 +144,8 @@ export function createApp({
 > Eigenbelege (self-issued proofs of payment for German bookkeeping; never invoices) for the payments of a person's own blockchain addresses: network fees, storage deposits, transfers. PDF/A-2b and CSV, with the EUR rate of each payment's day and its source. Paid per request with x402.
 
 People use the web UI at ${base}/ui/ instead: it does everything in their browser, for free, and sends nothing here. This API is for agents acting for someone.
+
+**Businesses only.** The paid API sells to businesses (§ 14 BGB, German Civil Code) under its terms of business: ${base}${TERMS_PATH} (German binding, English for reading). By paying, the customer confirms they act for their business; buy only for someone who does. Private persons use the web UI, free. Prices include ${VAT}% German VAT; an invoice comes on request (e-mail to contact@le-space.de with the payment's transaction hash and the billing address).
 
 ## Buy
 

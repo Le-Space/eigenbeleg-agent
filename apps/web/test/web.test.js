@@ -109,8 +109,8 @@ test('German and English have the same texts and placeholders; German is the def
 	// Every data-i18n key in the page has a text.
 	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 	for (const m of html.matchAll(/data-i18n="(\w+)"/g)) assert.ok(m[1] in TEXTS.de, m[1]);
-	// The privacy policy is in the markup in both languages; the Impressum is le-space.de's.
-	assert.deepEqual([...html.matchAll(/data-lang="(\w+)"/g)].map((m) => m[1]), ['de', 'en']);
+	// The terms of business and the privacy policy are in the markup in both languages; the Impressum is le-space.de's.
+	assert.deepEqual([...html.matchAll(/data-lang="(\w+)"/g)].map((m) => m[1]), ['de', 'en', 'de', 'en']);
 	assert.match(html, /href="https:\/\/le-space\.de\/#impressum"/);
 });
 
@@ -155,15 +155,17 @@ test('the service worker keeps the placeholders the build fills with every file 
 
 test('the page shows the published prices and pays on mainnet only', async () => {
 	const { TEXTS } = await import('../src/i18n.js');
-	const { priceFor, timesMonths, usdc } = await import('@eigenbeleg/pipeline/prices');
-	assert.equal(TEXTS.de.payNearPrice, usdc(priceFor('near:mainnet'), 'de'));
-	assert.equal(TEXTS.en.payEthPrice, usdc(priceFor('eip155:1'), 'en'));
+	const { eurGuide, priceFor, timesMonths, usdc } = await import('@eigenbeleg/pipeline/prices');
+	assert.equal(TEXTS.de.payNearPrice, `${usdc(priceFor('near:mainnet'), 'de')} (${eurGuide(priceFor('near:mainnet'), 'de')})`);
+	assert.equal(TEXTS.en.payEthPrice, `${usdc(priceFor('eip155:1'), 'en')} (${eurGuide(priceFor('eip155:1'), 'en')})`);
+	assert.equal(eurGuide('$0.10', 'de'), 'rund 0,09 €');
+	assert.equal(eurGuide('$1.00', 'en'), 'about €0.90');
 	assert.ok(TEXTS.de.subscriptionNote.includes(usdc(timesMonths(priceFor('near:mainnet')), 'de')));
 	assert.ok(TEXTS.en.prompt.includes(usdc(priceFor('near:mainnet'), 'en')));
 	// index.html's German text (what shows before the script runs) is the same as TEXTS.de.
 	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 	const unescape = (/** @type {string} */ s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-	for (const key of ['payNearPrice', 'payBasePrice', 'payEthPrice', 'payNote', 'subscriptionNote', 'agentsPrompt', 'prompt']) {
+	for (const key of ['payNearPrice', 'payBasePrice', 'payEthPrice', 'payNote', 'businessOnly', 'subscriptionNote', 'agentsPrompt', 'prompt']) {
 		const m = new RegExp(`data-i18n="${key}">([^<]*)<`).exec(html);
 		assert.ok(m, key);
 		assert.equal(unescape(m[1]), TEXTS.de[/** @type {keyof typeof TEXTS.de} */ (key)], key);
@@ -174,4 +176,26 @@ test('the page shows the published prices and pays on mainnet only', async () =>
 			assert.doesNotMatch(String(TEXTS[lang][/** @type {keyof typeof TEXTS.de} */ (key)]), /testnet/i, `${lang}.${key}`);
 		}
 	}
+});
+
+test('the paid API is for businesses only; the terms are on the page in both languages and say so', async () => {
+	const { TEXTS } = await import('../src/i18n.js');
+	const { VAT } = await import('@eigenbeleg/pipeline/prices');
+	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+	const terms = html.slice(html.indexOf('<details id="agb"'), html.indexOf('</details>', html.indexOf('<details id="agb"')));
+	assert.ok(terms.length > 1000, 'the terms are in the page');
+	const [de, en] = terms.split('<div data-lang="en" hidden>');
+	assert.match(de, /ausschließlich an Unternehmer im Sinne von § 14 BGB/);
+	assert.match(de, /Ein Widerrufsrecht für Verbraucher besteht daher nicht/);
+	assert.match(de, new RegExp(`${VAT} % Umsatzsteuer`));
+	assert.match(en, /exclusively to businesses within the meaning of § 14 BGB/);
+	assert.match(en, new RegExp(`${VAT}% German VAT`));
+	assert.match(en, /German version is binding/);
+	assert.match(html, /<a href="#agb" data-i18n="navTerms">/);
+	assert.match(TEXTS.de.businessOnly, /nur für Unternehmer/);
+	assert.match(TEXTS.de.payNote, new RegExp(`inkl. ${VAT} % USt`));
+	assert.match(TEXTS.en.payNote, new RegExp(`${VAT}% German VAT`));
+	// Section 6 of the privacy policy names every payment network, not NEAR alone.
+	assert.match(html, /auf der gewählten Blockchain \(NEAR, Base oder Ethereum\)/);
+	assert.match(html, /on the chosen blockchain \(NEAR, Base or Ethereum\)/);
 });

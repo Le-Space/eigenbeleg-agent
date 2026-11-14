@@ -39,3 +39,22 @@ export function usdc(price, lang) {
 	const n = price.replace(/^\$/, '');
 	return `${lang === 'de' ? n.replace('.', ',') : n} USDC`;
 }
+
+/** The prices include German VAT at this rate (Le Space UG is taxed at the standard rate). */
+export const VAT = 19;
+
+/**
+ * The ECB reference rate the page's euro guide uses: US dollars per euro on that day. USDC is
+ * pegged to the US dollar, so the euro amount is a guide only; update it with the prices.
+ */
+export const USD_PER_EUR = Object.freeze({ rate: 1.1052, date: '2026-11-13' });
+
+/**
+ * "$0.10" as a euro guide: "rund 0,09 €" / "about €0.09".
+ * @param {string} price
+ * @param {'de' | 'en'} lang
+ */
+export function eurGuide(price, lang) {
+	const eur = (Number(price.replace(/^\$/, '')) / USD_PER_EUR.rate).toFixed(2);
+	return lang === 'de' ? `rund ${eur.replace('.', ',')} €` : `about €${eur}`;
+}

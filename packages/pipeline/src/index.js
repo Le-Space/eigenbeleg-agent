@@ -9,4 +9,4 @@ export { BLOCKS, checkBlock, describeBlocks } from './blocks.js';
 export { KEYED_BLOCKS, blocksFor, isAlchemyKey, keyedSources } from './keyed.js';
 export { dataSources } from './sources.js';
 // The API's published prices, for the 402, /llms.txt and the page.
-export { PRICES, SUBSCRIPTION_MONTHS, priceFor, timesMonths, usdc } from './prices.js';
+export { PRICES, SUBSCRIPTION_MONTHS, USD_PER_EUR, VAT, eurGuide, priceFor, timesMonths, usdc } from './prices.js';

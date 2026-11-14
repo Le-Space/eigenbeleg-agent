@@ -360,9 +360,9 @@ for (const btn of document.querySelectorAll('button[data-copy]')) {
 		setTimeout(() => (label.textContent = ''), 1500);
 	});
 }
-// A link to #datenschutz opens the folded policy.
+// A link to #datenschutz or #agb opens the folded policy or terms.
 const openLegal = () => {
-	if (location.hash === '#datenschutz') /** @type {HTMLDetailsElement} */ ($('datenschutz')).open = true;
+	for (const id of ['datenschutz', 'agb']) if (location.hash === `#${id}`) /** @type {HTMLDetailsElement} */ ($(id)).open = true;
 };
 openLegal();
 window.addEventListener('hashchange', openLegal);

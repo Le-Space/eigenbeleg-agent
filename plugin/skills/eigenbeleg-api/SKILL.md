@@ -152,4 +152,7 @@ person; it is also in every mail.
   lists every entry, also the ones that got no Eigenbeleg, with the reason.
 - **Nothing in the period**: the preview says `positions: 0`; do not buy.
 - **Testnet** documents are marked as such and are for trying the flow, not for
-  the books.
+  the books. To try the paid flow without real money, use the test route:
+  `POST https://eigenbeleg.le-space.de/testnet/eigenbeleg`, the same body with
+  `"network": "testnet"` and testnet addresses, paid with testnet USDC on NEAR
+  testnet (faucet.circle.com). It sells nothing else and has tight limits.

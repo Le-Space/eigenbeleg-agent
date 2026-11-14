@@ -55,7 +55,8 @@ export function subscriptionPriceOf(price, months = MONTHS) {
 /** The networks this server can take USDC on, and what the 402 and GET / call them. */
 export const NETWORKS = {
 	'near:mainnet': { name: 'NEAR', asset: 'USDC (NEP-141)', family: 'near' },
-	// Development and tests only: needs EIGENBELEG_DEV_TESTNET=1, and a production build refuses it (release.js).
+	// In PAY_NETWORKS: development and tests only (EIGENBELEG_DEV_TESTNET=1; a production build refuses it, release.js).
+	// Production takes testnet USDC only on its own test route, for testnet data (createTestnetPaywall).
 	'near:testnet': { name: 'NEAR testnet', asset: 'USDC (NEP-141, testnet)', family: 'near', testnet: true },
 	'eip155:8453': { name: 'Base', asset: 'USDC (ERC-20, EIP-3009)', family: 'evm', chain: 'base', alchemy: 'base-mainnet' },
 	'eip155:1': { name: 'Ethereum', asset: 'USDC (ERC-20, EIP-3009)', family: 'evm', chain: 'mainnet', alchemy: 'eth-mainnet' }
@@ -204,5 +205,63 @@ export async function createPaywall(c) {
 				perMonths: { route: `${SUBSCRIBE_ROUTE}/<months>`, months: `1 to ${MONTHS}`, price: `months × the price (${subscriptionPriceOf(accepts[0].price, 1)} per month on ${accepts[0].network})` }
 			}
 		}
+	};
+}
+
+/** The test route: the same Eigenbeleg, paid with testnet USDC, for testnet data only (app.js). */
+export const TESTNET_ROUTE = 'POST /testnet/eigenbeleg';
+export const TESTNET_DESCRIPTION = 'TESTNET, test only, no value: an Eigenbeleg of testnet addresses, marked TESTNET, paid with testnet USDC';
+/** A NEAR testnet account: named (….testnet) or implicit (64 hex). */
+const TESTNET_ACCOUNT = /^([a-z0-9_-]+\.)*[a-z0-9_-]+\.testnet$|^[0-9a-f]{64}$/;
+
+/**
+ * The paywall of the test route, beside the main one: near:testnet only, its own recipient and
+ * relayer, never a mainnet network. It can run in production too, because what it sells is only
+ * ever testnet data (app.js refuses anything else before the 402), marked TESTNET in every PDF.
+ * Without TESTNET_PAY_TO there is none, and the test route is off.
+ *
+ * @param {object} c
+ * @param {string} [c.payTo] TESTNET_PAY_TO: the NEAR testnet account that receives the testnet USDC
+ * @param {string} [c.relayerId] TESTNET_RELAYER_ACCOUNT_ID: the testnet account that pays the gas
+ * @param {string} [c.relayerKey] TESTNET_RELAYER_SECRET_KEY; else read from the near-cli keychain
+ * @param {string} [c.rpcUrl] TESTNET_NEAR_RPC_URL: a NEAR testnet RPC instead of the default
+ * @param {number} [c.timeoutSeconds]
+ * @returns {Promise<{ middleware: import('express').RequestHandler, info: Record<string, unknown> } | null>}
+ */
+export async function createTestnetPaywall(c) {
+	if (!c.payTo) return null;
+	const network = 'near:testnet';
+	if (!TESTNET_ACCOUNT.test(c.payTo)) throw new Error('TESTNET_PAY_TO must be a NEAR testnet account (….testnet)');
+	if (!c.relayerId || !TESTNET_ACCOUNT.test(c.relayerId)) throw new Error('the test route needs TESTNET_RELAYER_ACCOUNT_ID, a NEAR testnet account (….testnet) that pays the gas');
+	if (c.rpcUrl && !/testnet/i.test(c.rpcUrl)) throw new Error('TESTNET_NEAR_RPC_URL must be a NEAR testnet RPC');
+	const secretKey = await nearSecretKey(c.relayerId, 'testnet', c.relayerKey);
+	const facilitator = new x402Facilitator();
+	const signer = createFacilitatorNearSigner({ relayers: [{ accountId: c.relayerId, secretKey }], rpcUrls: c.rpcUrl ? { [network]: c.rpcUrl } : undefined });
+	facilitator.register(/** @type {any} */ (network), new NearFacilitatorScheme(signer));
+	const server = new x402ResourceServer({
+		verify: (p, r) => facilitator.verify(p, r),
+		settle: (p, r) => facilitator.settle(p, r),
+		getSupported: async () => facilitator.getSupported()
+	});
+	server.register(/** @type {any} */ (network), new NearServerScheme());
+	const price = priceFor(network);
+	const accepts = [{ scheme: 'exact', price, network, payTo: c.payTo, maxTimeoutSeconds: c.timeoutSeconds ?? 300 }];
+	return {
+		middleware: /** @type {any} */ (paymentMiddleware(/** @type {any} */ ({ [TESTNET_ROUTE]: { accepts, description: TESTNET_DESCRIPTION, mimeType: 'application/pdf' } }), server)),
+		info: testnetInfo({ price, payTo: c.payTo, relayer: c.relayerId })
+	};
+}
+
+/**
+ * What GET / and /llms.txt say about the test route.
+ * @param {{ price: string, payTo: string, relayer: string }} o
+ */
+export function testnetInfo({ price, payTo, relayer }) {
+	const meta = NETWORKS['near:testnet'];
+	return {
+		mode: 'x402',
+		testnet: true,
+		endpoint: TESTNET_ROUTE,
+		accepts: [{ network: 'near:testnet', name: meta.name, asset: meta.asset, price, payTo, relayer, gasless: true }]
 	};
 }

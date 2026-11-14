@@ -77,7 +77,7 @@ Each needs its recipient and a relayer that pays the gas. Then, in `.env` on the
 
 ### 7. The first real payment (Nico)
 
-- [ ] `curl -s https://eigenbeleg.le-space.de/llms.txt`: mainnet networks, prices 0.10 / 1.00 USDC, the recipients you set, no testnet
+- [ ] `curl -s https://eigenbeleg.le-space.de/llms.txt`: `POST …/eigenbeleg` lists mainnet networks only, prices 0.10 / 1.00 USDC, the recipients you set (testnet appears only in the "Test (testnet)" section, once the test route is on)
 - [ ] `curl -si -X POST …/eigenbeleg` with a made-up payer: `402`, `PAYMENT-REQUIRED` lists only mainnet networks and the published amounts (`100000` = 0.10 USDC)
 - [ ] **Nico** pays once from his own mainnet account (agent: `npm run agent -- --api https://eigenbeleg.le-space.de …` with `AGENT_BUDGET=$0.10`, or a Claude Code session with the skill): the documents arrive, the transaction is on NearBlocks / Basescan, the USDC is at `PAY_TO`
 - [ ] the subscription once (`/eigenbeleg/subscribe/1`, 0.10 USDC): the confirmation and the cancel link work; cancel it again
@@ -89,6 +89,15 @@ Each needs its recipient and a relayer that pays the gas. Then, in `.env` on the
 - [ ] NEAR AI Agent Market: the listing, `MARKET_TOKEN` on the agent's machine (README, "On the NEAR AI Agent Market")
 - [ ] after the launch: the Claude plugin directory (claude.ai/directory/manage, `claude plugin validate plugin` first), issue #29
 - [ ] issue #5's test with Claude: a session given only the URL finds the API, pays and gets valid documents; note where it got stuck
+
+### 9. The test route (optional, after the launch)
+
+`POST /testnet/eigenbeleg`: testnet data for testnet USDC, in production, for developing and testing clients (README, "The test route").
+
+- [ ] **Nico** creates two NEAR testnet accounts, e.g. `eigenbeleg-test.testnet` (receives) and `eigenbeleg-test-relayer.testnet` (pays the gas; faucet NEAR is enough), and registers the receiving one with testnet USDC (`storage_deposit`, README "Pay for it with x402 on NEAR testnet")
+- [ ] on the host, `vi /opt/eigenbeleg/deploy/.env`: `TESTNET_PAY_TO`, `TESTNET_RELAYER_ACCOUNT_ID`, `TESTNET_RELAYER_SECRET_KEY` (Nico types the key; it is never the mainnet one), then `docker compose up -d eigenbeleg`
+- [ ] the log says `production (mainnet payments only)` and `test route: [{"network":"near:testnet",…}]`; `POST …/testnet/eigenbeleg` with `"network": "mainnet"` answers 400, with `"network": "testnet"` 402 offering `near:testnet` only
+- [ ] a paid run: `npm run agent -- --api https://eigenbeleg.le-space.de/testnet --network testnet …` with a testnet agent account; the PDFs say TESTNET, the files are `TEST-…`
 
 ## Rollback
 

@@ -63,7 +63,7 @@ curl -si -X POST https://eigenbeleg.le-space.de/eigenbeleg -H 'content-type: app
 ```
 You should see `HTTP/2 402` and a `payment-required` header (base64 JSON, x402 v2). Before paying, the request was checked: change `chain` to `dogecoin` and you get a `400` instead.
 
-With a mainnet account holding USDC, the agent pays it: add `--api https://eigenbeleg.le-space.de` to `npm run agent` (a real payment; `AGENT_BUDGET` caps it). To try payments without real money, run your own API on testnet (next section).
+With a mainnet account holding USDC, the agent pays it: add `--api https://eigenbeleg.le-space.de` to `npm run agent` (a real payment; `AGENT_BUDGET` caps it). To try payments without real money, use the test route on the hosted API: `--api https://eigenbeleg.le-space.de/testnet --network testnet` pays in testnet USDC for testnet addresses only ("Test route" under "Deploy"), or run your own API on testnet (next section).
 
 ## Pay for it with x402 on NEAR testnet (your own API, development)
 
@@ -304,6 +304,7 @@ eigenbeleg.example.com {
 | --- | --- | --- |
 | `PAYWALL` | `x402` (x402 `exact`, USDC, on the networks in `PAY_NETWORKS`; `near` is its old name), `ping` (PingPay, mainnet only), `none` (development: free, and says so) | no |
 | `PAY_NETWORKS` | where customers may pay, comma-separated: `near:mainnet`, `eip155:8453` (Base), `eip155:1` (Ethereum), and for development `near:testnet`; the 402 offers them all (not which chain is read). No default: it must be set. `PAY_NETWORK` with one network still works | no |
+| `TESTNET_PAY_TO`, `TESTNET_RELAYER_ACCOUNT_ID`, `TESTNET_RELAYER_SECRET_KEY`, `TESTNET_NEAR_RPC_URL` | the test route `POST /testnet/eigenbeleg` (testnet data for testnet USDC, production too): its recipient, relayer and RPC, NEAR testnet accounts only; unset: the route is off | no |
 | `EIGENBELEG_DEV_TESTNET` | `1`: allow `near:testnet` in `PAY_NETWORKS`. Development and tests only: a production build refuses to start when it is set | no |
 | `EIGENBELEG_PRODUCTION` | `1`: treat this process as a production build outside the image (the image is one anyway). It can only switch production on | no |
 | `PRICE` | price per request in USDC, e.g. `$0.10`; `PRICE_EIP155_1` etc. set one network's own price (Ethereum's gas costs the relayer more) | no |
@@ -331,6 +332,8 @@ eigenbeleg.example.com {
 Testnet vs mainnet: `PAY_NETWORKS` decides where customers pay; the chain data read is chosen per request (`network` in the body). For production: `PAY_NETWORKS=near:mainnet,eip155:8453,eip155:1` with `PAY_TO`, `PAY_TO_EVM` and both relayers.
 
 **Production takes mainnet payments only.** The image is a production build: its last stage writes `apps/api/production` (owned by root, on a read-only filesystem, so `.env` cannot remove it), and with it the API refuses to start, saying why, when `PAY_NETWORKS` is unset or names `near:testnet`, when `PAYWALL=none`, when `NEAR_RPC_URL` or an `EVM_RPC_*` points at a test network or at this machine, or when `EIGENBELEG_DEV_TESTNET` is set. A checkout is a development build: there `near:testnet` needs `EIGENBELEG_DEV_TESTNET=1`. The rules are in [`apps/api/src/release.js`](apps/api/src/release.js), the test that starts the server as a production build with a testnet network and sees it refuse in [`apps/api/test/release.test.js`](apps/api/test/release.test.js). See: `docker logs eigenbeleg` starts with `production (mainnet payments only)`.
+
+**The test route, in production too.** `POST /testnet/eigenbeleg` sells the same documents for testnet USDC, but only for testnet addresses (`"network": "testnet"`; anything else is a `400` before the 402), every PDF marked TESTNET and every file name `TEST-`. It has its own paywall with `near:testnet` only, its own recipient and relayer (`TESTNET_PAY_TO`, `TESTNET_RELAYER_ACCOUNT_ID`, `TESTNET_RELAYER_SECRET_KEY`, `TESTNET_NEAR_RPC_URL`; `….testnet` accounts only), and never shares a 402 with the main route, so testnet USDC never buys a mainnet document. Limits: 30 requests an hour per IP (402s included), periods up to 31 days, 20 mails a day in all (subject `[TESTNET]`), no subscription; `GET /testnet/blocks` too, so a client takes `…/testnet` as its API base. Without `TESTNET_PAY_TO` the route answers 404. It is for developing and testing clients and new features against the running code: no contract, no invoice, no value.
 
 This API is its own x402 facilitator on every network: the NEAR relayer submits delegate actions, the EVM relayer submits `transferWithAuthorization`; no third party sees or settles the payments.
 

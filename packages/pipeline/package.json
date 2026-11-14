@@ -12,7 +12,8 @@
     "./sources": "./src/sources.js",
     "./generate": "./src/generate.js",
     "./keyed": "./src/keyed.js",
-    "./rates": "./src/rates.js"
+    "./rates": "./src/rates.js",
+    "./prices": "./src/prices.js"
   },
   "dependencies": {
     "@le-space/chains": "0.4.0",

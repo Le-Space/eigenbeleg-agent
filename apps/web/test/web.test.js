@@ -152,3 +152,26 @@ test('the service worker keeps the placeholders the build fills with every file 
 	// Never a data source's answer in the cache: only requests to the worker's own scope are handled.
 	assert.match(sw, /url\.origin !== scope\.origin/);
 });
+
+test('the page shows the published prices and pays on mainnet only', async () => {
+	const { TEXTS } = await import('../src/i18n.js');
+	const { priceFor, timesMonths, usdc } = await import('@eigenbeleg/pipeline/prices');
+	assert.equal(TEXTS.de.payNearPrice, usdc(priceFor('near:mainnet'), 'de'));
+	assert.equal(TEXTS.en.payEthPrice, usdc(priceFor('eip155:1'), 'en'));
+	assert.ok(TEXTS.de.subscriptionNote.includes(usdc(timesMonths(priceFor('near:mainnet')), 'de')));
+	assert.ok(TEXTS.en.prompt.includes(usdc(priceFor('near:mainnet'), 'en')));
+	// index.html's German text (what shows before the script runs) is the same as TEXTS.de.
+	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+	const unescape = (/** @type {string} */ s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+	for (const key of ['payNearPrice', 'payBasePrice', 'payEthPrice', 'payNote', 'subscriptionNote', 'agentsPrompt', 'prompt']) {
+		const m = new RegExp(`data-i18n="${key}">([^<]*)<`).exec(html);
+		assert.ok(m, key);
+		assert.equal(unescape(m[1]), TEXTS.de[/** @type {keyof typeof TEXTS.de} */ (key)], key);
+	}
+	// No payment on a testnet is offered or suggested on the page.
+	for (const lang of /** @type {const} */ (['de', 'en'])) {
+		for (const key of ['payNote', 'agentsPrompt', 'prompt', 'agentsText', 'subscriptionNote']) {
+			assert.doesNotMatch(String(TEXTS[lang][/** @type {keyof typeof TEXTS.de} */ (key)]), /testnet/i, `${lang}.${key}`);
+		}
+	}
+});

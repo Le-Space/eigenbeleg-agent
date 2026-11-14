@@ -44,14 +44,14 @@ What you should see:
 
 The demo's EUR rate is fixed (1.92 €/NEAR); the API itself uses the day's rate (below).
 
-## Try the hosted API (NEAR testnet)
+## Try the hosted API
 
-A public instance runs at **https://eigenbeleg.le-space.de** (testnet payments, open source, AGPL).
+A public instance runs at **https://eigenbeleg.le-space.de** (mainnet payments in real USDC, open source, AGPL). Prices: 0.10 USDC per request on NEAR and Base, 1.00 USDC on Ethereum; a year's subscription 12 × that ([`packages/pipeline/src/prices.js`](packages/pipeline/src/prices.js), the one list the API, `/llms.txt` and the page use).
 
 ```bash
 curl -s https://eigenbeleg.le-space.de/
 ```
-You should see the service, its price (`$0.10`, USDC on `near:testnet` to `eigenbeleg-api.testnet`), the building blocks (`near`, `akash`, `filecoin`), the licence and the source link.
+You should see the service, its prices per payment network with the recipients, the building blocks (`near`, `akash`, `filecoin`), the licence and the source link.
 
 ```bash
 curl -s https://eigenbeleg.le-space.de/blocks/near/check
@@ -63,9 +63,9 @@ curl -si -X POST https://eigenbeleg.le-space.de/eigenbeleg -H 'content-type: app
 ```
 You should see `HTTP/2 402` and a `payment-required` header (base64 JSON, x402 v2). Before paying, the request was checked: change `chain` to `dogecoin` and you get a `400` instead.
 
-With a funded testnet account (next section), the agent pays it: add `--api https://eigenbeleg.le-space.de` to `npm run agent`. A run like this on 6 Nov 2026: [`73J2MB…bedV`](https://testnet.nearblocks.io/txns/73J2MBmkf9BuBJfK2jsMyqPY1pGDM6PyKtWcp5BnbedV).
+With a mainnet account holding USDC, the agent pays it: add `--api https://eigenbeleg.le-space.de` to `npm run agent` (a real payment; `AGENT_BUDGET` caps it). To try payments without real money, run your own API on testnet (next section).
 
-## Pay for it with x402 on NEAR testnet
+## Pay for it with x402 on NEAR testnet (your own API, development)
 
 This is the real flow: the API asks for 0.10 USDC, and the agent signs one USDC transfer and gets the Eigenbelege.
 

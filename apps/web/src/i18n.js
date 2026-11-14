@@ -2,6 +2,14 @@
 // The page's texts in German and English. German is the default; a browser
 // set to another language gets English; the choice is kept per browser.
 // Texts are only ever set with textContent (and placeholders as attributes).
+// The prices come from the API's own list (@eigenbeleg/pipeline/prices), so the page
+// shows what the 402 asks; web.test.js holds index.html's German fallback to it.
+
+import { priceFor, timesMonths, usdc } from '@eigenbeleg/pipeline/prices';
+
+const NEAR = priceFor('near:mainnet');
+const BASE = priceFor('eip155:8453');
+const ETH = priceFor('eip155:1');
 
 /** @typedef {'de' | 'en'} Lang */
 
@@ -26,15 +34,15 @@ const de = {
 	payNearHow: 'Eine signierte Delegate-Action; unser Relayer trägt das Gas',
 	payEvmHow: 'Eine signierte EIP-3009-Überweisung; unser Relayer trägt das Gas',
 	payEthHow: 'Wie Base; teurer, weil das Gas auf Ethereum ein Vielfaches kostet',
-	payNearPrice: '0,10 USDC',
-	payBasePrice: '0,10 USDC',
-	payEthPrice: '1,00 USDC',
-	payNote: 'Die 402-Antwort bietet alle Netze an, der Agent wählt eins. Welche Netze und Preise die laufende API gerade annimmt, sagt sie selbst unter /llms.txt; der Hackathon-Stand läuft noch auf dem NEAR-Testnet.',
-	subscriptionNote: 'Wer die Kontoauszüge jeden Monat braucht, abonniert sie: einmal zahlen, und ab dem 2. jedes Monats kommt der Auszug für den Vormonat per E-Mail, etwa ins Postfach des Dokumentenmanagementsystems. Ein Jahr auf einmal, oder 1 bis 12 Monate im Voraus zum normalen Preis je Anfrage (POST /eigenbeleg/subscribe/<Monate>). Dafür hebt die API Chain, Adressen, Aussteller und E-Mail-Adresse verschlüsselt auf, bis der letzte Auszug verschickt ist oder Sie über den Link in jeder Mail beenden; Restmonate werden nicht erstattet. Ob die laufende API das Abo anbietet, steht in /llms.txt.',
-	agentsPrompt: 'So beauftragen Sie zum Beispiel Claude oder einen anderen Agenten, der x402 kann (die Adresse ist unser eigener Testnet-Agent, mit echten Zahlungen):',
+	payNearPrice: usdc(NEAR, 'de'),
+	payBasePrice: usdc(BASE, 'de'),
+	payEthPrice: usdc(ETH, 'de'),
+	payNote: 'Die 402-Antwort bietet alle Netze an, der Agent wählt eins. Bezahlt wird nur auf dem Mainnet, mit echtem USDC; die Preise oben sind die der API, die laufende nennt sie auch unter /llms.txt.',
+	subscriptionNote: `Wer die Kontoauszüge jeden Monat braucht, abonniert sie: einmal zahlen, und ab dem 2. jedes Monats kommt der Auszug für den Vormonat per E-Mail, etwa ins Postfach des Dokumentenmanagementsystems. Ein Jahr auf einmal (${usdc(timesMonths(NEAR), 'de')}, auf Ethereum ${usdc(timesMonths(ETH), 'de')}), oder 1 bis 12 Monate im Voraus zum normalen Preis je Anfrage (POST /eigenbeleg/subscribe/<Monate>). Dafür hebt die API Chain, Adressen, Aussteller und E-Mail-Adresse verschlüsselt auf, bis der letzte Auszug verschickt ist oder Sie über den Link in jeder Mail beenden; Restmonate werden nicht erstattet. Ob die laufende API das Abo anbietet, steht in /llms.txt.`,
+	agentsPrompt: 'So beauftragen Sie zum Beispiel Claude oder einen anderen Agenten, der x402 kann; Zeitraum, Adresse und Aussteller sind Beispiele, setzen Sie Ihre ein:',
 	copy: 'In die Zwischenablage',
 	copied: 'Kopiert',
-	prompt: 'Besorge mir die Eigenbelege und den Kontoauszug für den 1. bis 6. November 2026 für meine NEAR-Testnet-Adresse eigenbeleg-agent.testnet von https://eigenbeleg.le-space.de. Lies zuerst https://eigenbeleg.le-space.de/llms.txt. Aussteller: Wolkenfabrik Hosting GmbH, Musterstraße 1, 12345 Beispielstadt. Zahle höchstens 0,10 USDC.',
+	prompt: `Besorge mir die Eigenbelege und den Kontoauszug für Oktober 2026 für meine NEAR-Adresse wolkenfabrik.near von https://eigenbeleg.le-space.de. Lies zuerst https://eigenbeleg.le-space.de/llms.txt und zeig mir die kostenlose Vorschau, bevor du zahlst. Aussteller: Wolkenfabrik Hosting GmbH, Musterstraße 1, 12345 Beispielstadt. Zahle höchstens ${usdc(NEAR, 'de')}.`,
 	agentsCurl: 'Was die API ist, was sie kostet und wie man zahlt, sagt sie selbst:',
 	agentsMore: 'Der Agent aus dem Quellcode kauft innerhalb seines Budgets, prüft die PDFs und legt eine Quittung ab. Beauftragen lässt er sich auch auf dem',
 	hSkills: 'Als Skill für Claude Code und andere Agenten',
@@ -164,15 +172,15 @@ const en = {
 	payNearHow: 'One signed delegate action; our relayer pays the gas',
 	payEvmHow: 'One signed EIP-3009 transfer; our relayer pays the gas',
 	payEthHow: 'As on Base; dearer, because gas on Ethereum costs many times more',
-	payNearPrice: '0.10 USDC',
-	payBasePrice: '0.10 USDC',
-	payEthPrice: '1.00 USDC',
-	payNote: 'The 402 offers every network and the agent picks one. Which networks and prices the running API takes right now, it says itself at /llms.txt; the hackathon instance still runs on the NEAR testnet.',
-	subscriptionNote: 'Whoever needs the statements every month subscribes: pay once, and from the 2nd of each month the statement for the month before arrives by e-mail, say in the document management system\'s inbox. A year at once, or 1 to 12 months in advance at the normal price per request (POST /eigenbeleg/subscribe/<months>). For that the API keeps chain, addresses, issuer and e-mail address encrypted until the last statement is sent or you cancel through the link in every mail; the remaining months are not refunded. Whether the running API offers the subscription, /llms.txt says.',
-	agentsPrompt: 'This is how you brief Claude, say, or another agent that speaks x402 (the address is our own testnet agent, with real payments):',
+	payNearPrice: usdc(NEAR, 'en'),
+	payBasePrice: usdc(BASE, 'en'),
+	payEthPrice: usdc(ETH, 'en'),
+	payNote: 'The 402 offers every network and the agent picks one. Payment is on mainnet only, in real USDC; the prices above are the API’s, and the running one also names them at /llms.txt.',
+	subscriptionNote: `Whoever needs the statements every month subscribes: pay once, and from the 2nd of each month the statement for the month before arrives by e-mail, say in the document management system's inbox. A year at once (${usdc(timesMonths(NEAR), 'en')}, on Ethereum ${usdc(timesMonths(ETH), 'en')}), or 1 to 12 months in advance at the normal price per request (POST /eigenbeleg/subscribe/<months>). For that the API keeps chain, addresses, issuer and e-mail address encrypted until the last statement is sent or you cancel through the link in every mail; the remaining months are not refunded. Whether the running API offers the subscription, /llms.txt says.`,
+	agentsPrompt: 'This is how you brief Claude, say, or another agent that speaks x402; period, address and issuer are examples, put in your own:',
 	copy: 'Copy to clipboard',
 	copied: 'Copied',
-	prompt: 'Get me the Eigenbelege and the account statement for 1 to 6 November 2026 for my NEAR testnet address eigenbeleg-agent.testnet from https://eigenbeleg.le-space.de. Read https://eigenbeleg.le-space.de/llms.txt first. Issuer: Wolkenfabrik Hosting GmbH, Musterstraße 1, 12345 Beispielstadt. Pay at most 0.10 USDC.',
+	prompt: `Get me the Eigenbelege and the account statement for October 2026 for my NEAR address wolkenfabrik.near from https://eigenbeleg.le-space.de. Read https://eigenbeleg.le-space.de/llms.txt first and show me the free preview before paying. Issuer: Wolkenfabrik Hosting GmbH, Musterstraße 1, 12345 Beispielstadt. Pay at most ${usdc(NEAR, 'en')}.`,
 	agentsCurl: 'What the API is, what it costs and how to pay, it says itself:',
 	agentsMore: 'The agent in the source code buys within its budget, checks the PDFs and keeps a receipt. It can also be hired on the',
 	hSkills: 'As a skill for Claude Code and other agents',

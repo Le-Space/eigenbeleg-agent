@@ -28,6 +28,8 @@ import { toFacilitatorEvmSigner } from '@x402/evm';
 import { ExactEvmScheme as EvmServerScheme } from '@x402/evm/exact/server';
 import { ExactEvmScheme as EvmFacilitatorScheme } from '@x402/evm/exact/facilitator';
 
+import { priceFor, timesMonths } from '@eigenbeleg/pipeline/prices';
+
 import { nearSecretKey } from './keys.js';
 import { checkPayments } from './release.js';
 import { MONTHS, MONTH_CHOICES, ROUTE as SUBSCRIBE_ROUTE, routeFor } from './subscriptions.js';
@@ -47,9 +49,7 @@ export const subscribeDescription = (months) => `Subscription: ${months} monthly
  * @param {number} [months]
  */
 export function subscriptionPriceOf(price, months = MONTHS) {
-	const n = Number(price.replace(/^\$/, ''));
-	if (!Number.isFinite(n) || n < 0) throw new Error(`PRICE ${price}: a USDC amount like $0.10`);
-	return `$${(n * months).toFixed(2)}`;
+	return timesMonths(price, months);
 }
 
 /** The networks this server can take USDC on, and what the 402 and GET / call them. */
@@ -117,9 +117,17 @@ export async function createPaywall(c) {
 	if (!given.length) throw new Error('PAY_NETWORKS: name the networks to take USDC on, e.g. near:mainnet,eip155:8453');
 	const networks = [...new Set(given)];
 	for (const n of networks) if (!Object.hasOwn(NETWORKS, n)) throw new Error(`PAY_NETWORKS: unknown network ${n}; known: ${Object.keys(NETWORKS).join(', ')}`);
-	const price = c.price ?? '$0.10';
-	const priceOf = (/** @type {string} */ n) => c.prices?.[n] ?? price;
+	// The published prices (@eigenbeleg/pipeline/prices), unless PRICE / PRICE_<NETWORK> set others.
+	const priceOf = (/** @type {string} */ n) => c.prices?.[n] ?? c.price ?? priceFor(n);
 	const subscriptionPriceFor = (/** @type {string} */ n) => c.subscriptionPrices?.[n] ?? c.subscriptionPrice ?? subscriptionPriceOf(priceOf(n));
+	// A production build charges what the page and /llms.txt publish, nothing else: a price
+	// change is a change of @eigenbeleg/pipeline/prices, so page and API change together.
+	if (c.production) {
+		for (const n of networks) {
+			if (priceOf(n) !== priceFor(n)) throw new Error(`production build: the price on ${n} is ${priceOf(n)}, the published one ${priceFor(n)}. Leave PRICE and PRICE_* unset; prices change in packages/pipeline/src/prices.js.`);
+			if (subscriptionPriceFor(n) !== subscriptionPriceOf(priceFor(n))) throw new Error(`production build: the subscription on ${n} costs ${subscriptionPriceFor(n)}, the published ${subscriptionPriceOf(priceFor(n))}. Leave PRICE_SUBSCRIPTION* unset.`);
+		}
+	}
 	const timeout = c.timeoutSeconds ?? 300;
 
 	const facilitator = new x402Facilitator();

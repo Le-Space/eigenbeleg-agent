@@ -8,3 +8,5 @@ export { BLOCKS, checkBlock, describeBlocks } from './blocks.js';
 // Ethereum and Base, only with an Alchemy key: the API's own, or the person's own in the web UI and the CLI.
 export { KEYED_BLOCKS, blocksFor, isAlchemyKey, keyedSources } from './keyed.js';
 export { dataSources } from './sources.js';
+// The API's published prices, for the 402, /llms.txt and the page.
+export { PRICES, SUBSCRIPTION_MONTHS, priceFor, timesMonths, usdc } from './prices.js';

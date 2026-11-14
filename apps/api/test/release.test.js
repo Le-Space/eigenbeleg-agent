@@ -152,3 +152,22 @@ test('the image is a production build: its final stage writes the marker', () =>
 	assert.doesNotMatch(dockerfile, /EIGENBELEG_DEV_TESTNET/);
 	assert.doesNotMatch(readFileSync(join(root, 'deploy/compose.yaml'), 'utf8'), /EIGENBELEG_DEV_TESTNET/);
 });
+
+test('a production build charges the published prices only', async () => {
+	const { PRICES, priceFor, timesMonths } = await import('@eigenbeleg/pipeline/prices');
+	const { MONTHS } = await import('../src/subscriptions.js');
+	const { SUBSCRIPTION_MONTHS } = await import('@eigenbeleg/pipeline/prices');
+	assert.equal(SUBSCRIPTION_MONTHS, MONTHS);
+	const base = { mode: /** @type {const} */ ('x402'), production: true, networks: ['eip155:8453', 'eip155:1'], payToEvm, evmRelayerKey: generatePrivateKey() };
+	const pw = await createPaywall(base);
+	const info = /** @type {any} */ (pw.info);
+	assert.deepEqual(info.accepts.map((/** @type {any} */ a) => [a.network, a.price]), [['eip155:8453', priceFor('eip155:8453')], ['eip155:1', PRICES['eip155:1']]]);
+	assert.deepEqual(info.subscription.accepts.map((/** @type {any} */ a) => a.price), [timesMonths(priceFor('eip155:8453')), timesMonths(PRICES['eip155:1'])]);
+	await assert.rejects(createPaywall({ ...base, price: '$0.05' }), /the published one/);
+	await assert.rejects(createPaywall({ ...base, prices: { 'eip155:1': '$2.00' } }), /eip155:1 is \$2\.00/);
+	await assert.rejects(createPaywall({ ...base, subscriptionPrice: '$0.99' }), /PRICE_SUBSCRIPTION/);
+	// The same values as the published ones are fine (an .env that still carries them).
+	await createPaywall({ ...base, price: PRICES.default, prices: { 'eip155:1': PRICES['eip155:1'] } });
+	// Development may set others.
+	await createPaywall({ ...base, production: false, price: '$0.05' });
+});

@@ -49,8 +49,8 @@ the payment days, as PDF/A-2b and CSV. It stores nothing beyond the request.
 
 1. **Read the current terms first:** `GET https://eigenbeleg.le-space.de/llms.txt`.
    It names the chains the running instance serves, the payment networks and the
-   price per request, and whether mailing the files is offered. They change
-   (testnet during the pilot, mainnet later), so do not rely on this file for them.
+   price per request, and whether mailing the files is offered. Payment is in real
+   USDC on mainnet networks; take the networks and prices from that file, not from here.
 2. **Build the request body** (below). `GET https://eigenbeleg.le-space.de/blocks`
    lists the chains with their networks and the kinds of payment each knows.
 3. **Preview for free:** `POST https://eigenbeleg.le-space.de/eigenbeleg/preview`

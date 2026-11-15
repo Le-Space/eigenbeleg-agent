@@ -123,6 +123,10 @@ if (v.market) {
 	const result = await subscribe({ job: /** @type {any} */ (job), api, paidFetch, lastPayment, outDir, months: v.months ? Number(v.months) : undefined });
 	process.exitCode = result.status === 'subscribed' ? 0 : 1;
 } else {
-	const result = await runJob({ job: /** @type {any} */ (job), api, fetch, paidFetch, lastPayment, outDir });
+	// An API that is not there (a wrong --api, a route that is off) is one line, not a stack trace.
+	const result = await runJob({ job: /** @type {any} */ (job), api, fetch, paidFetch, lastPayment, outDir }).catch((/** @type {Error} */ e) => {
+		console.error(`Agent stopped: ${e.message}`);
+		return { status: 'failed' };
+	});
 	process.exitCode = result.status === 'delivered' || result.status === 'proposed' ? 0 : 1;
 }

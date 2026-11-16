@@ -234,3 +234,14 @@ test('help and support: the addresses, what to send, never a secret, and the pri
 	assert.match(security, /No denial of service/);
 	assert.match(security, /No social engineering/);
 });
+
+test('Le Space addresses: contact@ (legal), eigenbeleg@ (help), support@ (payments, credits), security@; no other', async () => {
+	const { execFileSync } = await import('node:child_process');
+	const root = new URL('../../../', import.meta.url);
+	const found = execFileSync('git', ['grep', '-h', '-o', '-E', '[A-Za-z0-9._%+-]+@le-space\\.de', '--', '.', ':!package-lock.json'], { cwd: root, encoding: 'utf8' });
+	const used = new Set(found.split('\n').filter(Boolean));
+	assert.deepEqual([...used].sort(), ['contact@le-space.de', 'eigenbeleg@le-space.de', 'security@le-space.de', 'support@le-space.de'].filter((a) => used.has(a)));
+	assert.ok(used.has('contact@le-space.de') && used.has('eigenbeleg@le-space.de'));
+	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+	assert.match(html, /Fragen zum Datenschutz: <a href="mailto:contact@le-space\.de">/);
+});

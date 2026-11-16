@@ -110,7 +110,7 @@ test('German and English have the same texts and placeholders; German is the def
 	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 	for (const m of html.matchAll(/data-i18n="(\w+)"/g)) assert.ok(m[1] in TEXTS.de, m[1]);
 	// The terms of business and the privacy policy are in the markup in both languages; the Impressum is le-space.de's.
-	assert.deepEqual([...html.matchAll(/data-lang="(\w+)"/g)].map((m) => m[1]), ['de', 'en', 'de', 'en']);
+	assert.deepEqual([...html.matchAll(/data-lang="(\w+)"/g)].map((m) => m[1]), ['de', 'en', 'de', 'en', 'de', 'en']);
 	assert.match(html, /href="https:\/\/le-space\.de\/#impressum"/);
 });
 
@@ -198,4 +198,39 @@ test('the paid API is for businesses only; the terms are on the page in both lan
 	// Section 6 of the privacy policy names every payment network, not NEAR alone.
 	assert.match(html, /auf der gewählten Blockchain \(NEAR, Base oder Ethereum\)/);
 	assert.match(html, /on the chosen blockchain \(NEAR, Base or Ethereum\)/);
+});
+
+test('help and support: the addresses, what to send, never a secret, and the private way for weaknesses, in both languages', async () => {
+	const { TEXTS } = await import('../src/i18n.js');
+	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+	const start = html.indexOf('<section id="hilfe"');
+	assert.ok(start > 0, 'a visible section, not folded');
+	const help = html.slice(start, html.indexOf('</section>', start));
+	const [de, en] = help.split('<div data-lang="en" hidden>');
+	for (const part of [de, en]) {
+		assert.match(part, /href="mailto:eigenbeleg@le-space\.de"/);
+		assert.match(part, /href="mailto:support@le-space\.de"/);
+		assert.match(part, /security\/advisories\/new/);
+		assert.match(part, /SECURITY\.md/);
+		assert.match(part, /href="mailto:security@le-space\.de"/);
+		assert.match(part, /90/);
+		// No answer time is promised.
+		assert.doesNotMatch(part, /\b(Stunden|Werktag|hours|business day|within)\b/i);
+	}
+	assert.match(de, /Le Space fragt nie nach Seed-Phrase, Passkey, privatem Schlüssel oder Token/);
+	assert.match(en, /Le Space never asks for a seed phrase, a passkey, a private key or a token/);
+	assert.match(de, /Bitte nicht mitschicken: Belege/);
+	assert.match(en, /Please do not send: documents/);
+	assert.equal((html.match(/href="#hilfe" data-i18n="navHelp"/g) ?? []).length, 2, 'in the jump bar and the footer');
+	assert.equal(TEXTS.de.hHelp, 'Hilfe & Support');
+	assert.equal(TEXTS.en.hHelp, 'Help & support');
+	const security = await readFile(new URL('../../../SECURITY.md', import.meta.url), 'utf8');
+	assert.match(security, /Le-Space\/eigenbeleg-agent\/security\/advisories\/new/);
+	assert.match(security, /never asks for a seed phrase, a passkey, a private key or a token/);
+	for (const h of ['## Reporting a weakness', '## Coordinated disclosure', '## Safe harbor', '## Rules', '## What is in scope', '## No bounty']) assert.ok(security.includes(h), h);
+	assert.match(security, /\*\*Draft, not yet reviewed by our lawyer\.\*\*/);
+	assert.match(security, /mailto:security@le-space\.de/);
+	assert.match(security, /90 days/);
+	assert.match(security, /No denial of service/);
+	assert.match(security, /No social engineering/);
 });

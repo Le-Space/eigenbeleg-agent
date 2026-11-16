@@ -394,6 +394,12 @@ Everything in this repository was written for NEAR HACKATHON from 6 Nov 2026 (se
 - The EUR rate is the day's average for the UTC day, not the minute of the payment.
 - Testnet Eigenbelege are marked TESTNET and use the mainnet asset's rate for illustration only.
 
+## Help, support and security
+
+- Help with the page, the API or a document: eigenbeleg@le-space.de; payments, invoices and credits: support@le-space.de. What to send (and what never) is on the page: [Hilfe & Support](https://eigenbeleg.le-space.de/ui/#hilfe).
+- Le Space never asks for a seed phrase, a passkey, a private key or a token.
+- Security weaknesses: privately to security@le-space.de or through [GitHub's private reporting](https://github.com/Le-Space/eigenbeleg-agent/security/advisories/new); the process, the rules and the scope are in [SECURITY.md](SECURITY.md), and the API serves [`/.well-known/security.txt`](https://eigenbeleg.le-space.de/.well-known/security.txt).
+
 ## Licence and attribution
 
 [AGPL-3.0-or-later](LICENSE), © 2026 Le Space UG (haftungsbeschränkt), the same licence as [Belege](https://github.com/Le-Space/belege). Every source file says so in its `SPDX-License-Identifier` line.

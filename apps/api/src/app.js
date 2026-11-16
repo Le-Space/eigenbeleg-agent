@@ -46,6 +46,16 @@ import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatc
  * @param {string} [o.publicUrl] this instance's public origin, e.g. https://eigenbeleg.le-space.de, for the share
  *   cards' absolute URLs; unset: taken from the request's Host (and X-Forwarded-Proto)
  */
+/** Where to get help; what to send is on the page (/ui/#hilfe). */
+export const SUPPORT = Object.freeze({
+	help: 'eigenbeleg@le-space.de',
+	payments: 'support@le-space.de',
+	security: 'security@le-space.de or https://github.com/Le-Space/eigenbeleg-agent/security/advisories/new',
+	policy: 'https://github.com/Le-Space/eigenbeleg-agent/blob/main/SECURITY.md',
+	page: '/ui/#hilfe',
+	never: 'Le Space never asks for a seed phrase, passkey, private key or token'
+});
+
 /** Where the terms of business are: a folded section of the web UI. */
 export const TERMS_PATH = '/ui/#agb';
 
@@ -100,6 +110,7 @@ export function createApp({
 			people: 'the web UI does everything in the browser, free; nothing is sent to this API',
 			customers: `businesses only (§ 14 BGB): the paid API sells to businesses under its terms of business, ${TERMS_PATH} on this host; prices include ${VAT}% German VAT; invoice on request (contact@le-space.de, with the transaction hash). Private persons use the web UI, free.`,
 			terms: TERMS_PATH,
+			support: SUPPORT,
 			agents: '/llms.txt',
 			payment: paywall.info,
 			request: {
@@ -191,6 +202,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 - The documents are in German. An Eigenbeleg counts only once the payer signs it; whether a tax adviser accepts it is theirs to decide.
 - email: the files go as attachments (stable names: EB-….pdf, KA-….pdf, EB-….csv; subject "Eigenbeleg EB-… · chain network · period"), so a document management system's inbox can sort them. The answer says \`mail: queued\` (format json) or carries X-Eigenbeleg-Mail: queued. The address is used for that one mail only.
 - As a skill (Agent Skills format, agentskills.io): ${source}/tree/main/plugin/skills/eigenbeleg-api – these steps for Claude Code and other agents that read SKILL.md. Without paying, on the user's own machine (nothing sent here): ${source}/tree/main/plugin/skills/eigenbeleg-local, i.e. \`npm run local\` in a checkout.
+- Help: ${SUPPORT.help}; payments, invoices and credits: ${SUPPORT.payments}. Send the status and \`error\` of the answer and, for a payment, the transaction hash; never documents, names, postal addresses, keys or tokens. Le Space never asks for a seed phrase, passkey, private key or token. Security weaknesses: privately, ${SUPPORT.security} (${base}/ui/#hilfe).
 - Nothing is stored beyond the request. Source (AGPL-3.0-or-later): ${source}
 `);
 	});
@@ -198,6 +210,24 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 	const under = (/** @type {string} */ path) => (testnet ? [path, `/testnet${path}`] : path);
 	app.get(under('/blocks'), (_req, res) => res.json({ blocks: describeBlocks(blocks) }));
 	app.get(under('/blocks/:chain/check'), async (req, res) => res.json(await checkBlock(req.params.chain, deps)));
+	// RFC 9116: where to report a weakness. Expires is always half a year ahead: the policy is the repository's SECURITY.md.
+	app.get('/.well-known/security.txt', (req, res) => {
+		const base = origin(req, publicUrl);
+		const expires = new Date((deps.now?.() ?? new Date()).getTime() + 182 * 86_400_000);
+		expires.setUTCHours(0, 0, 0, 0);
+		res.setHeader('Cache-Control', 'public, max-age=86400');
+		res.type('text/plain; charset=utf-8').send(
+			[
+				'Contact: mailto:security@le-space.de',
+				'Contact: https://github.com/Le-Space/eigenbeleg-agent/security/advisories/new',
+				`Expires: ${expires.toISOString().replace('.000Z', 'Z')}`,
+				'Preferred-Languages: de, en',
+				...(base ? [`Canonical: ${base}/.well-known/security.txt`] : []),
+				`Policy: ${SUPPORT.policy}`,
+				''
+			].join('\n')
+		);
+	});
 	app.get('/health', (_req, res) => res.json({ ok: true, paywall: paywall.info.mode }));
 
 	// The subscription (#20): checked like a paid request before a price is named; stored only once the

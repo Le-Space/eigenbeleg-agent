@@ -4,13 +4,23 @@ on:
   push:
     branches: [main]
   pull_request:
+  # By hand, e.g. on Le Space's own one-job runner on Aleph while hosted minutes are blocked
+  # (relay-button `gh-runner up --repo Le-Space/eigenbeleg-agent`).
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Where the job runs ("aleph" needs a runner started with relay-button gh-runner)
+        type: choice
+        options: [github, aleph]
+        default: aleph
 
 permissions:
   contents: read
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # The repository variable CI_RUNNER=aleph sends every run to a one-job runner on Aleph.
+    runs-on: ${{ (inputs.runner || vars.CI_RUNNER) == 'aleph' && fromJSON('["self-hosted","aleph"]') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

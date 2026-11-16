@@ -597,7 +597,7 @@ test('GET / and llms.txt name where to get help, and that Le Space never asks fo
 	}
 });
 
-test('/.well-known/security.txt (RFC 9116): both contacts, an Expires within a year, the policy', async () => {
+test('/.well-known/security.txt (RFC 9116): the mail, an Expires within a year, the policy at /security, which is served', async () => {
 	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {}, publicUrl: 'https://eigenbeleg.example.org' }));
 	try {
 		const r = await globalThis.fetch(base + '/.well-known/security.txt');
@@ -605,9 +605,16 @@ test('/.well-known/security.txt (RFC 9116): both contacts, an Expires within a y
 		assert.match(r.headers.get('content-type') ?? '', /^text\/plain; charset=utf-8/);
 		const text = await r.text();
 		assert.match(text, /^Contact: mailto:security@le-space\.de$/m);
-		assert.match(text, /^Contact: https:\/\/github\.com\/Le-Space\/eigenbeleg-agent\/security\/advisories\/new$/m);
+		assert.equal((text.match(/^Contact: /gm) ?? []).length, 1, 'the mail only: the repository is private');
 		assert.match(text, /^Canonical: https:\/\/eigenbeleg\.example\.org\/\.well-known\/security\.txt$/m);
-		assert.match(text, /^Policy: https:\/\/github\.com\/Le-Space\/eigenbeleg-agent\/blob\/main\/SECURITY\.md$/m);
+		assert.match(text, /^Policy: https:\/\/eigenbeleg\.example\.org\/security$/m);
+		const page = await globalThis.fetch(base + '/security');
+		assert.equal(page.status, 200);
+		assert.match(page.headers.get('content-type') ?? '', /^text\/html/);
+		assert.match(page.headers.get('content-security-policy') ?? '', /default-src 'none'/);
+		const html = await page.text();
+		assert.match(html, /<h1>Sicherheit<\/h1>/);
+		assert.match(html, /<h1>Security<\/h1>/);
 		const expires = Date.parse(/^Expires: (\S+)$/m.exec(text)?.[1] ?? '');
 		const now = deps.now().getTime();
 		assert.ok(expires > now && expires - now < 365 * 86_400_000, 'in the future, less than a year ahead');

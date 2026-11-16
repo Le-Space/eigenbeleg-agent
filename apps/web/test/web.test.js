@@ -210,8 +210,9 @@ test('help and support: the addresses, what to send, never a secret, and the pri
 	for (const part of [de, en]) {
 		assert.match(part, /href="mailto:eigenbeleg@le-space\.de"/);
 		assert.match(part, /href="mailto:support@le-space\.de"/);
-		assert.match(part, /security\/advisories\/new/);
-		assert.match(part, /SECURITY\.md/);
+		// The repository is private: the way to report is the mail, the policy the public page /security.
+		assert.doesNotMatch(part, /github\.com\/Le-Space\/eigenbeleg-agent\/(security|blob)/);
+		assert.match(part, /href="\/security(#en)?"/);
 		assert.match(part, /href="mailto:security@le-space\.de"/);
 		assert.match(part, /90/);
 		// No answer time is promised.
@@ -224,15 +225,24 @@ test('help and support: the addresses, what to send, never a secret, and the pri
 	assert.equal((html.match(/href="#hilfe" data-i18n="navHelp"/g) ?? []).length, 2, 'in the jump bar and the footer');
 	assert.equal(TEXTS.de.hHelp, 'Hilfe & Support');
 	assert.equal(TEXTS.en.hHelp, 'Help & support');
+	const { SECURITY_HTML } = await import('../../api/src/security-page.js');
+	const [sde, sen] = SECURITY_HTML.split('<article id="en" lang="en">');
+	for (const h of ['Eine Sicherheitslücke melden', 'Coordinated Disclosure', 'Safe Harbor', 'Regeln', 'Geltungsbereich', 'Kein Bounty']) assert.ok(sde.includes(`<h2>${h}</h2>`), h);
+	for (const h of ['Reporting a weakness', 'Coordinated disclosure', 'Safe harbor', 'Rules', 'Scope', 'No bounty']) assert.ok(sen.includes(`<h2>${h}</h2>`), h);
+	assert.match(sde, /Entwurf, noch nicht anwaltlich geprüft/);
+	assert.match(sen, /Draft, not yet reviewed by our lawyer/);
+	for (const part of [sde, sen]) {
+		assert.match(part, /href="mailto:security@le-space\.de"/);
+		assert.match(part, /90/);
+		assert.doesNotMatch(part, /github\.com/, 'no link into the private repository');
+	}
+	assert.match(sde, /Kein Denial of Service/);
+	assert.match(sde, /Kein Social Engineering/);
+	assert.match(sen, /No denial of service/);
+	assert.match(sen, /No social engineering/);
 	const security = await readFile(new URL('../../../SECURITY.md', import.meta.url), 'utf8');
-	assert.match(security, /Le-Space\/eigenbeleg-agent\/security\/advisories\/new/);
-	assert.match(security, /never asks for a seed phrase, a passkey, a private key or a token/);
-	for (const h of ['## Reporting a weakness', '## Coordinated disclosure', '## Safe harbor', '## Rules', '## What is in scope', '## No bounty']) assert.ok(security.includes(h), h);
-	assert.match(security, /\*\*Draft, not yet reviewed by our lawyer\.\*\*/);
-	assert.match(security, /mailto:security@le-space\.de/);
-	assert.match(security, /90 days/);
-	assert.match(security, /No denial of service/);
-	assert.match(security, /No social engineering/);
+	assert.match(security, /https:\/\/eigenbeleg\.le-space\.de\/security/);
+	assert.doesNotMatch(security, /security\/advisories/);
 });
 
 test('Le Space addresses: contact@ (legal), eigenbeleg@ (help), support@ (payments, credits), security@; no other', async () => {

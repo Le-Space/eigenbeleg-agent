@@ -26,6 +26,7 @@ import express from 'express';
 import { RequestError, blocksFor, checkBlock, describeBlocks, generate, parseRequest } from '@eigenbeleg/pipeline';
 import { VAT } from '@eigenbeleg/pipeline/prices';
 import { composeMail } from './mail.js';
+import { SECURITY_HTML, SECURITY_MAIL, SECURITY_PATH } from './security-page.js';
 import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatches } from './subscriptions.js';
 
 /**
@@ -50,8 +51,8 @@ import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatc
 export const SUPPORT = Object.freeze({
 	help: 'eigenbeleg@le-space.de',
 	payments: 'support@le-space.de',
-	security: 'security@le-space.de or https://github.com/Le-Space/eigenbeleg-agent/security/advisories/new',
-	policy: 'https://github.com/Le-Space/eigenbeleg-agent/blob/main/SECURITY.md',
+	security: SECURITY_MAIL,
+	policy: SECURITY_PATH,
 	page: '/ui/#hilfe',
 	never: 'Le Space never asks for a seed phrase, passkey, private key or token'
 });
@@ -202,7 +203,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 - The documents are in German. An Eigenbeleg counts only once the payer signs it; whether a tax adviser accepts it is theirs to decide.
 - email: the files go as attachments (stable names: EB-….pdf, KA-….pdf, EB-….csv; subject "Eigenbeleg EB-… · chain network · period"), so a document management system's inbox can sort them. The answer says \`mail: queued\` (format json) or carries X-Eigenbeleg-Mail: queued. The address is used for that one mail only.
 - As a skill (Agent Skills format, agentskills.io): ${source}/tree/main/plugin/skills/eigenbeleg-api – these steps for Claude Code and other agents that read SKILL.md. Without paying, on the user's own machine (nothing sent here): ${source}/tree/main/plugin/skills/eigenbeleg-local, i.e. \`npm run local\` in a checkout.
-- Help: ${SUPPORT.help}; payments, invoices and credits: ${SUPPORT.payments}. Send the status and \`error\` of the answer and, for a payment, the transaction hash; never documents, names, postal addresses, keys or tokens. Le Space never asks for a seed phrase, passkey, private key or token. Security weaknesses: privately, ${SUPPORT.security} (${base}/ui/#hilfe).
+- Help: ${SUPPORT.help}; payments, invoices and credits: ${SUPPORT.payments}. Send the status and \`error\` of the answer and, for a payment, the transaction hash; never documents, names, postal addresses, keys or tokens. Le Space never asks for a seed phrase, passkey, private key or token. Security weaknesses: privately to ${SUPPORT.security}, never in public; the policy: ${base}${SECURITY_PATH}.
 - Nothing is stored beyond the request. Source (AGPL-3.0-or-later): ${source}
 `);
 	});
@@ -210,7 +211,14 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 	const under = (/** @type {string} */ path) => (testnet ? [path, `/testnet${path}`] : path);
 	app.get(under('/blocks'), (_req, res) => res.json({ blocks: describeBlocks(blocks) }));
 	app.get(under('/blocks/:chain/check'), async (req, res) => res.json(await checkBlock(req.params.chain, deps)));
-	// RFC 9116: where to report a weakness. Expires is always half a year ahead: the policy is the repository's SECURITY.md.
+	// The security policy, a page of its own: the repository is private, so the public reads it here.
+	app.get(SECURITY_PATH, (_req, res) => {
+		res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+		res.setHeader('Referrer-Policy', 'no-referrer');
+		res.setHeader('Cache-Control', 'public, max-age=3600');
+		res.type('html').send(SECURITY_HTML);
+	});
+	// RFC 9116: where to report a weakness. Expires is always half a year ahead; the policy is GET /security.
 	app.get('/.well-known/security.txt', (req, res) => {
 		const base = origin(req, publicUrl);
 		const expires = new Date((deps.now?.() ?? new Date()).getTime() + 182 * 86_400_000);
@@ -218,12 +226,11 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 		res.setHeader('Cache-Control', 'public, max-age=86400');
 		res.type('text/plain; charset=utf-8').send(
 			[
-				'Contact: mailto:security@le-space.de',
-				'Contact: https://github.com/Le-Space/eigenbeleg-agent/security/advisories/new',
+				`Contact: mailto:${SECURITY_MAIL}`,
 				`Expires: ${expires.toISOString().replace('.000Z', 'Z')}`,
 				'Preferred-Languages: de, en',
 				...(base ? [`Canonical: ${base}/.well-known/security.txt`] : []),
-				`Policy: ${SUPPORT.policy}`,
+				...(base ? [`Policy: ${base}${SECURITY_PATH}`] : []),
 				''
 			].join('\n')
 		);

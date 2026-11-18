@@ -7,7 +7,7 @@ Le Space never asks for a seed phrase, a passkey, a private key or a token.
 The policy is public at **https://eigenbeleg.le-space.de/security**, in German and English. It covers:
 - what a report holds;
 - coordinated disclosure (usually 90 days);
-- the safe harbor, still a draft for the lawyer;
+- good faith: how we intend to treat research within the rules (not a legal waiver);
 - the rules: own data only, no DoS, no social engineering;
 - the scope;
 - that there is no bounty.

@@ -57,9 +57,8 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }
 </ol>
 <p>Bitte behalten Sie die Lücke für sich, bis der Hinweis veröffentlicht ist. Üblich sind dafür 90 Tage ab der Meldung; dauert der Fix länger oder ist er früher fertig, vereinbaren wir mit Ihnen einen Termin.</p>
 
-<h2>Safe Harbor</h2>
-<p class="draft"><strong>Entwurf, noch nicht anwaltlich geprüft.</strong> Bis dahin beschreibt dieser Abschnitt unsere Absicht, kein verbindliches Versprechen.</p>
-<p>Wer in gutem Glauben nach Lücken sucht und sich an die Regeln unten hält, gegen den geht die Le Space UG (haftungsbeschränkt) deswegen nicht rechtlich vor und den zeigt sie nicht an. Geht ein Dritter deswegen gegen Sie vor, stellen wir klar, dass Ihre Untersuchung nach diesen Regeln erlaubt war. Im Zweifel, ob etwas erlaubt ist, fragen Sie vorher: ${mail}.</p>
+<h2>Guter Glaube</h2>
+<p>Wir begrüßen Forschung, die in gutem Glauben und nach diesen Regeln erfolgt, behandeln Ihre Meldung vertraulich und arbeiten mit Ihnen daran. So wollen wir handeln; das ist kein rechtlicher Verzicht, und es kann nicht für Dritte wie Stripe, Aleph oder Filecoin sprechen.</p>
 
 <h2>Regeln</h2>
 <ul>
@@ -113,9 +112,8 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }
 </ol>
 <p>Please keep the weakness to yourself until the advisory is out. The usual time for that is 90 days from the report; if a fix takes longer, or is out sooner, we agree a date with you.</p>
 
-<h2>Safe harbor</h2>
-<p class="draft"><strong>Draft, not yet reviewed by our lawyer.</strong> Until it is, this section states our intention, not a binding promise.</p>
-<p>If you look for weaknesses in good faith and keep to the rules below, Le Space UG (haftungsbeschränkt) will not take legal action against you for it and will not report you to the authorities. If a third party takes action against you for such research, we will make clear that it was authorised by this policy. If in doubt whether something is allowed, ask first: ${mail}.</p>
+<h2>Good faith</h2>
+<p>We welcome research done in good faith within these rules, treat your report confidentially and work with you on it. This is how we intend to act; it is not a legal waiver, and it cannot speak for third parties such as Stripe, Aleph or Filecoin.</p>
 
 <h2>Rules</h2>
 <ul>

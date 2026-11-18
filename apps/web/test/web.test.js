@@ -227,10 +227,12 @@ test('help and support: the addresses, what to send, never a secret, and the pri
 	assert.equal(TEXTS.en.hHelp, 'Help & support');
 	const { SECURITY_HTML } = await import('../../api/src/security-page.js');
 	const [sde, sen] = SECURITY_HTML.split('<article id="en" lang="en">');
-	for (const h of ['Eine Sicherheitslücke melden', 'Coordinated Disclosure', 'Safe Harbor', 'Regeln', 'Geltungsbereich', 'Kein Bounty']) assert.ok(sde.includes(`<h2>${h}</h2>`), h);
-	for (const h of ['Reporting a weakness', 'Coordinated disclosure', 'Safe harbor', 'Rules', 'Scope', 'No bounty']) assert.ok(sen.includes(`<h2>${h}</h2>`), h);
-	assert.match(sde, /Entwurf, noch nicht anwaltlich geprüft/);
-	assert.match(sen, /Draft, not yet reviewed by our lawyer/);
+	for (const h of ['Eine Sicherheitslücke melden', 'Coordinated Disclosure', 'Guter Glaube', 'Regeln', 'Geltungsbereich', 'Kein Bounty']) assert.ok(sde.includes(`<h2>${h}</h2>`), h);
+	for (const h of ['Reporting a weakness', 'Coordinated disclosure', 'Good faith', 'Rules', 'Scope', 'No bounty']) assert.ok(sen.includes(`<h2>${h}</h2>`), h);
+	assert.match(sde, /kein rechtlicher Verzicht/);
+	assert.match(sen, /it is not a legal waiver/);
+	assert.doesNotMatch(sde, /Entwurf, noch nicht anwaltlich geprüft|Safe Harbor/);
+	assert.doesNotMatch(sen, /Draft, not yet reviewed by our lawyer|Safe harbor/);
 	for (const part of [sde, sen]) {
 		assert.match(part, /href="mailto:security@le-space\.de"/);
 		assert.match(part, /90/);

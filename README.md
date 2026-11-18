@@ -131,7 +131,7 @@ For people, free: the page does **everything in your browser**. It reads the cha
    PAYWALL=none npm run api
    ```
    then open http://127.0.0.1:4402/ui/ (the API only serves the files here).
-2. Choose the chain and network of **your** payments, enter your addresses and a month or a range, pick the documents (**Eigenbelege**, **Kontoauszug** or **Beide**), and fill in name and postal address (they are printed on the documents and stay in the page; tick *merken* to keep them on this device, and the other *merken* keeps chain, network and addresses). A missing chain: [CONTRIBUTING.md](CONTRIBUTING.md) or eigenbelege@le-space.de.
+2. Choose the chain and network of **your** payments, enter your addresses and a month or a range, pick the documents (**Eigenbelege**, **Kontoauszug** or **Beide**), and fill in name and postal address (they are printed on the documents and stay in the page; tick *merken* to keep them on this device, and the other *merken* keeps chain, network and addresses). A missing chain: [CONTRIBUTING.md](CONTRIBUTING.md) or eigenbeleg@le-space.de.
 3. Click **Lesen und erstellen**. The first time, the page loads its PDF code and fonts (about 1.6 MB, then cached). You see how many Eigenbelege it made and their numbers, the positions, the EUR total, the quantities and, per address, the Kontoauszug's opening and closing balance (✓ when reconciled with the chain).
 4. Download **Eigenbelege (PDF/A, n)**, **Kontoauszug <address> (PDF/A)** per address, and **Alle Bewegungen (CSV)**.
 
@@ -393,6 +393,13 @@ Everything in this repository was written for NEAR HACKATHON from 6 Nov 2026 (se
 - NEAR: NEAR that reaches an account through another transaction's inner receipts (a staking pool paying out) is not read yet. Gas is NearBlocks' transaction fee: the tokens burnt by the transaction and its receipts.
 - The EUR rate is the day's average for the UTC day, not the minute of the payment.
 - Testnet Eigenbelege are marked TESTNET and use the mainnet asset's rate for illustration only.
+
+## Help, support and security
+
+- Help with the page, the API or a document: eigenbeleg@le-space.de; payments, invoices and credits: support@le-space.de. What to send (and what never) is on the page: [Hilfe & Support](https://eigenbeleg.le-space.de/ui/#hilfe).
+- Legal matters (invoices, defects, the provider, privacy): contact@le-space.de, as in the [Impressum](https://le-space.de/#impressum).
+- Le Space never asks for a seed phrase, a passkey, a private key or a token.
+- Security weaknesses: privately to security@le-space.de, never in public. The policy (process, rules, scope) is public at [eigenbeleg.le-space.de/security](https://eigenbeleg.le-space.de/security), from [`apps/api/src/security-page.js`](apps/api/src/security-page.js); [SECURITY.md](SECURITY.md) points there. The API also serves [`/.well-known/security.txt`](https://eigenbeleg.le-space.de/.well-known/security.txt).
 
 ## Licence and attribution
 

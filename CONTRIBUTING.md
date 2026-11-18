@@ -4,11 +4,11 @@ Thank you for helping. The thing most people want to add is **a chain**: the
 page and the API serve NEAR, Akash, Filecoin and Aleph Cloud credits today, and every other chain
 needs a reader. This file says how a reader is built, what else is welcome, and
 the rules of the house. Issues and pull requests in English, please; questions
-in German or English to eigenbelege@le-space.de are fine too.
+in German or English to eigenbeleg@le-space.de are fine too.
 
 ## Before you start
 
-- Open an issue, or write to eigenbelege@le-space.de, with the chain, its
+- Open an issue, or write to eigenbeleg@le-space.de, with the chain, its
   networks (mainnet, testnet), the assets people pay fees in, and a public data
   source that answers from a browser (it has to send
   `Access-Control-Allow-Origin`; the web UI runs everything in the browser).
@@ -118,4 +118,4 @@ fill in.
 
 ## Where to ask
 
-Issues on GitHub, or eigenbelege@le-space.de.
+Issues on GitHub, or eigenbeleg@le-space.de.

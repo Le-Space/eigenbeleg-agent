@@ -581,3 +581,44 @@ test('without a testnet paywall the test route is off: 404, and GET / and llms.t
 		close();
 	}
 });
+
+test('GET / and llms.txt name where to get help, and that Le Space never asks for keys', async () => {
+	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {} }));
+	try {
+		const home = await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json();
+		assert.equal(home.support.help, 'eigenbeleg@le-space.de');
+		assert.equal(home.support.payments, 'support@le-space.de');
+		assert.equal(home.support.page, '/ui/#hilfe');
+		const text = await (await globalThis.fetch(base + '/llms.txt')).text();
+		assert.match(text, /- Help: eigenbeleg@le-space\.de; payments, invoices and credits: support@le-space\.de\./);
+		assert.match(text, /Le Space never asks for a seed phrase, passkey, private key or token/);
+	} finally {
+		close();
+	}
+});
+
+test('/.well-known/security.txt (RFC 9116): the mail, an Expires within a year, the policy at /security, which is served', async () => {
+	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {}, publicUrl: 'https://eigenbeleg.example.org' }));
+	try {
+		const r = await globalThis.fetch(base + '/.well-known/security.txt');
+		assert.equal(r.status, 200);
+		assert.match(r.headers.get('content-type') ?? '', /^text\/plain; charset=utf-8/);
+		const text = await r.text();
+		assert.match(text, /^Contact: mailto:security@le-space\.de$/m);
+		assert.equal((text.match(/^Contact: /gm) ?? []).length, 1, 'the mail only: the repository is private');
+		assert.match(text, /^Canonical: https:\/\/eigenbeleg\.example\.org\/\.well-known\/security\.txt$/m);
+		assert.match(text, /^Policy: https:\/\/eigenbeleg\.example\.org\/security$/m);
+		const page = await globalThis.fetch(base + '/security');
+		assert.equal(page.status, 200);
+		assert.match(page.headers.get('content-type') ?? '', /^text\/html/);
+		assert.match(page.headers.get('content-security-policy') ?? '', /default-src 'none'/);
+		const html = await page.text();
+		assert.match(html, /<h1>Sicherheit<\/h1>/);
+		assert.match(html, /<h1>Security<\/h1>/);
+		const expires = Date.parse(/^Expires: (\S+)$/m.exec(text)?.[1] ?? '');
+		const now = deps.now().getTime();
+		assert.ok(expires > now && expires - now < 365 * 86_400_000, 'in the future, less than a year ahead');
+	} finally {
+		close();
+	}
+});

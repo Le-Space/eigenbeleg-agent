@@ -205,6 +205,8 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 | `GET /eigenbeleg/subscribe/<id>/cancel?token=…` | The link in every subscription mail: deletes the subscription |
 | `GET /ui/` | The web UI (a static PWA that talks to none of these routes), when `npm run web:build` has run |
 | `GET /llms.txt` | For agents: what is sold, the price, the x402 steps and the body, as plain text |
+| `GET /ui/?lang=de`, `GET /ui/?lang=en` | The page in one language under its own address, the text in the markup: for search engines (canonical, `hreflang`, structured data) and for a link someone shares. `/ui/` itself adapts to the reader |
+| `GET /robots.txt`, `GET /sitemap.xml` | For crawlers, when the UI is built: what may be read (not the cancel links of subscriptions) and the page's three addresses |
 
 ```json
 {

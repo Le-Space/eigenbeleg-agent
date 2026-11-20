@@ -314,6 +314,8 @@ function showBuild() {
 function applyLang() {
 	const l = lang();
 	document.documentElement.lang = l;
+	document.title = t('metaTitle');
+	document.querySelector('meta[name="description"]')?.setAttribute('content', t('metaDescription'));
 	for (const el of document.querySelectorAll('[data-i18n]')) {
 		const key = /** @type {HTMLElement} */ (el).dataset.i18n;
 		if (key) el.textContent = t(/** @type {any} */ (key));
@@ -337,6 +339,10 @@ setLang(detectLang());
 applyLang();
 $('btn-lang').addEventListener('click', () => {
 	setLang(lang() === 'de' ? 'en' : 'de', true);
+	// The address names the language, so a link shared from here opens in it.
+	const url = new URL(location.href);
+	url.searchParams.set('lang', lang());
+	history.replaceState(null, '', url);
 	applyLang();
 });
 /** @type {HTMLInputElement} */ ($('month')).value = lastMonth();

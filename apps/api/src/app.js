@@ -11,7 +11,8 @@
 //   GET  /eigenbeleg/subscribe/:id/cancel?token=…  the link in each mail; deletes the subscription
 //   POST /testnet/eigenbeleg  the test route: testnet data only, paid in testnet USDC, every PDF
 //        marked TESTNET; a few per hour per IP; on only with a testnet paywall (TESTNET_PAY_TO)
-//   GET  /ui/          the web UI (apps/web/dist), when it is built
+//   GET  /ui/          the web UI (apps/web/dist), when it is built; ?lang=de and ?lang=en are each language under its own address
+//   GET  /robots.txt, /sitemap.xml   for crawlers, with the UI: the page's addresses
 //
 // No storage beyond the request: the body (payer's name and address, and an
 // e-mail address when the files are wanted by mail) lives in memory until the
@@ -503,14 +504,41 @@ export const WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url)
  */
 function mountUi(app, dir, publicUrl) {
 	const html = readFileSync(`${dir}/index.html`, 'utf8');
+	// Each language under its own address, for search engines and shared links (apps/web/seo.js):
+	// ?lang=en is the English markup, ?lang=de the German one with its own canonical.
+	const variant = (/** @type {string} */ l) => (existsSync(`${dir}/index.${l}.html`) ? readFileSync(`${dir}/index.${l}.html`, 'utf8') : html);
+	const pages = /** @type {Record<string, string>} */ ({ de: variant('de'), en: variant('en') });
 	const csp = existsSync(`${dir}/csp.txt`) ? readFileSync(`${dir}/csp.txt`, 'utf8').trim() : "default-src 'self'";
 	app.get('/ui', (_req, res) => res.redirect(301, '/ui/'));
 	app.get('/ui/', (req, res) => {
 		res.setHeader('Content-Security-Policy', `${csp}; frame-ancestors 'none'`);
 		res.setHeader('Referrer-Policy', 'no-referrer');
 		res.setHeader('Cache-Control', 'no-cache');
-		res.type('html').send(html.replaceAll('__PUBLIC_URL__', origin(req, publicUrl)));
+		const lang = req.query.lang === 'en' || req.query.lang === 'de' ? req.query.lang : null;
+		res.setHeader('Content-Language', lang ?? 'de');
+		res.type('html').send((lang ? pages[lang] : html).replaceAll('__PUBLIC_URL__', origin(req, publicUrl)));
 	});
+	// For crawlers: what may be read, and the page's addresses. Cancel links of subscriptions stay out.
+	app.get('/robots.txt', (req, res) => {
+		const base = origin(req, publicUrl);
+		res.setHeader('Cache-Control', 'public, max-age=3600');
+		res.type('text/plain').send(['User-agent: *', 'Allow: /', 'Disallow: /eigenbeleg/', ...(base ? [`Sitemap: ${base}/sitemap.xml`] : []), ''].join('\n'));
+	});
+	app.get('/sitemap.xml', (req, res) => {
+		const base = origin(req, publicUrl);
+		if (!base) {
+			res.status(404).json({ error: 'not found' });
+			return;
+		}
+		const urls = ['', '?lang=de', '?lang=en'].map((q) => `${base}/ui/${q}`);
+		const links = [`<xhtml:link rel="alternate" hreflang="de" href="${urls[1]}"/>`, `<xhtml:link rel="alternate" hreflang="en" href="${urls[2]}"/>`, `<xhtml:link rel="alternate" hreflang="x-default" href="${urls[0]}"/>`].join('');
+		res.setHeader('Cache-Control', 'public, max-age=3600');
+		res.type('application/xml').send(
+			`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${urls.map((u) => `<url><loc>${u}</loc>${links}</url>`).join('\n')}\n</urlset>\n`
+		);
+	});
+	// Browsers and crawlers ask for it at the root; the icon is the page's.
+	app.get('/favicon.ico', (_req, res) => res.redirect(301, '/ui/icons/icon-192.png'));
 	app.use('/ui/assets', express.static(`${dir}/assets`, { index: false, fallthrough: false, immutable: true, maxAge: '1y' }));
 	// The service worker, the manifest, icons and share cards: revalidated, so a new version is seen.
 	app.get('/ui/index.html', (_req, res) => res.redirect(301, '/ui/'));

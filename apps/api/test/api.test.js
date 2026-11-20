@@ -285,6 +285,61 @@ test('GET /ui/ serves the built PWA with the build\'s CSP; no UI, no route', asy
 	}
 });
 
+test('for crawlers: each language under its own address, robots.txt, a sitemap and the icon at the root', async () => {
+	const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+	const { tmpdir } = await import('node:os');
+	const { join } = await import('node:path');
+	const dir = await mkdtemp(join(tmpdir(), 'eigenbeleg-seo-'));
+	const page = (/** @type {string} */ l, /** @type {string} */ q) => `<html lang="${l}"><link rel="canonical" href="__PUBLIC_URL__/ui/${q}">`;
+	await writeFile(`${dir}/index.html`, page('de', ''));
+	await writeFile(`${dir}/index.de.html`, page('de', '?lang=de'));
+	await writeFile(`${dir}/index.en.html`, page('en', '?lang=en'));
+	const opts = { paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {}, web: dir };
+	const { base, close } = await serve(createApp({ ...opts, publicUrl: 'https://eigenbeleg.example.org' }));
+	try {
+		const get = async (/** @type {string} */ path) => {
+			const res = await globalThis.fetch(base + path, { redirect: 'manual' });
+			return { res, text: await res.text() };
+		};
+		const plain = await get('/ui/');
+		assert.match(plain.text, /<html lang="de"><link rel="canonical" href="https:\/\/eigenbeleg\.example\.org\/ui\/">/);
+		assert.equal(plain.res.headers.get('content-language'), 'de');
+		const en = await get('/ui/?lang=en');
+		assert.match(en.text, /<html lang="en"><link rel="canonical" href="https:\/\/eigenbeleg\.example\.org\/ui\/\?lang=en">/);
+		assert.equal(en.res.headers.get('content-language'), 'en');
+		assert.match(en.res.headers.get('content-security-policy') ?? '', /frame-ancestors 'none'/);
+		assert.match((await get('/ui/?lang=de')).text, /\/ui\/\?lang=de">/);
+		// Anything else in `lang` is the adapting page, never a file by that name.
+		assert.equal((await get('/ui/?lang=../csp')).text, plain.text);
+		assert.equal((await get('/ui/?lang=en&lang=de')).text, plain.text);
+
+		const robots = await get('/robots.txt');
+		assert.equal(robots.res.status, 200);
+		assert.match(robots.res.headers.get('content-type') ?? '', /^text\/plain/);
+		assert.equal(robots.text, 'User-agent: *\nAllow: /\nDisallow: /eigenbeleg/\nSitemap: https://eigenbeleg.example.org/sitemap.xml\n');
+
+		const map = await get('/sitemap.xml');
+		assert.match(map.res.headers.get('content-type') ?? '', /^application\/xml/);
+		for (const q of ['', '?lang=de', '?lang=en']) assert.ok(map.text.includes(`<loc>https://eigenbeleg.example.org/ui/${q}</loc>`), q);
+		assert.equal((map.text.match(/hreflang="x-default" href="https:\/\/eigenbeleg\.example\.org\/ui\/"/g) ?? []).length, 3);
+
+		const icon = await get('/favicon.ico');
+		assert.equal(icon.res.status, 301);
+		assert.equal(icon.res.headers.get('location'), '/ui/icons/icon-192.png');
+	} finally {
+		await close();
+	}
+	// Without the UI there is nothing for a crawler to read.
+	const none = await serve(createApp({ ...opts, web: null }));
+	try {
+		assert.equal((await globalThis.fetch(none.base + '/robots.txt')).status, 404);
+		assert.equal((await globalThis.fetch(none.base + '/sitemap.xml')).status, 404);
+	} finally {
+		await none.close();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
 test('the share cards get absolute URLs: PUBLIC_URL, else the request origin, never an odd Host', async () => {
 	const { mkdtemp, writeFile, mkdir } = await import('node:fs/promises');
 	const { tmpdir } = await import('node:os');

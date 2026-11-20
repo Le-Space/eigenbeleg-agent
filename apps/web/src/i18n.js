@@ -18,6 +18,11 @@ const ETH = priceFor('eip155:1');
 /** @typedef {'de' | 'en'} Lang */
 
 const de = {
+	// What search engines and share cards read (apps/web/seo.js); the tab's title too.
+	metaTitle: 'Eigenbeleg für Blockchain-Zahlungen – kostenlos erstellen',
+	metaDescription: 'Eigenbelege für Blockchain-Zahlungen: Netzwerkgebühren und Storage-Deposits als PDF/A und CSV, mit Euro-Kurs des Tages. Alles im Browser, kostenlos: Name, Anschrift und Adressen gehen an keinen Server von uns.',
+	cardDescription: 'Netzwerkgebühren und Storage-Deposits als PDF/A und CSV, mit Euro-Kurs des Tages. Alles im Browser, kostenlos: Name, Anschrift und Adressen gehen an keinen Server von uns.',
+	cardAlt: 'Le Space eigenbeleg: Eigenbelege für Blockchain-Zahlungen, als PDF/A und CSV.',
 	title: 'Eigenbeleg für Blockchain-Zahlungen',
 	lead1: 'Ein Eigenbeleg ist ein Beleg, den Sie selbst für Ihre eigenen Zahlungen ausstellen, wenn niemand eine Rechnung schickt: Netzwerkgebühren, Storage-Deposits, Zahlungen an Peer-to-Peer-Netzwerke. Er ist ',
 	lead2: 'keine Rechnung',
@@ -163,6 +168,11 @@ const de = {
 
 /** @type {typeof de} */
 const en = {
+	// What search engines and share cards read (apps/web/seo.js); the tab's title too.
+	metaTitle: 'Eigenbeleg for blockchain payments – free self-issued receipts',
+	metaDescription: 'Eigenbelege, the self-issued receipts of German bookkeeping, for blockchain payments: network fees and storage deposits as PDF/A and CSV, with the day’s euro rate. All in the browser, free: name, postal address and addresses go to no server of ours.',
+	cardDescription: 'Network fees and storage deposits as PDF/A and CSV, with the day’s euro rate. All in the browser, free: name, postal address and addresses go to no server of ours.',
+	cardAlt: 'Le Space eigenbeleg: Eigenbelege for blockchain payments, as PDF/A and CSV.',
 	title: 'Eigenbeleg for blockchain payments',
 	lead1: 'An Eigenbeleg is a self-issued receipt for your own payments when nobody sends an invoice: network fees, storage deposits, payments to peer-to-peer networks. It is ',
 	lead2: 'not an invoice',
@@ -327,8 +337,22 @@ export function setLang(l, keep = false) {
 	}
 }
 
-/** The saved choice, else the browser's language: German for de-*, English otherwise. @returns {Lang} */
+/** The language the address names (`?lang=de` or `?lang=en`), or null. @param {string} [search] the address's query */
+export function urlLang(search = globalThis.location?.search ?? '') {
+	const l = new URLSearchParams(search).get('lang');
+	return l === 'de' || l === 'en' ? l : null;
+}
+
+/**
+ * The address's language (each has its own address, for search engines and
+ * for a link someone shares), else the saved choice, else the browser's
+ * language: German for de-*, English otherwise.
+ *
+ * @returns {Lang}
+ */
 export function detectLang() {
+	const named = urlLang();
+	if (named) return named;
 	try {
 		const saved = globalThis.localStorage?.getItem('lang');
 		if (saved === 'de' || saved === 'en') return saved;

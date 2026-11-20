@@ -83,7 +83,8 @@ passed as a file with `--job job.json`.
 
 ## Options
 
-- `--chain`: `near`, `akash`, `filecoin`, `aleph`; `ethereum` and `base` only
+- `--chain`: `near`, `akash`, `filecoin`, `filecoin-pay` (a payer's balance in
+  the Filecoin Pay contract: one finished month, the statement only), `aleph`; `ethereum` and `base` only
   with `--alchemy-key` (or `ALCHEMY_KEY` in the environment), the person's own.
 - `--network`: `mainnet` (default) or `testnet` (NEAR only).
 - `--address`: repeatable, up to ten own addresses of the chain.

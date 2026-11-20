@@ -83,7 +83,7 @@ function lastMonth() {
 }
 
 /** How the chains are written for people; the value stays the block's id. */
-const CHAIN_NAMES = /** @type {Record<string, string>} */ ({ near: 'NEAR', akash: 'Akash (AKT)', filecoin: 'Filecoin (FIL, USDFC)', aleph: 'Aleph Cloud (Credits)', ethereum: 'Ethereum (ETH, USDC, ALEPH)', base: 'Base (ETH, USDC, ALEPH)' });
+const CHAIN_NAMES = /** @type {Record<string, string>} */ ({ near: 'NEAR', akash: 'Akash (AKT)', filecoin: 'Filecoin (FIL, USDFC)', 'filecoin-pay': 'Filecoin Pay (USDFC)', aleph: 'Aleph Cloud (Credits)', ethereum: 'Ethereum (ETH, USDC, ALEPH)', base: 'Base (ETH, USDC, ALEPH)' });
 
 function fillChains() {
 	chainSel.replaceChildren(...blocks.map((b) => new Option('', b.chain)));
@@ -130,6 +130,11 @@ function syncChain() {
 		if (monthly) r.checked = r.value === 'month';
 	}
 	$('chain-note').hidden = !monthly;
+	// Which month-only chain: each says what its statement is. The key goes on the element, so a change of
+	// language (applyLang) writes this chain's note again, not Aleph's.
+	const noteKey = chainSel.value === 'filecoin-pay' ? 'monthlyOnlyFilecoinPay' : 'monthlyOnly';
+	$('chain-note').dataset.i18n = noteKey;
+	$('chain-note').textContent = t(noteKey);
 	$('nb-keys').hidden = chainSel.value !== 'near';
 	// Only the kinds this chain has; a box that comes back gets its default again.
 	const kinds = b?.kinds ?? [];

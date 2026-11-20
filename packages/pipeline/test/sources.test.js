@@ -8,6 +8,7 @@ import * as near from '@le-space/chains/near';
 import { AKASH_CHAIN } from '@le-space/chains/cosmos-chains';
 import { FILECOIN } from '@le-space/chains/filecoin-chain';
 import { ALEPH_API, ALEPH_EXPLORER } from '@le-space/chains/aleph';
+import { FILECOIN_PAY } from '@le-space/chains/filecoin-pay';
 import { alchemyBaseUrl } from '@le-space/chains/alchemy';
 import { CHAINS } from '@le-space/chains/registry';
 import { dataSources } from '../src/sources.js';
@@ -27,6 +28,9 @@ test('dataSources names every host the readers and the rates ask, and only those
 		...originsIn(AKASH_CHAIN.endpoints),
 		...originsIn(FILECOIN.endpoints),
 		new URL(ALEPH_API).origin,
+		// Filecoin Pay without a key: the makers' index and Blockscout's own instance (Filfox is Filecoin's already).
+		new URL(FILECOIN_PAY.index).origin,
+		new URL(FILECOIN_PAY.api).origin,
 		'https://api.coingecko.com',
 		'https://api.kraken.com',
 		'https://data-api.ecb.europa.eu'

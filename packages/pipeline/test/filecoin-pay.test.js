@@ -91,6 +91,11 @@ test('Filecoin Pay: the index down, the month comes from the contract’s events
 	assert.equal(monthly.usageTotal.amount, '1.7');
 });
 
+test('Filecoin Pay: Blockscout down, no statement – paid in by another address would be missing', async () => {
+	const req = parseRequest({ chain: 'filecoin-pay', addresses: [PAYER], period: { month: '2026-08' }, format: 'json', payer }, { today: '2026-11-06' });
+	await assert.rejects(generate(req, { fetch: fetchWith(chain({ blockscout: true }), []), now: () => new Date('2026-11-06T12:00:00Z') }, { preview: true }), /Blockscout did not answer.*try again/);
+});
+
 test('Filecoin Pay: whole finished months, the statement only, payers only', () => {
 	const d = describeBlocks().find((b) => b.chain === 'filecoin-pay');
 	assert.deepEqual([d?.documents, d?.period, d?.statementPrefix, d?.kinds, d?.networks], [['kontoauszug'], 'month', 'VA', [], ['mainnet']]);

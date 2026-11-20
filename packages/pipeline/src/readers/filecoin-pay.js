@@ -11,10 +11,11 @@
 // Space Belege): settlements and the balance from the index the makers of
 // Filecoin Pay keep (a public subgraph at Goldsky), what was paid in and
 // taken out from the contract's events at Blockscout – from Blockscout alone
-// when the index does not answer, and from Filfox's token transfers when
-// Blockscout does not. All three answer browsers. No key: Blockscout then
-// allows about ten requests and none for minutes after; a statement needs
-// two.
+// when the index does not answer. Both answer browsers. No key: Blockscout
+// then allows about ten requests and none for minutes after; a statement
+// needs two. When Blockscout does not answer, the reader falls back to
+// Filfox's token transfers, which miss what another address paid into the
+// balance: this block then gives no statement and says to try again.
 //
 // Only whole, finished months. A settlement is consumption billed from a
 // prepaid balance: it has no single payment an Eigenbeleg could stand for,
@@ -53,6 +54,10 @@ export async function statementFilecoinPay({ account, from, to, fetch = globalTh
 	// No rates here: the pipeline values the entries (USDFC as USDC, a dollar stablecoin).
 	const client = createFilecoinPayClient({ fetch, ...(now ? { now } : {}) });
 	const st = await client.statement({ address: account, month, ...(endpoints ? { endpoints } : {}) });
+	// Blockscout did not answer: the reader then takes paid in and taken out from the payer's own
+	// transfers, and what another address paid into the balance is missing – the balances may be off,
+	// and the statement has no place to say so. No statement rather than one that may be wrong.
+	if (st.movementsFrom === 'transfers') throw new Error('Filecoin Pay: Blockscout did not answer (without a key it allows few requests); try again in a few minutes');
 	return {
 		entries: filecoinPayEntries(st),
 		opening: { [ASSET]: st.opening },

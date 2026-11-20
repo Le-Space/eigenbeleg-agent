@@ -130,8 +130,11 @@ function syncChain() {
 		if (monthly) r.checked = r.value === 'month';
 	}
 	$('chain-note').hidden = !monthly;
-	// Which month-only chain: each says what its statement is.
-	$('chain-note').textContent = monthly ? t(chainSel.value === 'filecoin-pay' ? 'monthlyOnlyFilecoinPay' : 'monthlyOnly') : '';
+	// Which month-only chain: each says what its statement is. The key goes on the element, so a change of
+	// language (applyLang) writes this chain's note again, not Aleph's.
+	const noteKey = chainSel.value === 'filecoin-pay' ? 'monthlyOnlyFilecoinPay' : 'monthlyOnly';
+	$('chain-note').dataset.i18n = noteKey;
+	$('chain-note').textContent = t(noteKey);
 	$('nb-keys').hidden = chainSel.value !== 'near';
 	// Only the kinds this chain has; a box that comes back gets its default again.
 	const kinds = b?.kinds ?? [];

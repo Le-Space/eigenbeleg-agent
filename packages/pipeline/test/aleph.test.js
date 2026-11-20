@@ -37,9 +37,14 @@ const fetch = /** @type {typeof globalThis.fetch} */ (
 		const url = new URL(String(input));
 		asked.push(url.origin + url.pathname);
 		if (url.origin === 'https://data-api.ecb.europa.eu') {
-			// 1.25 USD per EUR on every day: 0.8 EUR per USD.
-			const day = url.searchParams.get('endPeriod');
-			return json({ dataSets: [{ series: { '0:0:0:0:0': { observations: { 0: [1.25] } } } }], structure: { dimensions: { observation: [{ values: [{ id: day }] }] } } });
+			// 1.25 USD per EUR on every day of the window asked for: 0.8 EUR per USD.
+			const days = [];
+			const end = Date.parse(`${url.searchParams.get('endPeriod')}T00:00:00Z`);
+			for (let t = Date.parse(`${url.searchParams.get('startPeriod')}T00:00:00Z`); t <= end; t += 86400000) days.push(new Date(t).toISOString().slice(0, 10));
+			return json({
+				dataSets: [{ series: { '0:0:0:0:0': { observations: Object.fromEntries(days.map((_, i) => [i, [1.25]])) } } }],
+				structure: { dimensions: { observation: [{ values: days.map((id) => ({ id })) }] } }
+			});
 		}
 		if (url.origin !== 'https://api2.aleph.im') return json({}, 404);
 		if (url.pathname === `/api/v0/messages/${VM}`) return json({ message: { type: 'INSTANCE', content: { metadata: { name: 'wolkenfabrik-web' } } } });

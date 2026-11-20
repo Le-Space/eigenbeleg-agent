@@ -111,7 +111,7 @@ the body.
 ```
 
 - `chain`: one of the chains `GET /blocks` lists (`near`, `akash`, `filecoin`,
-  `aleph`; `ethereum` and `base` where the instance has an Alchemy key).
+  `filecoin-pay`, `aleph`; `ethereum` and `base` where the instance has an Alchemy key).
 - `network`: where the payments were made, `mainnet` or `testnet` (NEAR only).
 - `addresses`: one to ten own addresses of that chain.
 - `period`: `{ "month": "YYYY-MM" }` or `{ "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }`,

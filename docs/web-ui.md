@@ -52,7 +52,9 @@ no other host. A test holds the list against every URL in the packages.
 | archival-rpc.mainnet/testnet.fastnear.com | NEAR balances (Kontoauszug) | the addresses |
 | akash-rpc / akash-rest.publicnode.com | Akash transactions and balances | the addresses |
 | the Akash proxy (`VITE_AKASH_INDEXER`) | older Akash history (Akash Console indexer) | the addresses |
-| filfox.info | Filecoin | the addresses |
+| filfox.info | Filecoin; for Filecoin Pay the token transfers when Blockscout does not answer | the addresses |
+| api.goldsky.com | Filecoin Pay: settlements and balance (the makers' index) | the addresses |
+| filecoin.blockscout.com | Filecoin Pay: what was paid in and taken out | the addresses |
 | api2.aleph.im | Aleph Cloud credits | the addresses |
 | eth-mainnet.g.alchemy.com, base-mainnet.g.alchemy.com | Ethereum and Base, only with the person's own Alchemy key ([#25](https://github.com/Le-Space/eigenbeleg-agent/issues/25)) | the addresses, and the key |
 | data-api.ecb.europa.eu | EUR per USD (Aleph credits) | the currency only |

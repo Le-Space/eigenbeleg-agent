@@ -346,7 +346,7 @@ test('GET /llms.txt tells agents what is sold, the price and the x402 steps', as
 		assert.match(text, /transferWithAuthorization/);
 		assert.match(text, /PAYMENT-REQUIRED[\s\S]*PAYMENT-SIGNATURE[\s\S]*PAYMENT-RESPONSE/);
 		assert.match(text, /web UI at https:\/\/eigenbeleg\.example\.org\/ui\/ instead: it does everything in their browser/);
-		assert.match(text, /"chain": "near" \| "akash" \| "filecoin" \| "aleph"/);
+		assert.match(text, /"chain": "near" \| "akash" \| "filecoin" \| "filecoin-pay" \| "aleph"/);
 		assert.match(text, /- aleph \(Aleph Cloud credits/);
 		assert.equal((await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json()).agents, '/llms.txt');
 	} finally {

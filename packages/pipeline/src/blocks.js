@@ -10,6 +10,7 @@ import * as near from '@le-space/chains/near';
 import * as akash from '@le-space/chains/akash';
 import * as filecoin from '@le-space/chains/filecoin';
 import * as aleph from './readers/aleph.js';
+import * as filecoinPay from './readers/filecoin-pay.js';
 
 /** The version of @le-space/chains the blocks are built on (a test holds it against the installed package). */
 export const CHAINS_VERSION = '0.4.0';
@@ -29,9 +30,9 @@ export const CHAINS_VERSION = '0.4.0';
  * @property {(o?: any) => Promise<{ sample: string, entries: number }>} probe a live check against public data
  * @property {(a: string) => boolean} isAddress before anything is fetched
  * @property {(a: string) => string} [canonical] one spelling per account, where the source has one
- * @property {string[]} [documents] the documents it gives, when not all (Aleph: the statement only)
+ * @property {string[]} [documents] the documents it gives, when not all (Filecoin Pay: the statement only)
  * @property {'month'} [period] reads whole finished months only
- * @property {string} [statementPrefix] the statement's number prefix, when not KA
+ * @property {string} [statementPrefix] the statement's number prefix, when not KA (VA: a Verbrauchsauszug, `isUsageStatement`)
  * @property {'alchemyKey'} [needs] a key only the server has (keyed.js); such a block is never in BLOCKS
  */
 
@@ -76,6 +77,25 @@ export const BLOCKS = {
 		probe: filecoin.probe,
 		isAddress: filecoin.isFilecoinAddress
 	},
+	'filecoin-pay': {
+		name: '@le-space/chains/filecoin-pay',
+		chain: 'filecoin-pay',
+		networks: ['mainnet'],
+		assets: ["USDFC (the balance in the Filecoin Pay contract of Filecoin Onchain Cloud, by the payer's address)"],
+		// A settlement is consumption from a prepaid balance, no payment of its own: no Eigenbeleg.
+		kinds: [],
+		source: "Filecoin Pay index (Goldsky subgraph), Blockscout, Filfox; no key. EUR at the day's USDC rate",
+		version: CHAINS_VERSION,
+		// One whole finished month: the Verbrauchsauszug (VA-…) of what the contract settled with which provider.
+		documents: ['kontoauszug'],
+		period: 'month',
+		statementPrefix: 'VA',
+		read: filecoinPay.readFilecoinPay,
+		statement: filecoinPay.statementFilecoinPay,
+		probe: filecoinPay.probe,
+		isAddress: filecoinPay.isAddress,
+		canonical: filecoinPay.canonical
+	},
 	aleph: {
 		name: '@le-space/chains/aleph',
 		chain: 'aleph',
@@ -97,6 +117,15 @@ export const BLOCKS = {
 		canonical: aleph.canonical
 	}
 };
+
+/**
+ * Whether a chain's statement is a Verbrauchsauszug (consumption from a prepaid balance: Aleph credits,
+ * Filecoin Pay) rather than a Kontoauszug – for the words of a mail or a page; the document itself says it.
+ *
+ * @param {string} chain
+ * @param {Record<string, Block>} [blocks]
+ */
+export const isUsageStatement = (chain, blocks = BLOCKS) => Object.hasOwn(blocks, chain) && blocks[chain].statementPrefix === 'VA';
 
 /**
  * What GET /blocks says about each block (no functions).

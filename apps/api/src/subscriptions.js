@@ -20,7 +20,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEq
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { RequestError, generate, parseRequest } from '@eigenbeleg/pipeline';
+import { RequestError, generate, isUsageStatement, parseRequest } from '@eigenbeleg/pipeline';
 import { composeMail } from './mail.js';
 
 /** How many months a subscription buys by default, and at most: a year. */
@@ -222,7 +222,7 @@ export async function runDue({ store, deps, mailer, log = () => {}, now, source 
 						subject: s.job.language === 'de' ? `Eigenbeleg-Abo ${s.id}: Auszug ${s.nextMonth} verzögert sich` : `Eigenbeleg subscription ${s.id}: statement ${s.nextMonth} delayed`,
 						text: [
 							s.job.language === 'de'
-								? `Der ${s.job.chain === 'aleph' ? 'Verbrauchsauszug' : 'Kontoauszug'} für ${s.nextMonth} konnte seit ${failing.failingSince.slice(0, 10)} nicht erstellt werden (${message}). Es wird stündlich weiter versucht; sobald es klappt, kommt die Mail.`
+								? `Der ${isUsageStatement(s.job.chain) ? 'Verbrauchsauszug' : 'Kontoauszug'} für ${s.nextMonth} konnte seit ${failing.failingSince.slice(0, 10)} nicht erstellt werden (${message}). Es wird stündlich weiter versucht; sobald es klappt, kommt die Mail.`
 								: `The statement for ${s.nextMonth} could not be made since ${failing.failingSince.slice(0, 10)} (${message}). Retrying hourly; the mail comes as soon as it works.`,
 							...footer(s)
 						].join('\n'),

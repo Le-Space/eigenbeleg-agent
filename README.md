@@ -51,7 +51,7 @@ A public instance runs at **https://eigenbeleg.le-space.de** (mainnet payments i
 ```bash
 curl -s https://eigenbeleg.le-space.de/
 ```
-You should see the service, its prices per payment network with the recipients, the building blocks (`near`, `akash`, `filecoin`), the licence and the source link.
+You should see the service, its prices per payment network with the recipients, the building blocks (`near`, `akash`, `filecoin`, `filecoin-pay`, `aleph`), the licence and the source link.
 
 ```bash
 curl -s https://eigenbeleg.le-space.de/blocks/near/check
@@ -135,7 +135,7 @@ For people, free: the page does **everything in your browser**. It reads the cha
 3. Click **Lesen und erstellen**. The first time, the page loads its PDF code and fonts (about 1.6 MB, then cached). You see how many Eigenbelege it made and their numbers, the positions, the EUR total, the quantities and, per address, the Kontoauszug's opening and closing balance (✓ when reconciled with the chain).
 4. Download **Eigenbelege (PDF/A, n)**, **Kontoauszug <address> (PDF/A)** per address, and **Alle Bewegungen (CSV)**.
 
-Your browser asks NearBlocks and the FastNEAR archival RPC (NEAR), PublicNode and, through our [Akash CORS proxy](deploy/akash-proxy) when it is set up, the Akash Console indexer (Akash), Filfox (Filecoin), the Aleph API (Aleph Cloud), and Kraken, CoinGecko and the ECB (rates). They see your IP address and, except the rate services, the addresses you enter. **Ethereum and Base** need your own Alchemy key (free at alchemy.com), entered under *Ethereum und Base* in the form: it goes from your browser to Alchemy only, never to us, and is kept on your device only if you tick its *merken* ([#25](https://github.com/Le-Space/eigenbeleg-agent/issues/25)). Very busy NEAR accounts can hit NearBlocks' free rate limit; the page then says so and you try a shorter period or later, or enter your own NearBlocks key under *NEAR: eigener NearBlocks-Schlüssel*, which goes to NearBlocks only.
+Your browser asks NearBlocks and the FastNEAR archival RPC (NEAR), PublicNode and, through our [Akash CORS proxy](deploy/akash-proxy) when it is set up, the Akash Console indexer (Akash), Filfox (Filecoin), the Filecoin Pay index at Goldsky and Blockscout (Filecoin Pay), the Aleph API (Aleph Cloud), and Kraken, CoinGecko and the ECB (rates). They see your IP address and, except the rate services, the addresses you enter. **Ethereum and Base** need your own Alchemy key (free at alchemy.com), entered under *Ethereum und Base* in the form: it goes from your browser to Alchemy only, never to us, and is kept on your device only if you tick its *merken* ([#25](https://github.com/Le-Space/eigenbeleg-agent/issues/25)). Very busy NEAR accounts can hit NearBlocks' free rate limit; the page then says so and you try a shorter period or later, or enter your own NearBlocks key under *NEAR: eigener NearBlocks-Schlüssel*, which goes to NearBlocks only.
 
 For development, `npm run web:dev` serves the page with hot reload. Build settings: `VITE_AKASH_INDEXER` (the Akash proxy's URL), `VITE_PUBLIC_URL` (for the share cards on a static host).
 
@@ -347,6 +347,7 @@ This API is its own x402 facilitator on every network: the NEAR relayer submits 
 | `api.kraken.com`, `api.coingecko.com` | EUR day rates |
 | `akash-rpc.publicnode.com`, `akash-rest.publicnode.com`, `console-api.akash.network` | Akash history and balance (`@le-space/chains/cosmos`) |
 | `filfox.info` | Filecoin history and balance (`@le-space/chains/filecoin`) |
+| `api.goldsky.com`, `filecoin.blockscout.com` | Filecoin Pay: settlements and balance from the makers' index, what was paid in and taken out from the contract's events (`@le-space/chains/filecoin-pay`) |
 | `api2.aleph.im` | Aleph Cloud credit history and balance (`@le-space/chains/aleph`) |
 | `data-api.ecb.europa.eu` | EUR per USD, for Aleph credits |
 | `eth-mainnet.g.alchemy.com`, `base-mainnet.g.alchemy.com` | only with `ALCHEMY_KEY`: Ethereum and Base history and balances (`@le-space/chains/evm`) |

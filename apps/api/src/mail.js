@@ -9,6 +9,7 @@
 // (account names, numbers) is escaped before it goes into the HTML.
 
 import nodemailer from 'nodemailer';
+import { isUsageStatement } from '@eigenbeleg/pipeline';
 
 /**
  * @typedef {{ to: string, subject: string, text: string, html?: string, attachments: { filename: string, content: Buffer | string, contentType: string }[] }} Mail
@@ -109,7 +110,7 @@ export function composeMail(job, out, { origin, source = SOURCE_URL, subscriptio
 	const name = (/** @type {string} */ n) => n.replace(/[^A-Za-z0-9._-]/g, '_');
 	const wantBelege = job.document !== 'kontoauszug';
 	const wantStatement = job.document !== 'eigenbelege';
-	const statementKind = job.chain === 'aleph' ? w.verbrauchsauszug : w.kontoauszug;
+	const statementKind = isUsageStatement(job.chain) ? w.verbrauchsauszug : w.kontoauszug;
 	/** @type {Mail['attachments']} */
 	const attachments = [];
 	/** @type {[string, string][]} file name and what it is */
@@ -126,9 +127,9 @@ export function composeMail(job, out, { origin, source = SOURCE_URL, subscriptio
 	}
 	const period = s.period.from === s.period.to ? s.period.from : `${s.period.from} ${w.bis} ${s.period.to}`;
 	// s.number is the range (EB-…-042 – EB-…-066) when there are several.
-	const title = wantBelege ? `${s.eigenbelege.length > 1 ? 'Eigenbelege' : 'Eigenbeleg'} ${s.number}` : `${job.chain === 'aleph' ? 'Verbrauchsauszug' : 'Kontoauszug'} ${s.kontoauszuege[0]?.number ?? job.statementNumber}`;
+	const title = wantBelege ? `${s.eigenbelege.length > 1 ? 'Eigenbelege' : 'Eigenbeleg'} ${s.number}` : `${isUsageStatement(job.chain) ? 'Verbrauchsauszug' : 'Kontoauszug'} ${s.kontoauszuege[0]?.number ?? job.statementNumber}`;
 	const subject = `${title} · ${s.chain} ${s.network} · ${period}`;
-	const what = wantBelege && wantStatement ? w.docs : wantBelege ? (s.eigenbelege.length > 1 ? w.docsEb : w.docEb) : job.chain === 'aleph' ? w.docVa : w.docKa;
+	const what = wantBelege && wantStatement ? w.docs : wantBelege ? (s.eigenbelege.length > 1 ? w.docsEb : w.docEb) : isUsageStatement(job.chain) ? w.docVa : w.docKa;
 	const where = `${s.chain} (${s.network})`;
 	const hints = [...(wantBelege ? [w.signHint] : []), ...(wantStatement ? [w.fileHint] : [])];
 	const web = origin ? `${origin}/ui/` : null;

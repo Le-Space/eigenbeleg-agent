@@ -33,6 +33,7 @@ import { priceFor, timesMonths } from '@eigenbeleg/pipeline/prices';
 import { nearSecretKey } from './keys.js';
 import { checkPayments } from './release.js';
 import { MONTHS, MONTH_CHOICES, ROUTE as SUBSCRIBE_ROUTE, routeFor } from './subscriptions.js';
+import { discoveryExtensions } from './describe.js';
 
 export const ROUTE = 'POST /eigenbeleg';
 export const DESCRIPTION = 'Eigenbeleg (PDF/A + CSV) for the payments of own blockchain addresses in a period';
@@ -182,7 +183,12 @@ export async function createPaywall(c) {
 	const monthRoutes = Object.fromEntries(
 		MONTH_CHOICES.map((m) => [routeFor(m), { accepts: accepts.map((a) => ({ ...a, price: subscriptionPriceOf(a.price, m) })), description: subscribeDescription(m), mimeType: 'application/json' }])
 	);
-	const routes = { [ROUTE]: { accepts, description: DESCRIPTION, mimeType: 'application/pdf' }, [SUBSCRIBE_ROUTE]: { accepts: subscriptionAccepts, description: SUBSCRIBE_DESCRIPTION, mimeType: 'application/json' }, ...monthRoutes };
+	// What to send, in every 402 (describe.js): x402's discovery extension. Only on the one-off
+	// route: a subscription's body carries a mail address, and nobody should try it out from a catalogue.
+	const { bazaarResourceServerExtension } = await import('@x402/extensions/bazaar');
+	server.registerExtension(bazaarResourceServerExtension);
+	const extensions = await discoveryExtensions();
+	const routes = { [ROUTE]: { accepts, description: DESCRIPTION, mimeType: 'application/pdf', extensions }, [SUBSCRIBE_ROUTE]: { accepts: subscriptionAccepts, description: SUBSCRIBE_DESCRIPTION, mimeType: 'application/json' }, ...monthRoutes };
 	return {
 		middleware: /** @type {any} */ (paymentMiddleware(/** @type {any} */ (routes), server)),
 		info: {

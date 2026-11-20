@@ -27,6 +27,7 @@ import express from 'express';
 import { RequestError, blocksFor, checkBlock, describeBlocks, generate, parseRequest } from '@eigenbeleg/pipeline';
 import { VAT } from '@eigenbeleg/pipeline/prices';
 import { composeMail } from './mail.js';
+import { openapi } from './describe.js';
 import { SECURITY_HTML, SECURITY_MAIL, SECURITY_PATH } from './security-page.js';
 import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatches } from './subscriptions.js';
 
@@ -114,6 +115,7 @@ export function createApp({
 			terms: TERMS_PATH,
 			support: SUPPORT,
 			agents: '/llms.txt',
+			openapi: '/openapi.json',
 			payment: paywall.info,
 			request: {
 				chain: 'near',
@@ -153,6 +155,11 @@ export function createApp({
 	});
 	const hasUi = Boolean(web && existsSync(`${web}/index.html`));
 	if (hasUi) mountUi(app, /** @type {string} */ (web), publicUrl);
+	// For tools and agents that read a description instead of prose (describe.js).
+	app.get('/openapi.json', (req, res) => {
+		res.setHeader('Cache-Control', 'public, max-age=3600');
+		res.json(openapi({ base: origin(req, publicUrl), payment: /** @type {Record<string, unknown>} */ (paywall.info), chains: Object.keys(blocks), terms: TERMS_PATH, source, subscriptions: Boolean(subs) }));
+	});
 	// For agents (llms.txt convention): what is sold, the price, the x402 flow, and where people go instead.
 	app.get('/llms.txt', (req, res) => {
 		const p = /** @type {Record<string, unknown>} */ (paywall.info);
@@ -181,6 +188,8 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
   3. The answer carries the files and \`PAYMENT-RESPONSE\` (the transaction). If reading the chain fails, nothing is charged.
   Clients: @x402/fetch with @x402/near or @x402/evm (JavaScript), or this repository's agent: npm run agent -- --help.
 ${testnet ? `\n## Test (testnet)\n\n- POST ${base}/testnet/eigenbeleg: ${TESTNET_WHAT}. GET ${base}/testnet/blocks as well, so a client takes ${base}/testnet as its API base (this repository's agent: --api ${base}/testnet --network testnet). Paid like POST /eigenbeleg, with USDC on NEAR testnet (near:testnet): ${testnetPrice(testnet)}. ${testnetLimits(testnetLimit, testnetMailsPerDay)}. For developing and testing clients; no contract, no invoice, no value.\n` : ''}
+The same for tools: GET ${base}/openapi.json (OpenAPI 3.1); every 402 of POST /eigenbeleg also carries the body's JSON Schema and an example (the x402 bazaar extension).
+
 ## Body
 
 {

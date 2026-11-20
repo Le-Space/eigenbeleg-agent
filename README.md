@@ -205,6 +205,7 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 | `GET /eigenbeleg/subscribe/<id>/cancel?token=…` | The link in every subscription mail: deletes the subscription |
 | `GET /ui/` | The web UI (a static PWA that talks to none of these routes), when `npm run web:build` has run |
 | `GET /llms.txt` | For agents: what is sold, the price, the x402 steps and the body, as plain text |
+| `GET /openapi.json` | For tools: the API as OpenAPI 3.1, with the body's JSON Schema, this instance's chains and its price (`x-payment-info`). Every 402 of `POST /eigenbeleg` carries the same schema and an example (the x402 `bazaar` extension), so a client learns what to send from the 402 itself |
 | `GET /ui/?lang=de`, `GET /ui/?lang=en` | The page in one language under its own address, the text in the markup: for search engines (canonical, `hreflang`, structured data) and for a link someone shares. `/ui/` itself adapts to the reader |
 | `GET /robots.txt`, `GET /sitemap.xml` | For crawlers, when the UI is built: what may be read (not the cancel links of subscriptions) and the page's three addresses |
 
@@ -338,6 +339,8 @@ Testnet vs mainnet: `PAY_NETWORKS` decides where customers pay; the chain data r
 **The test route, in production too.** `POST /testnet/eigenbeleg` sells the same documents for testnet USDC, but only for testnet addresses (`"network": "testnet"`; anything else is a `400` before the 402), every PDF marked TESTNET and every file name `TEST-`. It has its own paywall with `near:testnet` only, its own recipient and relayer (`TESTNET_PAY_TO`, `TESTNET_RELAYER_ACCOUNT_ID`, `TESTNET_RELAYER_SECRET_KEY`, `TESTNET_NEAR_RPC_URL`; `….testnet` accounts only), and never shares a 402 with the main route, so testnet USDC never buys a mainnet document. Limits: 30 requests an hour per IP (402s included), periods up to 31 days, 20 mails a day in all (subject `[TESTNET]`), no subscription; `GET /testnet/blocks` too, so a client takes `…/testnet` as its API base. Without `TESTNET_PAY_TO` the route answers 404. It is for developing and testing clients and new features against the running code: no contract, no invoice, no value.
 
 This API is its own x402 facilitator on every network: the NEAR relayer submits delegate actions, the EVM relayer submits `transferWithAuthorization`; no third party sees or settles the payments.
+
+**Being found.** The 402 says what the route takes (the `bazaar` discovery extension), and `/openapi.json` and `/llms.txt` describe the API. A catalogue such as the x402 Bazaar lists a route when a facilitator that keeps one settles a payment for it; because this API settles its own payments, it is in no such catalogue by itself. Listing it there would mean settling through that facilitator, which then sees every payment: a decision, not a setting.
 
 **Outbound hosts** the API calls (HTTPS only):
 

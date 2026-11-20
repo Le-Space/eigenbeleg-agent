@@ -6,25 +6,9 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta http-equiv="Content-Security-Policy" content="__CSP__" />
-		<title>Eigenbeleg · Le Space Belege</title>
-		<meta name="description" content="Eigenbelege für Blockchain-Zahlungen: Netzwerkgebühren und Storage-Deposits als PDF/A und CSV, mit Euro-Kurs des Tages. Alles im Browser, kostenlos: Name, Anschrift und Adressen gehen an keinen Server von uns." />
-		<!-- Share cards (Open Graph: Telegram, LinkedIn, WhatsApp, Mastodon; X reads twitter:*). The API puts in
-		     its public origin for __PUBLIC_URL__; crawlers need absolute URLs. Cards: scripts/video/social.mjs. -->
-		<meta property="og:type" content="website" />
-		<meta property="og:site_name" content="Le Space Belege" />
-		<meta property="og:locale" content="de_DE" />
-		<meta property="og:locale:alternate" content="en_US" />
-		<meta property="og:title" content="Eigenbeleg für Blockchain-Zahlungen" />
-		<meta property="og:description" content="Netzwerkgebühren und Storage-Deposits als PDF/A und CSV, mit Euro-Kurs des Tages. Alles im Browser, kostenlos: Name, Anschrift und Adressen gehen an keinen Server von uns." />
-		<meta property="og:url" content="__PUBLIC_URL__/ui/" />
-		<meta property="og:image" content="__PUBLIC_URL__/ui/social/eigenbeleg-de.png" />
-		<meta property="og:image:width" content="1200" />
-		<meta property="og:image:height" content="630" />
-		<meta property="og:image:alt" content="Le Space eigenbeleg: Eigenbelege für Blockchain-Zahlungen, als PDF/A und CSV." />
-		<meta name="twitter:card" content="summary_large_image" />
-		<meta name="twitter:title" content="Eigenbeleg für Blockchain-Zahlungen" />
-		<meta name="twitter:description" content="Netzwerkgebühren und Storage-Deposits als PDF/A und CSV, mit Euro-Kurs des Tages. Alles im Browser, kostenlos: Name, Anschrift und Adressen gehen an keinen Server von uns." />
-		<meta name="twitter:image" content="__PUBLIC_URL__/ui/social/eigenbeleg-de.png" />
+		<!-- Title, description, canonical, alternates, share cards and structured data: apps/web/seo.js puts them
+		     in at build time, per language (German here, English in dist/index.en.html). -->
+		<!-- __SEO_HEAD__ -->
 		<meta name="theme-color" content="#FAF6EE" media="(prefers-color-scheme: light)" />
 		<meta name="theme-color" content="#0B0E15" media="(prefers-color-scheme: dark)" />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />

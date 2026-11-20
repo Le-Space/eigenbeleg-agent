@@ -257,3 +257,56 @@ test('Le Space addresses: contact@ (legal), eigenbeleg@ (help), support@ (paymen
 	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 	assert.match(html, /Fragen zum Datenschutz: <a href="mailto:contact@le-space\.de">/);
 });
+
+test('each language has its own address: head, alternates and markup in that language (seo.js)', async () => {
+	const { SEO_SLOT, englishPage, germanPage, jsonLd, seoHead } = await import('../seo.js');
+	const { TEXTS, urlLang } = await import('../src/i18n.js');
+	const source = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+	assert.ok(source.includes(SEO_SLOT), 'index.html keeps the place for the head');
+	const built = source.replace(SEO_SLOT, seoHead('de'));
+
+	// The adapting page: German, canonical to itself, and all three alternates.
+	assert.match(built, /<link rel="canonical" href="__PUBLIC_URL__\/ui\/" \/>/);
+	for (const [lang, url] of [['de', '/ui/?lang=de'], ['en', '/ui/?lang=en'], ['x-default', '/ui/']]) {
+		assert.ok(built.includes(`<link rel="alternate" hreflang="${lang}" href="__PUBLIC_URL__${url}" />`), lang);
+	}
+	assert.ok(built.includes(`<title>${TEXTS.de.metaTitle}</title>`));
+
+	const en = englishPage(built);
+	assert.match(en, /<html lang="en">/);
+	assert.match(en, /<link rel="canonical" href="__PUBLIC_URL__\/ui\/\?lang=en" \/>/);
+	assert.match(en, /og:image" content="__PUBLIC_URL__\/ui\/social\/eigenbeleg-en\.png"/);
+	assert.match(en, /og:locale" content="en_GB"/);
+	assert.ok(en.includes(`<title>${TEXTS.en.metaTitle}</title>`));
+	// Every text of the markup is the English one, and none is left in German.
+	for (const m of en.matchAll(/data-i18n="(\w+)"[^>]*>([^<]*)</g)) {
+		const text = m[2].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+		assert.equal(text, /** @type {any} */ (TEXTS.en)[m[1]], m[1]);
+	}
+	// The blocks written in both languages: the English ones show, the German ones do not.
+	assert.equal((en.match(/data-lang="en" hidden/g) ?? []).length, 0);
+	assert.equal((en.match(/data-lang="de" hidden/g) ?? []).length, (built.match(/data-lang="en" hidden/g) ?? []).length);
+	assert.ok((en.match(/data-lang="de" hidden/g) ?? []).length >= 3);
+
+	const de = germanPage(built);
+	assert.match(de, /<link rel="canonical" href="__PUBLIC_URL__\/ui\/\?lang=de" \/>/);
+	assert.match(de, /<html lang="de">/);
+
+	// A build that knows its origin has put it in before the variants are made.
+	const fill = (/** @type {string} */ s) => s.replaceAll('__PUBLIC_URL__', 'https://eigenbeleg.example.org');
+	assert.match(englishPage(fill(built), fill), /<link rel="canonical" href="https:\/\/eigenbeleg\.example\.org\/ui\/\?lang=en" \/>/);
+	assert.throws(() => englishPage(source), /German head/);
+
+	// Structured data: a data block that parses, free, and cannot close its own tag.
+	const data = JSON.parse(jsonLd('en', 'https://eigenbeleg.example.org/ui/?lang=en'));
+	assert.equal(data['@type'], 'WebApplication');
+	assert.equal(data.offers.price, '0');
+	assert.equal(data.inLanguage, 'en');
+	assert.ok(!jsonLd('de', 'https://x.example/</script>').includes('</script>'));
+
+	// The address names the language; anything else leaves it to the saved choice and the browser.
+	assert.equal(urlLang('?lang=en'), 'en');
+	assert.equal(urlLang('?lang=de'), 'de');
+	assert.equal(urlLang('?lang=fr'), null);
+	assert.equal(urlLang(''), null);
+});

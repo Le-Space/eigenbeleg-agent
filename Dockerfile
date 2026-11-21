@@ -28,6 +28,12 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000
 
+# Which commit this image is built from, and its instant: GET /, /health and /openapi.json name
+# them (apps/api/src/build.js), as the page's footer does. The image workflow hands them in.
+ARG SOURCE_COMMIT=
+ARG SOURCE_COMMIT_DATE=
+ENV SOURCE_COMMIT=$SOURCE_COMMIT SOURCE_COMMIT_DATE=$SOURCE_COMMIT_DATE
+
 # apps/api/production marks this image as a production build: the API then takes mainnet
 # payments only and refuses to start with a testnet network, PAYWALL=none or the development
 # flag (apps/api/src/release.js). It belongs to root on a read-only filesystem, so .env cannot

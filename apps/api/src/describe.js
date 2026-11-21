@@ -83,8 +83,9 @@ export async function discoveryExtensions() {
  * @param {string} o.terms where the terms of business are
  * @param {string} o.source the source code
  * @param {boolean} [o.subscriptions]
+ * @param {import('./build.js').Build} [o.build] which build this is; its version is the document's
  */
-export function openapi({ base, payment, chains, terms, source, subscriptions = false }) {
+export function openapi({ base, payment, chains, terms, source, subscriptions = false, build = { version: '', commit: '', date: '' } }) {
 	const accepts = /** @type {{ network: string, name: string, asset: string, price: string, payTo: string }[]} */ (payment.accepts ?? []);
 	const paid = payment.mode === 'x402';
 	const priced = accepts.map((a) => `${a.price} in ${a.asset} on ${a.name} (${a.network})`).join('; ');
@@ -98,7 +99,8 @@ export function openapi({ base, payment, chains, terms, source, subscriptions = 
 		openapi: '3.1.0',
 		info: {
 			title: 'Eigenbeleg API',
-			version: '1',
+			version: build.version || '0.0.0',
+			...(build.commit ? { 'x-commit': build.commit, 'x-built': build.date } : {}),
 			summary: 'Eigenbelege and Kontoauszüge for the payments of own blockchain addresses, paid per request with x402.',
 			description:
 				'Eigenbelege (self-issued proofs of payment for German bookkeeping; never invoices) for network fees, storage deposits and transfers of a person\'s own blockchain addresses, as PDF/A-2b and CSV with the EUR rate of each payment\'s day. The paid routes sell to businesses only (§ 14 BGB) under the terms of business. People use the web UI at /ui/ instead, free, in their browser.',

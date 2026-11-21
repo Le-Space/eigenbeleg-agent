@@ -13,7 +13,7 @@
 //   - no PAY_NETWORKS at all (the development default is near:testnet),
 //   - a payment RPC (NEAR_RPC_URL, EVM_RPC_*) that names a test network,
 //   - the development flag EIGENBELEG_DEV_TESTNET,
-//   - a payment in a chain's own coin (DOI_PAY_TO, onchain.js) at another price than the
+//   - a payment in a chain's own coin (DOI_XPUB or DOI_PAY_TO, onchain.js) at another price than the
 //     published one, with no confirmation, or through a server on this machine.
 // Outside production a testnet payment network needs EIGENBELEG_DEV_TESTNET=1.
 //
@@ -85,7 +85,7 @@ export function checkPayments({ production, allowTestnet, mode, networks, rpcUrl
  * @param {string[]} c.servers the ElectrumX servers asked
  */
 export function checkOnchain({ production, mode, symbol, price, published, confirmations, servers }) {
-	if (mode !== 'x402' && mode !== 'near') throw new Error(`${symbol}_PAY_TO needs PAYWALL=x402: the ${symbol} offer stands in the same 402`);
+	if (mode !== 'x402' && mode !== 'near') throw new Error(`a payment in ${symbol} needs PAYWALL=x402: the ${symbol} offer stands in the same 402`);
 	for (const u of servers) if (!/^wss?:\/\/[^\s/]+$/.test(u)) throw new Error(`${symbol}_ELECTRUM: ElectrumX servers as wss://host:port, comma-separated`);
 	if (!production) return;
 	const no = (/** @type {string} */ why) => {

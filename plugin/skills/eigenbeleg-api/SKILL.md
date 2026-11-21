@@ -95,7 +95,17 @@ the documents come about ten minutes after the payment:
 
 The payment belongs to that one request, unchanged, and stays redeemable for it
 for seven days, also after a `502`. Keep the body and the txid until the files
-are there. A payment sent from a wallet by itself (a QR code) is not taken yet.
+are there.
+
+**From a wallet instead** (the person scans a QR code with DoiWallet; only where
+`payment.coins[].perOrder` is true): send the request with the header
+`X-Eigenbeleg-Order: doichain`. The offer in that 402 then has a `payTo` that is
+this request's alone, the payment URI in `extra.uri` (show it as a QR code; in
+DoiWallet it is scanned from the send screen) and `extra.payBefore`. After the
+person paid, send the same request, with that header, with `PAYMENT-SIGNATURE`
+and payload `{}`, using that offer unchanged as `accepted`, until it is `200`;
+the payment is found at the address. Without that header a payment a wallet
+sends by itself is not taken.
 
 If reading the chain fails, the API answers `502` and nothing is charged. A `402`
 after you paid means the payment was not accepted; do not pay again blindly, read

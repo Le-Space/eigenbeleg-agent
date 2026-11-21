@@ -20,18 +20,22 @@
 //
 // A payment belongs to one request. The transaction must reach the network
 // through this server: one the network already knows could be claimed by
-// anybody who saw it, and is refused. (A payment a wallet sends by itself,
-// from a QR code, needs an address of its own per order; not offered yet.)
+// anybody who saw it, and is refused.
+//
+// With an extended public key (DOI_XPUB) instead of one address, a request can
+// ask for an address of its own (header X-Eigenbeleg-Order). Whatever arrives
+// there is that request's, so a wallet can pay it from a QR code and no proof
+// is needed. The server derives addresses only; it holds no key that spends.
 //
 // What is kept, in PAYMENTS_DIR, one small file per payment: the txid, the
 // amount, when it was seen and redeemed, and a SHA-256 hash of the request
-// body. No body, no name, no address of the customer.
+// body; and of an order its address, that hash and when it was given out. No body, no name, no address of the customer.
 
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { PaymentError, UNREACHABLE, broadcast, checkPayment, explorerTx, fromUnits, inspectPayment, isAddress, scriptOf, toUnits, withServer } from '@eigenbeleg/onchain-pay';
+import { PaymentError, UNREACHABLE, broadcast, checkPayment, explorerTx, fromUnits, inspectPayment, isAddress, paymentUri, receiveAddresses, scriptOf, scripthashOf, toUnits, withServer } from '@eigenbeleg/onchain-pay';
 
 export const SCHEME = 'onchain';
 /** A payment stays redeemable for its request this long after it was first seen. */
@@ -131,6 +135,7 @@ export const requestHash = (txid, body) => createHash('sha256').update(`${txid}\
 /** Why a payment is not taken, as the 402 says it. */
 export const REASONS = Object.freeze({
 	no_payment: 'the payment carries neither a signed transaction (payload.transaction, hex) nor a txid (payload.txid)',
+	no_payment_yet: 'nothing that covers the price has arrived at the address of this request yet',
 	not_a_transaction: 'payload.transaction is not a transaction',
 	unknown_payment: 'this txid was not first sent here: send the signed transaction itself (payload.transaction), and let this server broadcast it',
 	not_first_sent_here: 'the network knows this transaction already, so it cannot be tied to this request; send a new, unsent transaction and let this server broadcast it',
@@ -143,10 +148,69 @@ export const REASONS = Object.freeze({
 	dropped: 'the transaction is not on the chain any more (replaced, dropped, or its block was reorganised); pay again'
 });
 
+/** An unpaid order keeps its address to itself this long; after that the address may go to another order. */
+export const ORDER_SECONDS = 2 * 3600;
+/** Wallets look this many unused addresses ahead of the last used one; no more than these are given out unpaid. */
+export const GAP = 20;
+
+/**
+ * @typedef {object} Order an address given to one request
+ * @property {number} index of the address under the extended public key
+ * @property {string} address
+ * @property {string} request SHA-256 of the request body
+ * @property {string} at ISO instant it was given out
+ * @property {string | null} txid the payment tied to it, once seen
+ * @property {boolean} [used] something arrived there without an order claiming it: never given out again
+ *
+ * @typedef {{ next: number, orders: Order[] }} OrderBook
+ * @typedef {{ load: () => Promise<OrderBook>, save: (book: OrderBook) => Promise<void> }} OrderStore
+ */
+
+/** For tests and development. @returns {OrderStore} */
+export function memoryOrders() {
+	/** @type {OrderBook} */
+	let book = { next: 1, orders: [] };
+	return { load: async () => structuredClone(book), save: async (b) => void (book = structuredClone(b)) };
+}
+
+/**
+ * The orders in one file, `orders.json`: addresses, hashes, instants; nothing of the customer.
+ *
+ * @param {{ dir: string }} o
+ * @returns {OrderStore}
+ */
+export function createOrderStore({ dir }) {
+	const file = join(dir, 'orders.json');
+	return {
+		async load() {
+			try {
+				const book = JSON.parse(await readFile(file, 'utf8'));
+				if (Number.isInteger(book?.next) && Array.isArray(book?.orders)) return book;
+			} catch (e) {
+				if (/** @type {any} */ (e)?.code !== 'ENOENT') throw e;
+			}
+			return { next: 1, orders: [] };
+		},
+		async save(book) {
+			await mkdir(dir, { recursive: true });
+			const tmp = `${file}.${randomBytes(4).toString('hex')}.tmp`;
+			await writeFile(tmp, JSON.stringify(book), { mode: 0o600 });
+			await rename(tmp, file);
+		}
+	};
+}
+
+/** What ties an order to its request: SHA-256 over the body. @param {unknown} body */
+export const bodyHash = (body) => createHash('sha256').update(canonical(body)).digest('hex');
+
 /**
  * @param {object} o
  * @param {import('@eigenbeleg/onchain-pay/networks').Network} o.network
- * @param {string} o.payTo the address that receives the coin
+ * @param {string} [o.payTo] one address that receives every payment; or
+ * @param {string} [o.xpub] the account's extended public key (xpub… or zpub…): an address per order, so a wallet
+ *   can pay by itself. Kept like a secret: it is in no answer, error or log
+ * @param {OrderStore} [o.orders] where the orders are kept (with xpub)
+ * @param {number} [o.gap] addresses given out unpaid at most; default GAP
  * @param {string} o.price a decimal of the coin, e.g. "2.5"
  * @param {number} [o.confirmations] blocks before the documents are built; default 1
  * @param {PaymentStore} o.store
@@ -155,42 +219,152 @@ export const REASONS = Object.freeze({
  * @param {() => Date} [o.now]
  * @param {number} [o.limit] judged payments per minute per IP; default 30
  */
-export function createOnchain({ network, payTo, price, confirmations = 1, store, servers, open, now = () => new Date(), limit = 30 }) {
-	if (!isAddress(network, payTo)) throw new Error(`${network.symbol}_PAY_TO is not a ${network.name} address`);
-	if (!Number.isInteger(confirmations) || confirmations < 0 || confirmations > 100) throw new Error(`${network.symbol}_CONFIRMATIONS: a number of blocks, 0 to 100`);
+export function createOnchain({ network, payTo, xpub, orders = memoryOrders(), gap = GAP, price, confirmations = 1, store, servers, open, now = () => new Date(), limit = 30 }) {
+	const sym = network.symbol;
+	if (Boolean(payTo) === Boolean(xpub)) throw new Error(`name either ${sym}_PAY_TO (one address) or ${sym}_XPUB (an address per order)`);
+	/** @type {((index: number) => string) | null} */
+	let addressAt = null;
+	if (xpub) {
+		try {
+			addressAt = receiveAddresses(network, xpub);
+		} catch {
+			throw new Error(`${sym}_XPUB is not an extended public key of an account (xpub… or zpub…)`);
+		}
+	} else if (!isAddress(network, /** @type {string} */ (payTo))) throw new Error(`${sym}_PAY_TO is not a ${network.name} address`);
+	/** Where a payment goes that has no address of its own: with xpub the first address, for signed transactions only. */
+	const shared = addressAt ? addressAt(0) : /** @type {string} */ (payTo);
+	if (!Number.isInteger(confirmations) || confirmations < 0 || confirmations > 100) throw new Error(`${sym}_CONFIRMATIONS: a number of blocks, 0 to 100`);
 	/** @type {bigint} */
 	let amount;
 	try {
 		amount = toUnits(network, price);
 	} catch {
-		throw new Error(`PRICE_${network.symbol}: an amount of ${network.symbol} like 2.5`);
+		throw new Error(`PRICE_${sym}: an amount of ${sym} like 2.5`);
 	}
-	if (amount < BigInt(network.dust)) throw new Error(`PRICE_${network.symbol} is below what the network relays`);
+	if (amount < BigInt(network.dust)) throw new Error(`PRICE_${sym} is below what the network relays`);
 	const run = open ?? ((fn) => withServer(network, fn, servers?.length ? { servers } : {}));
-	const own = Buffer.from(/** @type {Uint8Array} */ (scriptOf(network, payTo))).toString('hex');
+	const scriptHex = (/** @type {string} */ address) => Buffer.from(/** @type {Uint8Array} */ (scriptOf(network, address))).toString('hex');
 	/** Marks a payment this process's step has judged: nothing a client sends can carry it. */
 	const stamp = randomBytes(16).toString('hex');
-	const priced = `${fromUnits(network, amount)} ${network.symbol}`;
+	const priced = `${fromUnits(network, amount)} ${sym}`;
 	const wait = `about ${Math.round((network.blockSeconds * Math.max(1, confirmations)) / 60)} minutes`;
+	const ORDER_HEADER = 'X-Eigenbeleg-Order';
 
-	/** The offer in a route's accepts. */
+	// The orders: one writer at a time, so two requests never get one address.
+	/** @type {Promise<unknown>} */
+	let queue = Promise.resolve();
+	const locked = (/** @type {() => Promise<any>} */ fn) => {
+		const result = queue.then(fn, fn);
+		queue = result.catch(() => {});
+		return result;
+	};
+	const expired = (/** @type {Order} */ o) => !o.txid && (now().getTime() - Date.parse(o.at)) / 1000 > ORDER_SECONDS;
+
+	/** The order of a request, if it has one. @param {unknown} body @returns {Promise<Order | null>} */
+	async function orderOf(body) {
+		if (!addressAt) return null;
+		const request = bodyHash(body);
+		return (await orders.load()).orders.find((o) => o.request === request) ?? null;
+	}
+
+	/**
+	 * An address for this request alone: the one it has, one whose order ran out unpaid and that
+	 * nothing was ever sent to, or the next. Null where GAP addresses are out unpaid already.
+	 *
+	 * @param {unknown} body
+	 * @returns {Promise<Order | null>}
+	 */
+	function openOrder(body) {
+		const derive = addressAt;
+		if (!derive) return Promise.resolve(null);
+		return locked(async () => {
+			const request = bodyHash(body);
+			const book = await orders.load();
+			const at = now().toISOString();
+			const mine = book.orders.find((o) => o.request === request);
+			if (mine) {
+				if (expired(mine)) {
+					mine.at = at;
+					await orders.save(book);
+				}
+				return mine;
+			}
+			for (const old of book.orders.filter((o) => !o.used && expired(o))) {
+				let empty;
+				try {
+					empty = await run(async (server) => ((await server.request('blockchain.scripthash.get_history', [scripthashOf(/** @type {Uint8Array} */ (scriptOf(network, old.address)))])) ?? []).length === 0);
+				} catch {
+					break; // the network cannot be asked: no address is given out twice on a guess
+				}
+				if (empty) {
+					Object.assign(old, { request, at });
+					await orders.save(book);
+					return old;
+				}
+				old.used = true;
+			}
+			const top = Math.max(0, ...book.orders.filter((o) => o.txid || o.used).map((o) => o.index));
+			if (book.next - 1 - top >= gap) {
+				await orders.save(book);
+				return null;
+			}
+			/** @type {Order} */
+			const order = { index: book.next, address: derive(book.next), request, at, txid: null };
+			book.next += 1;
+			book.orders.push(order);
+			await orders.save(book);
+			return order;
+		});
+	}
+
+	/** @param {Order} order @param {string} txid */
+	const markPaid = (order, txid) =>
+		locked(async () => {
+			const book = await orders.load();
+			const o = book.orders.find((x) => x.index === order.index && x.request === order.request);
+			if (o && !o.txid) {
+				o.txid = txid;
+				await orders.save(book);
+			}
+		});
+
+	const signed = `Sign a transaction that pays at least the amount to payTo and send the same request with PAYMENT-SIGNATURE, payload { "transaction": "<hex>" }; do not broadcast it yourself. The answer is 202 until ${confirmations} confirmation(s) (${wait}); repeat the request (payload { "txid": "…" } is enough then) until 200.`;
+	/** The price as a route names it, for a request with or without an address of its own. @param {Order | null} order */
+	const priceOf = (order) => ({
+		amount: amount.toString(),
+		asset: sym,
+		extra: {
+			name: network.name,
+			decimals: network.decimals,
+			price: priced,
+			confirmations,
+			blockSeconds: network.blockSeconds,
+			explorer: network.explorer.tx,
+			...(addressAt
+				? order
+					? {
+							ownAddress: true,
+							uri: paymentUri(network, { address: order.address, amount }),
+							payBefore: new Date(Date.parse(order.at) + ORDER_SECONDS * 1000).toISOString(),
+							how: `payTo is the address of this request alone. Pay it from a wallet (uri, as a QR code) before payBefore, or sign a transaction and send it as payload { "transaction": "<hex>" }. Then send the same request with PAYMENT-SIGNATURE (payload {} is enough: the payment is found at the address) until the answer is 200; it is 202 until ${confirmations} confirmation(s) (${wait}).`
+						}
+					: { ownAddress: false, how: `${signed} To pay from a wallet instead, send the request with the header ${ORDER_HEADER}: ${network.id}: the 402 then names an address of this request alone.` }
+				: { how: signed })
+		}
+	});
+	/** @param {any} context the x402 middleware's request context @returns {Promise<Order | null>} */
+	const offered = async (context) => {
+		const body = context?.adapter?.getBody?.();
+		const wants = String(context?.adapter?.getHeader?.(ORDER_HEADER.toLowerCase()) ?? '').toLowerCase() === network.id;
+		return wants ? openOrder(body) : orderOf(body);
+	};
+
+	/** The offer in a route's accepts; with an extended public key, address and details per request. */
 	const accept = {
 		scheme: SCHEME,
 		network: network.caip2,
-		payTo,
-		price: {
-			amount: amount.toString(),
-			asset: network.symbol,
-			extra: {
-				name: network.name,
-				decimals: network.decimals,
-				price: priced,
-				confirmations,
-				blockSeconds: network.blockSeconds,
-				explorer: network.explorer.tx,
-				how: `Sign a transaction that pays at least the amount to payTo and send the same request with PAYMENT-SIGNATURE, payload { "transaction": "<hex>" }; do not broadcast it yourself. The answer is 202 until ${confirmations} confirmation(s) (${wait}); repeat the request (payload { "txid": "…" } is enough then) until 200.`
-			}
-		},
+		payTo: addressAt ? async (/** @type {any} */ context) => (await offered(context))?.address ?? shared : shared,
+		price: addressAt ? async (/** @type {any} */ context) => priceOf(await offered(context)) : priceOf(null),
 		maxTimeoutSeconds: REDEEM_SECONDS
 	};
 
@@ -212,46 +386,80 @@ export function createOnchain({ network, payTo, price, confirmations = 1, store,
 			}
 			txid = seen.txid;
 		}
-		if (!txid) return { verdict: 'no_payment', txid: '', request: '' };
-		const request = requestHash(txid, body);
+		// With an address of its own a payment needs no proof: whatever arrives there is this request's.
+		const order = await orderOf(body);
+		const to = order?.address ?? shared;
+		const own = scriptHex(to);
+		if (!txid && !order) return { verdict: 'no_payment', txid: '', request: '' };
+		let request = txid ? requestHash(txid, body) : '';
 		const no = (/** @type {string} */ verdict) => ({ verdict, txid, request });
 		// What can be said without asking the network is said first: no connection for a payment that cannot count.
 		const paid = seen ? seen.outputs.filter((o) => o.script === own).reduce((sum, o) => sum + o.amount, 0n) : 0n;
-		const first = await store.get(txid);
-		if (!first) {
-			if (!seen) return no('unknown_payment');
-			if (paid === 0n) return no('address');
-			if (paid < amount) return no('amount');
-			if (seen.replaceable) return no('replaceable');
-		} else if (first.request !== request) return no('other_request');
+		const first = txid ? await store.get(txid) : null;
+		if (txid && !first) {
+			if (!seen && !order) return no('unknown_payment');
+			if (seen && paid === 0n) return no('address');
+			if (seen && paid < amount) return no('amount');
+			// Without a block to wait for, a transaction that can be replaced is no payment yet.
+			if (seen?.replaceable && confirmations === 0) return no('replaceable');
+		} else if (first && first.request !== request) return no('other_request');
 		return run(async (server) => {
+			if (!txid) {
+				// Paid from a wallet: look at what arrived at the order's address.
+				/** @type {{ tx_hash: string }[]} */
+				const history = (await server.request('blockchain.scripthash.get_history', [scripthashOf(/** @type {Uint8Array} */ (scriptOf(network, to)))])) ?? [];
+				for (const h of history.slice(-10).reverse()) {
+					if (!TXID.test(String(h.tx_hash))) continue;
+					const state = await checkPayment({ network, server, txid: h.tx_hash, address: to, amount, minConfirmations: confirmations });
+					if (state.paid >= amount) {
+						txid = h.tx_hash;
+						break;
+					}
+				}
+				if (!txid) return no('no_payment_yet');
+				request = requestHash(txid, body);
+			}
 			let record = await store.get(txid);
 			if (!record) {
-				if (!seen) return no('unknown_payment');
-				// Known to the network before it came here: anybody could have copied it from there.
-				const known = await server.request('blockchain.transaction.get', [txid, true]).then(
-					(tx) => Boolean(tx),
-					(e) => {
-						if (UNREACHABLE.includes(/** @type {any} */ (e)?.code)) throw e;
-						return false;
-					}
-				);
-				if (known) return no('not_first_sent_here');
-				record = { v: 1, txid, network: network.id, request, amount: paid.toString(), seenAt: now().toISOString(), spentAt: null };
+				let arrived = paid;
+				let known = false;
+				if (seen) {
+					// Known to the network before it came here: anybody could have copied it from there,
+					// unless it pays an address that is this request's alone.
+					known = await server.request('blockchain.transaction.get', [txid, true]).then(
+						(tx) => Boolean(tx),
+						(e) => {
+							if (UNREACHABLE.includes(/** @type {any} */ (e)?.code)) throw e;
+							return false;
+						}
+					);
+					if (known && !order) return no('not_first_sent_here');
+				} else {
+					if (!order) return no('unknown_payment');
+					const state = await checkPayment({ network, server, txid, address: to, amount, minConfirmations: confirmations });
+					if (state.paid === 0n) return no('unknown_payment');
+					if (state.paid < amount) return no('amount');
+					arrived = state.paid;
+					known = true;
+				}
+				record = { v: 1, txid, network: network.id, request, amount: arrived.toString(), seenAt: now().toISOString(), spentAt: null };
 				if (await store.bind(record)) {
-					try {
-						await broadcast(server, hex);
-					} catch (e) {
-						await store.remove(txid);
-						if (e instanceof PaymentError && e.code === 'PAYMENT_REFUSED') return no('refused_by_network');
-						throw e;
+					if (!known) {
+						try {
+							await broadcast(server, hex);
+						} catch (e) {
+							await store.remove(txid);
+							if (e instanceof PaymentError && e.code === 'PAYMENT_REFUSED') return no('refused_by_network');
+							throw e;
+						}
 					}
 				} else record = /** @type {PaymentRecord} */ (await store.get(txid));
 			}
 			if (!record || record.request !== request) return no('other_request');
+			if (order && !order.txid) await markPaid(order, txid);
 			const age = (now().getTime() - Date.parse(record.seenAt)) / 1000;
 			if (age > REDEEM_SECONDS) return no('expired');
-			let state = await checkPayment({ network, server, txid, address: payTo, amount, minConfirmations: confirmations });
+			let state = await checkPayment({ network, server, txid, address: to, amount, minConfirmations: confirmations });
 			if (state.reason === 'unknown' && age > GRACE_SECONDS && seen) {
 				// It fell out of the mempool: with the transaction in hand, send it again.
 				try {
@@ -262,7 +470,9 @@ export function createOnchain({ network, payTo, price, confirmations = 1, store,
 				}
 			}
 			if (state.ok) return { verdict: 'ok', txid, request, state };
-			if (state.reason === 'unconfirmed' || (state.reason === 'unknown' && age <= GRACE_SECONDS)) return { verdict: 'waiting', txid, request, state };
+			// A wallet's payment can often still be replaced; with a block to wait for, that is just waiting.
+			const waiting = state.reason === 'unconfirmed' || (state.reason === 'replaceable' && confirmations > 0) || (state.reason === 'unknown' && age <= GRACE_SECONDS);
+			if (waiting) return { verdict: 'waiting', txid, request, state };
 			return no(state.reason === 'unknown' ? 'dropped' : state.reason);
 		});
 	}
@@ -390,7 +600,11 @@ export function createOnchain({ network, payTo, price, confirmations = 1, store,
 			asset: network.symbol,
 			price: priced,
 			amount: amount.toString(),
-			payTo,
+			payTo: shared,
+			// With an extended public key: `payTo` takes signed transactions; a wallet pays the address of its order.
+			perOrder: Boolean(addressAt),
+			orderHeader: addressAt ? `${ORDER_HEADER}: ${network.id}` : null,
+			orderHours: ORDER_SECONDS / 3600,
 			gasless: false,
 			confirmations,
 			wait,

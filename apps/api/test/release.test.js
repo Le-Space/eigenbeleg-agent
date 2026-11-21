@@ -38,6 +38,7 @@ function start(extra) {
 		RELAYER_SECRET_KEY: '',
 		PAY_TO_EVM: '',
 		DOI_PAY_TO: '',
+		DOI_XPUB: '',
 		PRICE_DOI: '',
 		EVM_RELAYER_KEY: '',
 		NEAR_RPC_URL: '',

@@ -15,6 +15,7 @@
   "dependencies": {
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
+    "@scure/bip32": "1.7.0",
     "@scure/btc-signer": "2.4.1"
   }
 }

@@ -7,7 +7,7 @@
   "main": "./src/agent.js",
   "dependencies": {
     "@eigenbeleg/pipeline": "0.1.0",
-    "@le-space/chains": "0.5.2",
+    "@le-space/chains": "0.6.0",
     "@le-space/eigenbeleg": "0.3.0",
     "@le-space/ledger": "0.3.0",
     "@x402/core": "^2.30.0",

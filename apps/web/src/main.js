@@ -137,6 +137,10 @@ function syncChain() {
 	$('chain-note').dataset.i18n = noteKey;
 	$('chain-note').textContent = t(noteKey);
 	$('nb-keys').hidden = chainSel.value !== 'near';
+	// A swap is a credit purchase on Aleph, a swap at a DEX elsewhere.
+	const swapKey = chainSel.value === 'aleph' ? 'kindSwap' : 'kindSwapDex';
+	$('kind-swap').dataset.i18n = swapKey;
+	$('kind-swap').textContent = t(swapKey);
 	// Only the kinds this chain has; a box that comes back gets its default again.
 	const kinds = b?.kinds ?? [];
 	for (const c of /** @type {NodeListOf<HTMLInputElement>} */ (form.querySelectorAll('input[name="includeKinds"]'))) {

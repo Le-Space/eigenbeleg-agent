@@ -137,7 +137,8 @@ After the preview, say what you are about to buy – document, period, these cho
 - `payer`: name and postal address, printed on the documents.
 - `number`: optional, the first number of the payer's own range; the others count up.
 - `includeKinds`: optional, of the chain's kinds in `GET /blocks` (`fee`,
-  `storage`, `transfer`, `call`; `swap` for Aleph credit purchases).
+  `storage`, `transfer`, `call`; `swap` for a swap at a DEX on NEAR and for
+  Aleph credit purchases).
 - `logo`: optional, the chain's mark beside the title.
 - `chart`: optional, `true` by default: the diagram above a statement's bookings
   (the balance over the period, or the consumption per day); `false` leaves it out.

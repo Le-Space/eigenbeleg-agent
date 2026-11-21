@@ -13,7 +13,7 @@ import * as aleph from './readers/aleph.js';
 import * as filecoinPay from './readers/filecoin-pay.js';
 
 /** The version of @le-space/chains the blocks are built on (a test holds it against the installed package). */
-export const CHAINS_VERSION = '0.5.2';
+export const CHAINS_VERSION = '0.6.0';
 
 /**
  * @typedef {object} Block
@@ -21,7 +21,7 @@ export const CHAINS_VERSION = '0.5.2';
  * @property {string} chain the id in requests and the web UI
  * @property {string[]} networks where payments can be read
  * @property {string[]} assets what the chain's fees and deposits are paid in
- * @property {string[]} kinds the kinds of payment the chain has for an Eigenbeleg, of fee, storage, transfer, call, swap (storage deposits exist on NEAR only; swap: Aleph's credit purchases); empty: no Eigenbeleg
+ * @property {string[]} kinds the kinds of payment the chain has for an Eigenbeleg, of fee, storage, transfer, call, swap (storage deposits exist on NEAR only; swap: a swap at a DEX on NEAR, Aleph's credit purchases); empty: no Eigenbeleg
  * @property {string[]} [defaultKinds] the kinds on the Eigenbeleg unless the request says (DEFAULT_KINDS when not given)
  * @property {string} source which API
  * @property {string} version
@@ -43,7 +43,9 @@ export const BLOCKS = {
 		chain: 'near',
 		networks: ['mainnet', 'testnet'],
 		assets: ['NEAR', 'NEP-141 tokens (USDC, USDT, …)'],
-		kinds: ['fee', 'storage', 'transfer', 'call'],
+		// A swap at a DEX (NEAR wrapped, wNEAR for a token) has no invoice from anyone: on the Eigenbeleg by default.
+		kinds: ['fee', 'storage', 'transfer', 'call', 'swap'],
+		defaultKinds: ['fee', 'storage', 'swap'],
 		source: 'NearBlocks API v3; balances from the FastNEAR archival RPC',
 		version: CHAINS_VERSION,
 		read: near.readNear,

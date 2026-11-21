@@ -208,7 +208,7 @@ The same for tools: GET ${base}/openapi.json (OpenAPI 3.1); every 402 of POST /e
   "document": "eigenbelege" | "kontoauszug" | "beide",
   "payer": { "name": "…", "address": "street, postcode town" }   printed on the documents; used for this response only, never stored or logged,
   "number": "EB-2026-001",                    optional, first number of the payer's own range,
-  "includeKinds": ["fee", "storage"],         optional: of the chain's kinds in GET /blocks (fee, storage, transfer, call; storage is NEAR's)
+  "includeKinds": ["fee", "storage"],         optional: of the chain's kinds in GET /blocks (fee, storage, transfer, call, swap; storage is NEAR's; NEAR's default has its swaps at a DEX too)
   "logo": false,                              optional: the chain's mark, small, beside the title
   "chart": true,                              optional, default true: the diagram above a statement's bookings (the balance, or the consumption per day)
   "email": "belege@example.org",              optional${mailer ? '' : ' (not offered by this instance)'}: the files also by mail, once the payment is settled

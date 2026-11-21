@@ -4,8 +4,8 @@
 // for the month before.
 //
 // This is the one thing the API keeps beyond a request: chain, network,
-// addresses, the payer's name and address, the e-mail address, the options
-// and how many months are left. Each subscription is one file in SUBSCRIPTION_DIR,
+// addresses, the payer's name and address, the payer's logo if one was sent,
+// the e-mail address, the options and how many months are left. Each subscription is one file in SUBSCRIPTION_DIR,
 // encrypted with a key from the environment (SUBSCRIPTION_KEY, AES-256-GCM),
 // so a copy of the volume alone shows nothing. The cancel token is inside
 // that file. No accounts, no login. After the last mail, or on the cancel
@@ -20,7 +20,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEq
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { RequestError, generate, isUsageStatement, parseRequest } from '@eigenbeleg/pipeline';
+import { RequestError, generate, isUsageStatement, issuerLogoImage, parseRequest } from '@eigenbeleg/pipeline';
 import { composeMail } from './mail.js';
 
 /** How many months a subscription buys by default, and at most: a year. */
@@ -41,8 +41,8 @@ export const routeFor = (months) => `${ROUTE}/${months}`;
  * @property {string} createdAt ISO
  * @property {string} origin this API's public origin at creation, for the cancel link in each mail
  * @property {string} token the cancel token (the file is encrypted; see above)
- * @property {{ chain: string, network: string, addresses: string[], payer: { name: string, address: string }, email: string, includeKinds: string[], logo: boolean, chart?: boolean, document: 'eigenbelege' | 'kontoauszug' | 'beide' }} job
- *   the request body of each month, without the period
+ * @property {{ chain: string, network: string, addresses: string[], payer: { name: string, address: string }, email: string, includeKinds: string[], logo: boolean, chart?: boolean, document: 'eigenbelege' | 'kontoauszug' | 'beide', issuerLogo?: string }} job
+ *   the request body of each month, without the period; issuerLogo: the payer's own logo as base64, when one was sent
  * @property {number} monthsLeft
  * @property {string} nextMonth YYYY-MM, the next month to deliver (the month after it, from FROM_DAY)
  * @property {string | null} failingSince ISO of the first failed run since the last success
@@ -146,7 +146,11 @@ export function subscriptionJob(body, { today, blocks, months = MONTHS }) {
 	if (body.format !== undefined && body.format !== 'json') throw new RequestError('format: a subscription has none; the files go by mail');
 	const probe = parseRequest({ ...body, period: { month: today.slice(0, 7) }, format: 'json', document: body.document ?? 'kontoauszug' }, { today, blocks });
 	if (!probe.email) throw new RequestError('email: needed for a subscription; the statements go by mail, like belege@example.org');
-	return { chain: probe.chain, network: probe.network, addresses: probe.addresses, payer: { name: probe.payer.name, address: probe.payer.address }, email: probe.email, includeKinds: probe.includeKinds, logo: probe.logo, chart: probe.chart, document: probe.document, language: probe.language };
+	// The issuer's own logo is kept with the subscription, under the limits of every request, and
+	// as the documents carry it: the picture alone (a PNG laid on white, a JPEG without its EXIF),
+	// not the file that was sent.
+	const issuerLogo = probe.issuerLogo ? Buffer.from(issuerLogoImage(probe.issuerLogo).bytes).toString('base64') : null;
+	return { chain: probe.chain, network: probe.network, addresses: probe.addresses, payer: { name: probe.payer.name, address: probe.payer.address }, email: probe.email, includeKinds: probe.includeKinds, logo: probe.logo, chart: probe.chart, document: probe.document, language: probe.language, ...(issuerLogo ? { issuerLogo } : {}) };
 }
 
 /**

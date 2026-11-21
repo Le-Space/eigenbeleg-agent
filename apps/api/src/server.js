@@ -8,6 +8,8 @@ import { DOICHAIN } from '@eigenbeleg/onchain-pay/networks';
 import { createOrderStore, createPaymentStore } from './onchain.js';
 import { createPaywall, createTestnetPaywall } from './paywall.js';
 import { DEV_TESTNET_FLAG, isProduction } from './release.js';
+import { join } from 'node:path';
+import { createLogoStore, startLogoSweep } from './logos.js';
 import { createStore, startScheduler } from './subscriptions.js';
 
 // A .env next to the repository root, if there is one (no dependency for it).
@@ -86,13 +88,18 @@ const mailer = createMailer({ smtpUrl: env.SMTP_URL, from: env.MAIL_FROM });
 const deps = { nearblocksKey: env.NEARBLOCKS_API_KEY, alchemyKey: env.ALCHEMY_KEY };
 // Subscriptions (#20): only with mail and SUBSCRIPTION_KEY; the files live in SUBSCRIPTION_DIR (a volume).
 const subscriptions = mailer && env.SUBSCRIPTION_KEY ? createStore({ dir: env.SUBSCRIPTION_DIR ?? '/var/lib/eigenbeleg', key: env.SUBSCRIPTION_KEY }) : null;
-const app = createApp({ paywall, testnet, deps, source: env.SOURCE_URL, publicUrl: env.PUBLIC_URL, mailer, subscriptions });
+// A preview's logo, kept for 24 hours (logos.js): in LOGO_DIR, else beside the subscriptions where
+// their directory is set; with neither the preview checks a picture and keeps none.
+const logoDir = env.LOGO_DIR || (env.SUBSCRIPTION_DIR ? join(env.SUBSCRIPTION_DIR, 'logos') : '');
+const logos = logoDir ? createLogoStore({ dir: logoDir }) : null;
+const app = createApp({ paywall, testnet, deps, source: env.SOURCE_URL, publicUrl: env.PUBLIC_URL, mailer, subscriptions, logos });
 // Behind a reverse proxy (Caddy): trust its X-Forwarded-Proto, so the x402
 // resource URL says https. Express's syntax: e.g. "uniquelocal" or a subnet.
 if (env.TRUST_PROXY) app.set('trust proxy', env.TRUST_PROXY);
 const host = env.HOST ?? '127.0.0.1';
 const port = Number(env.PORT ?? 4402);
 app.listen(port, host, () => {
-	console.log(`eigenbeleg API on http://${host}:${port} – ${production ? 'production (mainnet payments only)' : 'development'}, paywall: ${JSON.stringify(paywall.info)}, mail: ${mailer ? 'on' : 'off'}, subscriptions: ${subscriptions ? 'on' : 'off'}, test route: ${testnet ? JSON.stringify(testnet.info.accepts) : 'off'}`);
+	console.log(`eigenbeleg API on http://${host}:${port} – ${production ? 'production (mainnet payments only)' : 'development'}, paywall: ${JSON.stringify(paywall.info)}, mail: ${mailer ? 'on' : 'off'}, subscriptions: ${subscriptions ? 'on' : 'off'}, preview logos: ${logos ? 'kept 24 hours' : 'not kept'}, test route: ${testnet ? JSON.stringify(testnet.info.accepts) : 'off'}`);
+	if (logos) startLogoSweep({ store: logos, log: (l) => console.log(l) });
 	if (subscriptions && mailer) startScheduler({ store: subscriptions, deps: { ...deps, blocks: blocksFor(deps) }, mailer, log: (l) => console.log(l), source: env.SOURCE_URL });
 });

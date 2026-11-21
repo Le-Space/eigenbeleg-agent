@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { paymentMiddleware, x402ResourceServer } from '@x402/express';
 import { ExactNearScheme } from '@x402/near/exact/server';
 import { fixedRates } from '@le-space/eigenbeleg';
+import { sampleJpeg, samplePng } from '@le-space/pdf/testing/sample-images';
 import { blocksFor } from '@eigenbeleg/pipeline';
 
 import { createApp } from '../src/app.js';
@@ -67,6 +68,13 @@ test('the store: one encrypted file per subscription, nothing readable without t
 test('the request is checked like a paid one, without a period and with an e-mail address; months is the route\'s, twelve by default', () => {
 	const blocks = blocksFor({});
 	const job = subscriptionJob({ ...body, months: 12, logo: true, includeKinds: ['fee'] }, { today: '2026-11-12', blocks });
+	// The payer's own logo is kept with the job, checked like every request's, and only when one was sent.
+	assert.ok(!('issuerLogo' in job));
+	const withLogo = subscriptionJob({ ...body, issuerLogo: Buffer.from(sampleJpeg()).toString('base64') }, { today: '2026-11-12', blocks });
+	assert.equal(typeof withLogo.issuerLogo, 'string');
+	assert.deepEqual([...Buffer.from(withLogo.issuerLogo ?? '', 'base64').subarray(0, 2)], [0xff, 0xd8], 'a JPEG, as the documents carry it');
+	assert.throws(() => subscriptionJob({ ...body, issuerLogo: 'iVBORw0KGgo=' }, { today: '2026-11-12', blocks }), /issuerLogo: the PNG file is damaged/);
+	assert.throws(() => subscriptionJob({ ...body, issuerLogo: 'A'.repeat(700_000) }, { today: '2026-11-12', blocks }), /issuerLogo: the file has more than 512 kB/);
 	// The route per months: the body may name them, and must then agree with the route.
 	assert.deepEqual(subscriptionJob({ ...body, months: 3 }, { today: '2026-11-12', blocks, months: 3 }).addresses, ['relay.aurora']);
 	assert.throws(() => subscriptionJob({ ...body, months: 3 }, { today: '2026-11-12', blocks, months: 6 }), /months: this route sells 6/);
@@ -235,6 +243,49 @@ test('when due, the month before is made and mailed with the cancel link; the la
 	assert.deepEqual(await store.list(), []);
 	assert.ok(lines.every((l) => !/Wolkenfabrik|belege@|relay\.aurora|token/.test(l)));
 	assert.ok(lines.some((l) => /last one; deleted/.test(l)));
+});
+
+test('a subscription with the payer’s logo: kept encrypted with it, on every month’s documents, gone with the subscription', async (t) => {
+	const dir = await mkdtemp(join(tmpdir(), 'eigenbeleg-subs-'));
+	t.after(() => rm(dir, { recursive: true, force: true }));
+	const store = createStore({ dir, key: KEY });
+	/** @type {any[]} */
+	const sent = [];
+	const mailer = { send: async (/** @type {any} */ m) => void sent.push(m) };
+	/** @type {string[]} */
+	const lines = [];
+	const issuerLogo = Buffer.from(samplePng()).toString('base64');
+	const { base, close } = await serve(createApp({ paywall: noPay, deps: depsAt(NOV), mailer, subscriptions: store, log: (l) => lines.push(l), web: null, publicUrl: 'https://eigenbeleg.example.org' }));
+	try {
+		const r = await subscribe(base, { ...body, issuerLogo }, {}, '/1');
+		assert.equal(r.status, 200);
+		const { subscription: id } = await r.json();
+		await tick();
+		// On disk: one sealed file, the picture not readable in it.
+		const [name] = await readdir(dir);
+		const onDisk = await readFile(join(dir, name), 'utf8');
+		assert.ok(!onDisk.includes(issuerLogo.slice(0, 40)) && !onDisk.includes('issuerLogo'));
+		const kept = await store.get(id);
+		assert.equal(typeof kept?.job.issuerLogo, 'string');
+		// A picture that cannot be a logo is refused before a price is named.
+		const bad = await subscribe(base, { ...body, issuerLogo: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString('base64') });
+		assert.equal(bad.status, 400);
+		assert.match((await bad.json()).error, /^issuerLogo: the picture must be a PNG or a JPEG file/);
+		assert.equal((await store.list()).length, 1);
+
+		// The month's statement carries the picture; the same subscription without one carries none.
+		await store.put(newSubscription(subscriptionJob(body, { today: '2026-11-12', blocks: blocksFor({}) }), { now: NOV, origin: 'https://eigenbeleg.example.org', months: 1 }));
+		await runDue({ store, deps: depsAt(DEC2), mailer, log: (l) => lines.push(l) });
+		assert.equal(sent.length, 2);
+		const pictures = sent.map((m) => (m.attachments.find((/** @type {any} */ a) => /^KA-.*\.pdf$/.test(a.filename)).content.toString('latin1').match(/\/Subtype\s*\/Image/g) ?? []).length);
+		assert.deepEqual(pictures.sort(), [0, 1]);
+		// The last month deleted both files, the picture with its subscription.
+		assert.deepEqual(await readdir(dir), []);
+		assert.equal(await store.get(id), null);
+		assert.ok(lines.every((l) => l.length < 400 && !l.includes(issuerLogo.slice(0, 24))));
+	} finally {
+		close();
+	}
 });
 
 test('a failed run is retried; after three days the subscriber hears about it once; a success clears it', async (t) => {

@@ -5,6 +5,7 @@
 
 import { monthPeriod } from '@le-space/ledger';
 import { DEFAULT_KINDS } from '@le-space/eigenbeleg/document';
+import { IMAGE_LIMITS, ImageError, pdfImage } from '@le-space/pdf/image';
 import { BLOCKS } from './blocks.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -13,6 +14,9 @@ const FORMATS = new Set(['pdf', 'csv', 'json']);
 const DOCUMENTS = new Set(['eigenbelege', 'kontoauszug', 'beide']);
 const KINDS = new Set(['fee', 'storage', 'transfer', 'call', 'swap']);
 const MAX_DAYS = 92;
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+/** The longest base64 text a file within the picture's limit can have. */
+const MAX_LOGO_TEXT = Math.ceil(IMAGE_LIMITS.bytes / 3) * 4;
 
 export class RequestError extends Error {}
 
@@ -27,11 +31,56 @@ function isDate(d) {
 }
 
 /**
+ * The issuer's own logo of a request: a PNG or JPEG file, as base64 text (the API's JSON) or as
+ * its bytes (a caller in the same process: the page, the command line). Checked here, before
+ * anything is paid or read: the same check the drawing runs, so a picture that passes is drawn.
+ *
+ * @param {unknown} given
+ * @returns {Uint8Array | null} the file's bytes
+ */
+function issuerLogoBytes(given) {
+	if (given === undefined || given === null) return null;
+	const kb = Math.floor(IMAGE_LIMITS.bytes / 1024);
+	let bytes;
+	if (given instanceof Uint8Array) bytes = given;
+	else {
+		if (typeof given !== 'string' || !given.length) throw new RequestError(`issuerLogo: a PNG or JPEG file as base64 text, at most ${kb} kB`);
+		if (given.length > MAX_LOGO_TEXT) throw new RequestError(`issuerLogo: the file has more than ${kb} kB; at most ${kb} kB`);
+		if (given.length % 4 !== 0 || !BASE64.test(given)) throw new RequestError('issuerLogo: plain base64 text of the file (no data: prefix, no line breaks)');
+		const text = atob(given);
+		bytes = new Uint8Array(text.length);
+		for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i);
+	}
+	issuerLogoImage(bytes);
+	return bytes;
+}
+
+/** The largest file an issuer's logo may be, in bytes. */
+export const ISSUER_LOGO_MAX_BYTES = IMAGE_LIMITS.bytes;
+
+/**
+ * A file someone chose as their logo, checked and reduced to its picture (a PNG laid on white,
+ * a JPEG without its EXIF): what the documents will carry, with its size in pixels. A file
+ * that cannot be a logo is a RequestError that says why.
+ *
+ * @param {Uint8Array} bytes the file
+ * @returns {import('@le-space/pdf/image').PdfImage}
+ */
+export function issuerLogoImage(bytes) {
+	try {
+		return pdfImage(bytes);
+	} catch (e) {
+		if (e instanceof ImageError) throw new RequestError(`issuerLogo: ${e.message}`);
+		throw e;
+	}
+}
+
+/**
  * @param {any} body
  * @param {{ preview?: boolean, today?: string, blocks?: Record<string, import('./blocks.js').Block> }} [opts] today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
  *   must not get the payer's name and address (a body with `payer` is refused) and has no format; blocks: what this side serves
  *   (the API with an Alchemy key: `blocksFor(deps)`, keyed.js), the keyless BLOCKS when not given
- * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean, chart: boolean, email: string | null, language: 'de' | 'en' }}
+ * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean, chart: boolean, issuerLogo: Uint8Array | null, email: string | null, language: 'de' | 'en' }}
  */
 export function parseRequest(body, { preview = false, today, blocks = BLOCKS } = {}) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
@@ -97,6 +146,12 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	// The diagram above a statement's bookings (the balance, or the consumption per day): on unless switched off.
 	const chart = body.chart ?? true;
 	if (typeof chart !== 'boolean') throw new RequestError('chart: true or false');
+	// The issuer's own logo, top right in the head of every document: a PNG or JPEG file. Used for
+	// this one answer and dropped, like the payer's name and address. The preview draws nothing,
+	// but checks the picture, so one that would be refused is known before anything is paid.
+	// The id of a picture a preview kept is the API's to resolve; here, on the page and on the command line there is no such store.
+	if (body.issuerLogoId !== undefined && body.issuerLogoId !== null) throw new RequestError('issuerLogoId: nothing is kept here; send the file as issuerLogo');
+	const issuerLogo = issuerLogoBytes(body.issuerLogo);
 	// The files also by mail (for a document management system's inbox): one address, used for that
 	// one mail. The preview sends nothing, so it takes none.
 	if (preview && body.email !== undefined) throw new RequestError('the preview takes no email: the files go only with the paid POST /eigenbeleg');
@@ -126,6 +181,7 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 		includeKinds,
 		logo,
 		chart,
+		issuerLogo,
 		email,
 		language
 	};

@@ -12,7 +12,7 @@ import '@fontsource-variable/sora';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 // Only the request check, the list of chains and the data sources load with the page.
-import { RequestError, parseRequest } from '@eigenbeleg/pipeline/request';
+import { ISSUER_LOGO_MAX_BYTES, RequestError, issuerLogoImage, parseRequest } from '@eigenbeleg/pipeline/request';
 import { BLOCKS, describeBlocks } from '@eigenbeleg/pipeline/blocks';
 import { KEYED_BLOCKS, blocksFor, isAlchemyKey, keyedSources } from '@eigenbeleg/pipeline/keyed';
 import { dataSources } from '@eigenbeleg/pipeline/sources';
@@ -32,6 +32,49 @@ const keyInput = /** @type {HTMLInputElement} */ ($('alchemy-key'));
 const rememberKeyBox = /** @type {HTMLInputElement} */ ($('remember-key'));
 const nbInput = /** @type {HTMLInputElement} */ ($('nearblocks-key'));
 const rememberNbBox = /** @type {HTMLInputElement} */ ($('remember-nb-key'));
+const logoInput = /** @type {HTMLInputElement} */ ($('issuer-logo'));
+
+/**
+ * The issuer's own logo, as the documents will carry it (checked, a PNG laid on white, a JPEG
+ * without its EXIF), or null. It goes to the drawing in this browser and nowhere else.
+ * @type {{ bytes: Uint8Array, type: 'png' | 'jpeg', width: number, height: number } | null}
+ */
+let issuerLogo = null;
+/** The blob: address of the picture shown beside the field. */
+let logoUrl = '';
+
+/** Shows the chosen logo beside its field, or nothing. */
+function showLogo() {
+	if (logoUrl) URL.revokeObjectURL(logoUrl);
+	logoUrl = issuerLogo ? URL.createObjectURL(new Blob([/** @type {BlobPart} */ (issuerLogo.bytes)], { type: `image/${issuerLogo.type}` })) : '';
+	const img = /** @type {HTMLImageElement} */ ($('logo-preview'));
+	if (logoUrl) img.src = logoUrl;
+	else img.removeAttribute('src');
+	img.alt = issuerLogo ? t('logoAlt') : '';
+	$('logo-info').textContent = issuerLogo ? t('logoInfo', { width: issuerLogo.width, height: issuerLogo.height }) : '';
+	$('logo-chosen').hidden = !issuerLogo;
+}
+
+/**
+ * A file as the logo: checked like the request checks it; what cannot be a logo is said so and not used.
+ * @param {Uint8Array | null} bytes null: no logo
+ * @param {string} [refused] why the file was not even read
+ */
+function takeLogo(bytes, refused = '') {
+	let why = refused;
+	issuerLogo = null;
+	if (bytes && !why) {
+		try {
+			issuerLogo = issuerLogoImage(bytes);
+		} catch (err) {
+			if (!(err instanceof RequestError)) throw err;
+			why = err.message.replace(/^issuerLogo: /, '');
+		}
+	}
+	$('logo-error').textContent = why ? t('badLogo', { error: why }) : '';
+	if (!issuerLogo) logoInput.value = '';
+	showLogo();
+}
 
 // Every block, for the form; the ones that need a key are offered only with one (syncKey).
 const blocks = describeBlocks({ ...BLOCKS, ...KEYED_BLOCKS });
@@ -67,6 +110,7 @@ function values() {
 		includeKinds: fd.getAll('includeKinds').map(String),
 		logo: fd.get('logo') === 'on',
 		chart: fd.get('chart') === 'on',
+		issuerLogo: issuerLogo?.bytes ?? null,
 		document: /** @type {'eigenbelege' | 'kontoauszug' | 'beide'} */ (s('document') || 'eigenbelege')
 	};
 }
@@ -180,7 +224,8 @@ async function onCreate(e) {
 	const f = values();
 	if (f.includeKinds.length === 0 && (blocks.find((x) => x.chain === f.chain)?.kinds ?? []).length > 0) return say('form-error', t('pickKind'));
 	if (f.name.trim().length < 2 || f.postal.trim().length < 5) return say('form-error', t('needPayer'));
-	rememberPayer(remember.checked ? { name: f.name.trim(), postal: f.postal.trim() } : null);
+	const kept = rememberPayer(remember.checked ? { name: f.name.trim(), postal: f.postal.trim(), logo: issuerLogo?.bytes ?? null } : null);
+	if (!kept) say('logo-error', t('logoNotKept'));
 	rememberAccounts(rememberAcc.checked ? { chain: f.chain, network: f.network, addresses: f.addresses.trim() } : null);
 	const key = alchemyKey();
 	rememberKey(rememberKeyBox.checked ? key ?? null : null);
@@ -332,6 +377,7 @@ function applyLang() {
 	for (const el of document.querySelectorAll('[data-lang]')) /** @type {HTMLElement} */ (el).hidden = /** @type {HTMLElement} */ (el).dataset.lang !== l;
 	/** @type {HTMLAnchorElement} */ ($('link-imprint')).href = l === 'de' ? 'https://le-space.de/#impressum' : 'https://le-space.de/#imprint';
 	/** @type {HTMLTextAreaElement} */ ($('postal')).placeholder = t('postalPlaceholder');
+	showLogo();
 	labelChains();
 	syncKey();
 	syncNbKey();
@@ -356,10 +402,19 @@ if (saved) {
 	/** @type {HTMLInputElement} */ ($('name')).value = saved.name;
 	/** @type {HTMLTextAreaElement} */ ($('postal')).value = saved.postal;
 	remember.checked = true;
+	// A kept logo is checked again like a new one: what the storage holds is not trusted either.
+	if (saved.logo) takeLogo(saved.logo);
 }
 remember.addEventListener('change', () => {
 	if (!remember.checked) rememberPayer(null);
 });
+logoInput.addEventListener('change', async () => {
+	const file = logoInput.files?.[0];
+	// The size is asked before the file is read: a video chosen by mistake is not loaded.
+	if (file && file.size > ISSUER_LOGO_MAX_BYTES) takeLogo(null, `the file has ${Math.ceil(file.size / 1024)} kB; at most ${Math.floor(ISSUER_LOGO_MAX_BYTES / 1024)} kB`);
+	else takeLogo(file ? new Uint8Array(await file.arrayBuffer()) : null);
+});
+$('logo-remove').addEventListener('click', () => takeLogo(null));
 // The prompt and the curl lines: a button copies the block next to it.
 for (const btn of document.querySelectorAll('button[data-copy]')) {
 	btn.addEventListener('click', async () => {

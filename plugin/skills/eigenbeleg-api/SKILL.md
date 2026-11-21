@@ -130,7 +130,8 @@ The request has choices that change what the person gets. Take each from what th
 
 - **Which document** (`document`): `eigenbelege` (the default: one Eigenbeleg per payment, for payments without a receipt from the other side), `kontoauszug` (the account's statement: opening balance, every booking, closing balance) or `beide`. "Receipts for my fees" means eigenbelege; "a statement", "the balance" or "what did the account do" means kontoauszug; "everything for my bookkeeping" means beide. For `aleph` and `filecoin-pay` the statement is a Verbrauchsauszug.
 - **Currency: EUR, and only EUR.** Every value is in euro at the rate of the payment's day; the documents are for German bookkeeping. No other base currency can be chosen yet (USD, CHF …): if the person asks for one, say so, and do not convert the figures yourself.
-- **The chain's logo** (`logo`, off by default): the network's mark, small, beside the title, to tell the documents of several chains apart. There is one for NEAR, Akash, Filecoin and Aleph Cloud; the other chains get none, without an error. It is the chain's mark, not the person's company logo: a logo of their own cannot be put on the documents yet. Switch it on when the person asks for a logo or for documents that are easy to tell apart; otherwise mention it only if they ask what can be changed.
+- **The chain's logo** (`logo`, off by default): the network's mark, small, beside the title, to tell the documents of several chains apart. There is one for NEAR, Akash, Filecoin and Aleph Cloud; the other chains get none, without an error. It is the chain's mark, not the person's company logo: that is the next choice. Switch it on when the person asks for a logo or for documents that are easy to tell apart; otherwise mention it only if they ask what can be changed.
+- **Their own logo** (`issuerLogo`, none by default): the logo of the person's company, top right in the head of every document, beside or without the chain's mark. Only a file the person gives you (PNG or JPEG, at most 512 kB; no SVG): never take one from the web or make one up. Ask for it once when the person wants their own documents to look like theirs or asks for "our logo"; otherwise mention it only if they ask what can be changed. Tell them before buying that a subscription keeps the picture until it ends, and a preview keeps it for 24 hours.
 - **The diagram** (`chart`, on by default): above a statement's bookings, the balance over the period or the consumption per day. Only on statements, and none for a period of one day or without bookings. Switch it off when the person wants a plain statement, tables only, or the fewest pages.
 - **What goes on an Eigenbeleg** (`includeKinds`): network fees and, on NEAR, storage deposits by default. Transfers and contract calls are payments to someone who may have sent a receipt; include them only when the person says those payments have none.
 - **Language:** the documents are German whatever is asked for.
@@ -173,6 +174,20 @@ After the preview, say what you are about to buy – document, period, these cho
 - `logo`: optional, the chain's mark beside the title.
 - `chart`: optional, `true` by default: the diagram above a statement's bookings
   (the balance over the period, or the consumption per day); `false` leaves it out.
+- `issuerLogo`: optional, the user's own logo (their company's), drawn top right
+  in the head of every document. A PNG or JPEG file as plain base64 text (no
+  `data:` prefix): at most 512 kB and 2048 pixels a side, at most 6 times as wide
+  as high and twice as high as wide; no SVG, GIF or CMYK. Never logged, and
+  used for that one answer; the preview takes it too and checks it. Where the
+  preview answers with `issuerLogoId`, the server keeps that picture for 24
+  hours (encrypted, then deleted): send `"issuerLogoId": "…"` instead of
+  `issuerLogo` with the paid request, and tell the user it is kept for a day. A
+  subscription keeps it with its other details until its end: say so to the
+  user before buying one with a logo. Only a file the user gives you: read it from the
+  path they name and encode it (`base64 -w0 logo.png`, on macOS `base64 -i
+  logo.png`); never take a logo from the web or guess one. A picture outside the
+  limits is a 400 that says why, before anything is paid: tell the user what to
+  change.
 - `email`: optional, the files also by mail, once the payment is settled; only
   where `llms.txt` says the instance offers it.
 - `language`: optional, `en` (the default) or `de`: the language of that mail

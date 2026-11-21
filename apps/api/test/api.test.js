@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { paymentMiddleware, x402ResourceServer } from '@x402/express';
 import { ExactNearScheme } from '@x402/near/exact/server';
 import { fixedRates } from '@le-space/eigenbeleg';
+import { sampleJpeg, samplePng } from '@le-space/pdf/testing/sample-images';
 
 import { createApp } from '../src/app.js';
 import { recordedNear } from '../../agent/src/recorded.js';
@@ -180,6 +181,52 @@ test('GET / names the licence and where the running source is (AGPL section 13)'
 
 const preview = (base, body, path = '/eigenbeleg/preview') =>
 	globalThis.fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
+test('the issuer’s own logo: on the documents of that answer, refused with the reason, never in the log; not for the preview', async () => {
+	const lines = [];
+	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: (l) => lines.push(l), web: null }));
+	const text = (/** @type {Uint8Array} */ b) => Buffer.from(b).toString('base64');
+	try {
+		const plain = Buffer.from(await (await post(base, job)).arrayBuffer());
+		for (const file of [samplePng(), sampleJpeg()]) {
+			const r = await post(base, { ...job, issuerLogo: text(file) });
+			assert.equal(r.status, 200);
+			const pdf = Buffer.from(await r.arrayBuffer());
+			assert.equal(pdf.subarray(0, 8).toString(), '%PDF-1.7');
+			assert.ok(pdf.length > plain.length + 200, `${pdf.length} > ${plain.length}`);
+			assert.match(pdf.toString('latin1'), /\/Subtype\s*\/Image/);
+		}
+		assert.doesNotMatch(plain.toString('latin1'), /\/Subtype\s*\/Image/);
+		// The statement carries it as well.
+		const ka = await (await post(base, { ...job, format: 'json', document: 'kontoauszug', issuerLogo: text(samplePng()) })).json();
+		assert.match(Buffer.from(ka.kontoauszuegePdf[0].pdf, 'base64').toString('latin1'), /\/Subtype\s*\/Image/);
+
+		// A body with a picture is larger than the 32 kB of every other route: it is read, and judged as a picture.
+		const noPicture = await post(base, { ...job, issuerLogo: text(new Uint8Array(100_000)) });
+		assert.equal(noPicture.status, 400);
+		assert.deepEqual(await noPicture.json(), { error: 'issuerLogo: the picture must be a PNG or a JPEG file' });
+		const svg = await post(base, { ...job, issuerLogo: text(new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>')) });
+		assert.match((await svg.json()).error, /^issuerLogo: the picture must be a PNG or a JPEG file/);
+		assert.equal((await post(base, { ...job, issuerLogo: 'A'.repeat(1_000_000) })).status, 413, 'beyond the route\'s body limit');
+		assert.match((await (await post(base, { ...job, issuerLogo: 'A'.repeat(700_000) })).json()).error, /^issuerLogo: the file has more than 512 kB/);
+
+		// The preview draws nothing, and checks the picture: the same summary with a good one, the reason for a bad one.
+		const { payer: _payer, ...body } = job;
+		const p = await preview(base, { ...body, issuerLogo: text(samplePng()) });
+		assert.equal(p.status, 200);
+		const summary = await p.json();
+		assert.deepEqual(summary, await (await preview(base, body)).json());
+		assert.doesNotMatch(JSON.stringify(summary), /issuerLogo|iVBOR/);
+		const badPreview = await preview(base, { ...body, issuerLogo: text(new Uint8Array(100_000)) });
+		assert.equal(badPreview.status, 400);
+		assert.deepEqual(await badPreview.json(), { error: 'issuerLogo: the picture must be a PNG or a JPEG file' });
+
+		// Nothing of the picture in the log.
+		assert.ok(lines.every((l) => l.length < 400 && !l.includes(text(samplePng()).slice(0, 24))), 'no body in a log line');
+	} finally {
+		close();
+	}
+});
 
 test('the free preview: the summary without the payer, the same checks, a limit per IP', async () => {
 	const lines = [];
@@ -405,6 +452,9 @@ test('GET /llms.txt tells agents what is sold, the price and the x402 steps', as
 		assert.match(text, /web UI at https:\/\/eigenbeleg\.example\.org\/ui\/ instead: it does everything in their browser/);
 		assert.match(text, /"chain": "near" \| "akash" \| "filecoin" \| "filecoin-pay" \| "aleph"/);
 		assert.match(text, /- aleph \(Aleph Cloud credits/);
+		// The issuer's own logo: the field, its limits, and that it is the user's own file.
+		assert.match(text, /"issuerLogo": "iVBORw0KGgo…"/);
+		assert.match(text, /- issuerLogo: the logo of the person or company the documents are for[^\n]*PNG or JPEG[^\n]*at most 512 kB[^\n]*Never logged[^\n]*a subscription, which keeps the picture encrypted[^\n]*The free preview takes it too[^\n]*never fetch a logo from the web yourself/);
 		assert.equal((await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json()).agents, '/llms.txt');
 	} finally {
 		close();

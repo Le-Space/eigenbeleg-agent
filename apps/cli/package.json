@@ -9,5 +9,8 @@
   "main": "./src/local.js",
   "dependencies": {
     "@eigenbeleg/pipeline": "0.1.0"
+  },
+  "devDependencies": {
+    "@le-space/pdf": "0.2.0"
   }
 }

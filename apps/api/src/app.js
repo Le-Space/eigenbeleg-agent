@@ -222,12 +222,25 @@ The same for tools: GET ${base}/openapi.json (OpenAPI 3.1); every 402 of POST /e
   "document": "eigenbelege" | "kontoauszug" | "beide",
   "payer": { "name": "…", "address": "street, postcode town" }   printed on the documents; used for this response only, never stored or logged,
   "number": "EB-2026-001",                    optional, first number of the payer's own range,
-  "includeKinds": ["fee", "storage"],         optional: of the chain's kinds in GET /blocks (fee, storage, transfer, call; storage is NEAR's)
+  "includeKinds": ["fee", "storage"],         optional: of the chain's kinds in GET /blocks (fee, storage, transfer, call, swap; storage is NEAR's; NEAR's default has its swaps at a DEX too)
   "logo": false,                              optional: the chain's mark, small, beside the title
   "chart": true,                              optional, default true: the diagram above a statement's bookings (the balance, or the consumption per day)
   "email": "belege@example.org",              optional${mailer ? '' : ' (not offered by this instance)'}: the files also by mail, once the payment is settled
   "language": "en" | "de"                     optional, default en: the language of the mail (the documents are German either way)
 }
+
+## Choices to settle with the person
+
+The request has choices that change what the person gets. Take each from what the person said. Where they said nothing, tell them the default you will use – or ask, when the answer is not obvious – before anything is bought: once, in one message, not question by question. Never make up the payer's name or address.
+
+- **Which document** (\`document\`): \`eigenbelege\` (the default: one Eigenbeleg per payment, for payments without a receipt from the other side), \`kontoauszug\` (the account's statement: opening balance, every booking, closing balance) or \`beide\`. "Receipts for my fees" means eigenbelege; "a statement", "the balance" or "what did the account do" means kontoauszug; "everything for my bookkeeping" means beide. For \`aleph\` and \`filecoin-pay\` the statement is a Verbrauchsauszug.
+- **Currency: EUR, and only EUR.** Every value is in euro at the rate of the payment's day; the documents are for German bookkeeping. No other base currency can be chosen yet (USD, CHF …): if the person asks for one, say so, and do not convert the figures yourself.
+- **The chain's logo** (\`logo\`, off by default): the network's mark, small, beside the title, to tell the documents of several chains apart. There is one for NEAR, Akash, Filecoin and Aleph Cloud; the other chains get none, without an error. It is the chain's mark, not the person's company logo: a logo of their own cannot be put on the documents yet. Switch it on when the person asks for a logo or for documents that are easy to tell apart; otherwise mention it only if they ask what can be changed.
+- **The diagram** (\`chart\`, on by default): above a statement's bookings, the balance over the period or the consumption per day. Only on statements, and none for a period of one day or without bookings. Switch it off when the person wants a plain statement, tables only, or the fewest pages.
+- **What goes on an Eigenbeleg** (\`includeKinds\`): network fees and, on NEAR, storage deposits by default. Transfers and contract calls are payments to someone who may have sent a receipt; include them only when the person says those payments have none.
+- **Language:** the documents are German whatever is asked for.
+
+After the preview, say what you are about to buy – document, period, these choices, the price – and buy only then.
 
 ## Notes
 

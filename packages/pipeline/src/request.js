@@ -149,6 +149,8 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	// The issuer's own logo, top right in the head of every document: a PNG or JPEG file. Used for
 	// this one answer and dropped, like the payer's name and address. The preview draws nothing,
 	// but checks the picture, so one that would be refused is known before anything is paid.
+	// The id of a picture a preview kept is the API's to resolve; here, on the page and on the command line there is no such store.
+	if (body.issuerLogoId !== undefined && body.issuerLogoId !== null) throw new RequestError('issuerLogoId: nothing is kept here; send the file as issuerLogo');
 	const issuerLogo = issuerLogoBytes(body.issuerLogo);
 	// The files also by mail (for a document management system's inbox): one address, used for that
 	// one mail. The preview sends nothing, so it takes none.

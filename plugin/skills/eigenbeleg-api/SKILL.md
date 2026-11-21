@@ -132,7 +132,10 @@ the body.
   in the head of every document. A PNG or JPEG file as plain base64 text (no
   `data:` prefix): at most 512 kB and 2048 pixels a side, at most 6 times as wide
   as high and twice as high as wide; no SVG, GIF or CMYK. Never logged, and
-  used for that one answer; the preview takes it too and checks it. A
+  used for that one answer; the preview takes it too and checks it. Where the
+  preview answers with `issuerLogoId`, the server keeps that picture for 24
+  hours (encrypted, then deleted): send `"issuerLogoId": "…"` instead of
+  `issuerLogo` with the paid request, and tell the user it is kept for a day. A
   subscription keeps it with its other details until its end: say so to the
   user before buying one with a logo. Only a file the user gives you: read it from the
   path they name and encode it (`base64 -w0 logo.png`, on macOS `base64 -i

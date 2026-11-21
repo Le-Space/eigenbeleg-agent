@@ -88,11 +88,13 @@ export async function discoveryExtensions() {
 export function openapi({ base, payment, chains, terms, source, subscriptions = false, build = { version: '', commit: '', date: '' } }) {
 	const accepts = /** @type {{ network: string, name: string, asset: string, price: string, payTo: string }[]} */ (payment.accepts ?? []);
 	const paid = payment.mode === 'x402';
+	const coins = /** @type {{ name: string, asset: string, price: string, wait: string }[]} */ (payment.coins ?? []);
+	const coined = coins.map((c) => ` Also ${c.price} on ${c.name} (scheme onchain): the answer is 202 until the payment's block, ${c.wait}; see /llms.txt.`).join('');
 	const priced = accepts.map((a) => `${a.price} in ${a.asset} on ${a.name} (${a.network})`).join('; ');
 	const body = { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Request' }, example: REQUEST_EXAMPLE } } };
 	const error = { description: 'The body did not pass the check; nothing was charged.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } };
 	const pay = {
-		description: `Payment required (x402 v2, scheme exact): ${priced || 'see GET /'}. The PAYMENT-REQUIRED header carries the requirements as base64 JSON; send the same request again with PAYMENT-SIGNATURE.`,
+		description: `Payment required (x402 v2, scheme exact): ${priced || 'see GET /'}. The PAYMENT-REQUIRED header carries the requirements as base64 JSON; send the same request again with PAYMENT-SIGNATURE.${coined}`,
 		headers: { 'PAYMENT-REQUIRED': { schema: { type: 'string' }, description: 'base64 JSON: x402Version, resource, accepts, extensions' } }
 	};
 	return {

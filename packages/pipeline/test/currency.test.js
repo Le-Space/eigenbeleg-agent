@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import { fakeDoichainAddress } from '@le-space/chains/testing/doichain';
+import { sourceName } from '@le-space/eigenbeleg/document';
 import { pdfaStructure } from '@le-space/pdf/testing/pdfa-structure';
 
 import { CURRENCIES, RequestError, generate, parseRequest } from '../src/index.js';
@@ -79,7 +80,7 @@ test('the rate in the document’s currency names both legs; EUR is named as it 
 	const rates = (/** @type {string} */ currency) => dayRates({ fetch: /** @type {any} */ (async (/** @type {string} */ u) => rateHosts([])(u) ?? new Response('{}', { status: 404 })), now: () => new Date(NOW), currency });
 	assert.deepEqual(await rates('EUR').rateFor('NEAR', DAY), { rate: '2.5', source: `CoinGecko, Kurs ${DAY} 00:00 UTC`, date: DAY });
 	assert.deepEqual(await rates('CHF').rateFor('NEAR', DAY), { rate: '2.328', source: `CoinGecko, Kurs ${DAY} 00:00 UTC × EZB-Referenzkurs EUR/CHF vom 2026-10-30`, date: DAY, currency: 'CHF' });
-	assert.deepEqual(await rates('RUB').rateFor('NEAR', DAY), { rate: '246.9135', source: `CoinGecko, Kurs ${DAY} 00:00 UTC × amtlicher Kurs EUR/RUB der Bank von Russland, gültig am 2026-10-31`, date: DAY, currency: 'RUB' });
+	assert.deepEqual(await rates('RUB').rateFor('NEAR', DAY), { rate: '246.9135', source: `CoinGecko, Kurs ${DAY} 00:00 UTC × amtlicher Kurs EUR/RUB der Bank von Russland vom 2026-10-31`, date: DAY, currency: 'RUB' });
 	// USD: CoinGecko's own USD price of the same snapshot, one leg.
 	assert.deepEqual(await rates('USD').rateFor('NEAR', DAY), { rate: '2.9', source: `CoinGecko, USD-Kurs ${DAY} 00:00 UTC`, date: DAY, currency: 'USD' });
 	// No rate into the currency: unvalued, as a day without a rate is.
@@ -111,8 +112,10 @@ test('a document in RUB: the euro leg times the Bank of Russia’s rate, after t
 	assert.ok(asked.some((u) => u.startsWith('https://www.cbr.ru/scripts/XML_daily.asp')));
 	const lines = /** @type {string} */ (out.csv).trimEnd().split('\r\n');
 	assert.match(lines[0], /;Kurs RUB;Wert RUB/);
-	assert.match(lines[1], /× amtlicher Kurs EUR\/RUB der Bank von Russland, gültig am 2026-10-31/);
+	assert.match(lines[1], /× amtlicher Kurs EUR\/RUB der Bank von Russland vom 2026-10-31/);
 	assert.match(lines.at(-1) ?? '', /^;Summe;/);
+	// The Kursquelle names each leg without its day, the day is each position's.
+	assert.equal(sourceName(`CoinGecko, Kurs ${DAY} 00:00 UTC × amtlicher Kurs EUR/RUB der Bank von Russland vom 2026-10-31`), 'CoinGecko, Kurs × amtlicher Kurs EUR/RUB der Bank von Russland');
 	assert.deepEqual(pdfaStructure(/** @type {Uint8Array} */ (out.pdf)).pdfaid, { part: '2', conformance: 'B' });
 });
 

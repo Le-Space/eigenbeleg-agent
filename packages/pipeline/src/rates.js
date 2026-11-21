@@ -25,7 +25,8 @@ const SOURCE_TEXT = {
 /** How the second leg, from the euro into the document's currency, is named. @type {Record<string, (fx: { currency: string, at: string }) => string>} */
 const FX_TEXT = {
 	ecb: (fx) => `EZB-Referenzkurs EUR/${fx.currency} vom ${String(fx.at).slice(0, 10)}`,
-	cbr: (fx) => `amtlicher Kurs EUR/${fx.currency} der Bank von Russland, gültig am ${String(fx.at).slice(0, 10)}`
+	// `… vom <day>`: the documents name each leg without its day in the Kursquelle (@le-space/eigenbeleg sourceName).
+	cbr: (fx) => `amtlicher Kurs EUR/${fx.currency} der Bank von Russland vom ${String(fx.at).slice(0, 10)}`
 };
 
 /**

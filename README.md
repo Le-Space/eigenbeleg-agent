@@ -243,6 +243,7 @@ The agent works in five steps:
 
 1. `GET /blocks` and `GET /blocks/<chain>/check`. If there is no block, or the live check fails, it buys nothing and drafts the block or the fix as a PR (`proposals/…`). With `NEARAI_API_KEY` set, it adds notes on data sources from a model on [NEAR AI Cloud](https://docs.near.ai) (private inference), marked as data to check.
 2. It pays through x402 with its own NEAR account, never above `AGENT_BUDGET` per payment (spend controls of the x402 client). It signs only the exact transfer the challenge names and needs no NEAR for gas.
+   Where the API offers DOI, `--pay doi` pays in DOI instead, never above `AGENT_BUDGET_DOI`: the agent signs a plain Doichain transaction from its DOI key (`AGENT_DOI_KEY` set with a hidden prompt, `AGENT_DOI_KEY_FILE`, or `AGENT_DOI_KEYCHAIN` on macOS; never an argument), the API broadcasts it, and the agent waits for the block, about ten minutes, saying what it waits for. `--pay qr` needs no key: it shows a QR code for an address of this one request, a person pays with a wallet (DoiWallet: scan from the send screen), and the agent waits for the payment. A stopped run goes on with `--resume <txid>` and the same job; nothing is paid twice.
 3. It checks the work: the PDFs are PDF/A, the CSV has every position and every Eigenbeleg number, and every Kontoauszug the chain could check is reconciled.
 4. It writes `<number>.receipt.json` with what it bought, from whom, the price, the NEAR transaction and whether the checks passed.
 

@@ -119,7 +119,10 @@ the body.
   budget, and keeps a receipt: `npm run agent -- --help` in a checkout of
   https://github.com/Le-Space/eigenbeleg-agent (settings from `.env`:
   `API_URL`, `AGENT_ACCOUNT_ID` and `AGENT_SECRET_KEY` or `AGENT_EVM_KEY`,
-  `AGENT_BUDGET`).
+  `AGENT_BUDGET`). In DOI: `--pay doi` (the agent's DOI key, from `AGENT_DOI_KEY`,
+  `AGENT_DOI_KEY_FILE` or `AGENT_DOI_KEYCHAIN`, budget `AGENT_BUDGET_DOI`) or
+  `--pay qr` (a person pays from a wallet); it waits for the block and can be
+  continued with `--resume <txid>`.
 
 ## Choices to settle with the person
 

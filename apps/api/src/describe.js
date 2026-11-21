@@ -14,6 +14,8 @@
 // third party sees a payment – so these hints do not put it into such a
 // catalogue by themselves; they are what any reader of the 402 gets.
 
+import { CURRENCIES } from '@eigenbeleg/pipeline/request';
+
 /** The body of POST /eigenbeleg; `chain` is one of GET /blocks. */
 export const REQUEST_SCHEMA = /** @type {const} */ ({
 	type: 'object',
@@ -43,6 +45,7 @@ export const REQUEST_SCHEMA = /** @type {const} */ ({
 		issuerLogo: { type: 'string', contentEncoding: 'base64', maxLength: 699052, description: 'Optional: the payer\'s own logo, drawn top right in the head of every document. A PNG or JPEG file as plain base64 text: at most 512 kB and 2048 pixels a side, at most 6 times as wide as high and twice as high as wide. Never logged; used for this response only, except by a subscription, which keeps it encrypted with its other details until its end. The preview checks it and draws nothing.' },
 		issuerLogoId: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'Optional, instead of issuerLogo, where the instance keeps a preview\'s picture: the id POST /eigenbeleg/preview answered with for a picture sent there. Valid for 24 hours; then the picture is deleted.' },
 		email: { type: 'string', maxLength: 254, description: 'Optional, where the instance offers mail: the files also to this address, used for that one mail.' },
+		currency: { type: 'string', enum: [...CURRENCIES], description: 'Optional, default EUR: the currency of the documents (ISO 4217; GET /blocks lists them as currencies). Another than EUR is the euro rate of the payment\'s day times that currency\'s official rate of the day (ECB euro reference rate; RUB: Bank of Russia; USD: CoinGecko\'s own USD price where it has the day), both named on every position. The value fields keep their names (eur, totalEur) and hold the value in this currency.' },
 		language: { type: 'string', enum: ['de', 'en'], description: 'Optional, default en: the language of the mail. The documents are German.' }
 	},
 	required: ['chain', 'addresses', 'period', 'payer']
@@ -152,7 +155,7 @@ export function openapi({ base, payment, chains, terms, source, subscriptions = 
 						}
 					}
 				: {}),
-			'/blocks': { get: { operationId: 'blocks', summary: 'The chains this instance serves, with their networks, assets and kinds.', responses: { 200: { description: 'The building blocks.', content: { 'application/json': { schema: { type: 'object' } } } } } } },
+			'/blocks': { get: { operationId: 'blocks', summary: 'The chains this instance serves, with their networks, assets and kinds, and the currencies a document can be in.', responses: { 200: { description: 'The building blocks.', content: { 'application/json': { schema: { type: 'object' } } } } } } },
 			'/llms.txt': { get: { operationId: 'llms', summary: 'The same, as plain text for agents.', responses: { 200: { description: 'Plain text.', content: { 'text/plain': { schema: { type: 'string' } } } } } } }
 		},
 		components: {

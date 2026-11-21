@@ -12,7 +12,7 @@ import '@fontsource-variable/sora';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 // Only the request check, the list of chains and the data sources load with the page.
-import { ISSUER_LOGO_MAX_BYTES, RequestError, issuerLogoImage, parseRequest } from '@eigenbeleg/pipeline/request';
+import { CURRENCIES, ISSUER_LOGO_MAX_BYTES, RequestError, issuerLogoImage, parseRequest } from '@eigenbeleg/pipeline/request';
 import { BLOCKS, describeBlocks } from '@eigenbeleg/pipeline/blocks';
 import { KEYED_BLOCKS, blocksFor, isAlchemyKey, keyedSources } from '@eigenbeleg/pipeline/keyed';
 import { dataSources } from '@eigenbeleg/pipeline/sources';
@@ -33,6 +33,7 @@ const rememberKeyBox = /** @type {HTMLInputElement} */ ($('remember-key'));
 const nbInput = /** @type {HTMLInputElement} */ ($('nearblocks-key'));
 const rememberNbBox = /** @type {HTMLInputElement} */ ($('remember-nb-key'));
 const logoInput = /** @type {HTMLInputElement} */ ($('issuer-logo'));
+const currencySel = /** @type {HTMLSelectElement} */ ($('currency'));
 
 /**
  * The issuer's own logo, as the documents will carry it (checked, a PNG laid on white, a JPEG
@@ -112,6 +113,7 @@ function values() {
 		chart: fd.get('chart') === 'on',
 		issuerLogo: issuerLogo?.bytes ?? null,
 		document: /** @type {'eigenbelege' | 'kontoauszug' | 'beide'} */ (s('document') || 'eigenbelege'),
+		currency: s('currency') || 'EUR',
 		referenceEur: s('referenceEur'),
 		referenceFrom: s('referenceFrom'),
 		// only for a chain whose asset no price source quotes (Doichain)
@@ -133,6 +135,29 @@ function lastMonth() {
 
 /** How the chains are written for people; the value stays the block's id. */
 const CHAIN_NAMES = /** @type {Record<string, string>} */ ({ near: 'NEAR', akash: 'Akash (AKT)', filecoin: 'Filecoin (FIL, USDFC)', doichain: 'Doichain (DOI)', 'filecoin-pay': 'Filecoin Pay (USDFC)', aleph: 'Aleph Cloud (Credits)', ethereum: 'Ethereum (ETH, USDC, ALEPH)', base: 'Base (ETH, USDC, ALEPH)' });
+
+/** The currencies a document can be in, EUR first; the choice is kept when the options are drawn again. */
+function fillCurrencies() {
+	const chosen = currencySel.value || 'EUR';
+	currencySel.replaceChildren(...CURRENCIES.map((c) => new Option(c, c)));
+	currencySel.value = chosen;
+	labelCurrencies();
+}
+
+/** Each currency as its code and its name in the chosen language (the browser's own names, Intl.DisplayNames). */
+function labelCurrencies() {
+	/** @type {Intl.DisplayNames | null} */
+	let names = null;
+	try {
+		names = new Intl.DisplayNames([locale()], { type: 'currency' });
+	} catch {
+		// an old browser: the codes alone
+	}
+	for (const o of currencySel.options) {
+		const name = names?.of(o.value);
+		o.textContent = name && name !== o.value ? `${o.value} – ${name}` : o.value;
+	}
+}
 
 function fillChains() {
 	chainSel.replaceChildren(...blocks.map((b) => new Option('', b.chain)));
@@ -230,6 +255,8 @@ async function onCreate(e) {
 	if (f.includeKinds.length === 0 && (blocks.find((x) => x.chain === f.chain)?.kinds ?? []).length > 0) return say('form-error', t('pickKind'));
 	if (f.referenceAsset) {
 		const given = f.referenceEur.trim();
+		// The reference value is in euro: in another currency only the statement, without it.
+		if (f.currency !== 'EUR' && (given || f.document !== 'kontoauszug')) return say('form-error', t('referenceInEur'));
 		if (given ? !referenceEur(given) || !f.referenceFrom : f.document !== 'kontoauszug') return say('form-error', t(given ? 'badReference' : 'needReference'));
 	}
 	if (f.name.trim().length < 2 || f.postal.trim().length < 5) return say('form-error', t('needPayer'));
@@ -277,10 +304,11 @@ async function onCreate(e) {
 	}
 }
 
-/** @param {unknown} v */
-const eur = (v) => {
+/** An amount in the documents' currency (EUR unless another was chosen). @param {unknown} v @param {string} [currency] */
+const money = (v, currency = 'EUR') => {
 	const n = Number(v);
-	return Number.isFinite(n) ? n.toLocaleString(locale(), { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 4 }) : String(v);
+	const places = currency === 'ISK' ? 0 : 2;
+	return Number.isFinite(n) ? n.toLocaleString(locale(), { style: 'currency', currency, minimumFractionDigits: places, maximumFractionDigits: Math.max(places, 4) }) : String(v);
 };
 
 /** @type {string[]} */
@@ -308,7 +336,7 @@ function showResult() {
 		[t('sumPeriod'), t('sumPeriodValue', { from: s.period.from, to: s.period.to })],
 		[t('sumPositions'), String(s.positions)],
 		[t('sumNotOnIt'), String(s.notOnIt)],
-		[t('sumTotal'), eur(s.totalEur)],
+		[t('sumTotal'), money(s.totalEur, s.currency)],
 		...Object.entries(s.quantities ?? {}).map(([asset, q]) => [t('sumQuantity', { asset }), String(q)])
 	];
 	for (const k of s.kontoauszuege) {
@@ -388,6 +416,7 @@ function applyLang() {
 	/** @type {HTMLTextAreaElement} */ ($('postal')).placeholder = t('postalPlaceholder');
 	showLogo();
 	labelChains();
+	labelCurrencies();
 	syncKey();
 	syncNbKey();
 	showSources();
@@ -512,6 +541,7 @@ if (savedNbKey) {
 }
 nbInput.addEventListener('input', syncNbKey);
 rememberNbBox.addEventListener('change', () => rememberNearblocksKey(rememberNbBox.checked ? nearblocksKey() ?? null : null));
+fillCurrencies();
 fillChains();
 chainSel.addEventListener('change', fillNetworks);
 const savedAccounts = rememberedAccounts();

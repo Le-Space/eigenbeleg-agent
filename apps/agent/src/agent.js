@@ -131,12 +131,12 @@ export async function runJob({ job, api, fetch, paidFetch, outDir, say = console
 		checks,
 		passed,
 		files,
-		summary: { eigenbelege: body.eigenbelege, positions: body.positions, notOnIt: body.notOnIt, totalEur: body.totalEur, quantities: body.quantities, kontoauszuege: body.kontoauszuege },
+		summary: { eigenbelege: body.eigenbelege, positions: body.positions, notOnIt: body.notOnIt, totalEur: body.totalEur, currency: body.currency ?? 'EUR', quantities: body.quantities, kontoauszuege: body.kontoauszuege },
 		at: new Date().toISOString()
 	};
 	await writeFile(join(outDir, `${base}.receipt.json`), JSON.stringify(receipt, null, 2) + '\n');
 	const ka = (body.kontoauszuege ?? []).map((/** @type {any} */ k) => `${k.number} (${k.assets.map((/** @type {any} */ a) => `${a.asset} ${a.opening} → ${a.closing}${a.reconciled ? ', reconciled' : a.reconciled === false ? ', NOT reconciled' : ''}`).join('; ')})`);
-	if (pdf) say(`Got ${(body.eigenbelege ?? []).length} Eigenbeleg(e) ${body.number}: ${body.positions} payments, ${body.totalEur} EUR.`);
+	if (pdf) say(`Got ${(body.eigenbelege ?? []).length} Eigenbeleg(e) ${body.number}: ${body.positions} payments, ${body.totalEur} ${body.currency ?? 'EUR'}.`);
 	if (ka.length) say(`Got Kontoauszug ${ka.join('; ')}.`);
 	say(`Check ${passed ? 'passed' : 'FAILED'}.`);
 	if (receipt.transaction) say(`Paid: ${receipt.explorer ?? receipt.transaction}`);

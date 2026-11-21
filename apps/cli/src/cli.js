@@ -7,7 +7,8 @@
 //
 // Nothing is paid and nothing goes to a server of ours: the chain is read
 // from the public data sources (they see your IP address and the blockchain
-// addresses), the EUR rates come from CoinGecko, Kraken and the ECB, and the
+// addresses), the EUR rates come from CoinGecko, Kraken and the ECB (for RUB
+// documents the Bank of Russia too), and the
 // PDFs are drawn here. Name and postal address never leave this machine.
 
 import { readFile } from 'node:fs/promises';
@@ -27,7 +28,8 @@ Options: --chain near|akash|filecoin|filecoin-pay|aleph (ethereum, base with --a
   --name and --postal (the issuer, printed on the documents; they stay on this machine),
   --document eigenbelege|kontoauszug|beide, --include fee,storage,transfer,call,swap, --number EB-2026-001,
   --statement KA-2026-10, --logo (the chain's mark), --issuer-logo FILE (your own logo, a PNG or JPEG file, top right on
-  every document; it stays on this machine), --no-chart (a statement without its diagram), --out DIR (default ./out), --preview.
+  every document; it stays on this machine), --no-chart (a statement without its diagram),
+  --currency EUR|USD|CHF|GBP|SEK|NOK|DKK|PLN|CZK|HUF|RON|ISK|TRY|RUB (the documents' currency, default EUR), --out DIR (default ./out), --preview.
 Keys, all optional and yours: --alchemy-key or ALCHEMY_KEY (Ethereum and Base; goes to Alchemy only),
   --nearblocks-key or NEARBLOCKS_API_KEY (a month with many NEAR transactions), --akash-indexer URL.
 The data sources your machine asks: see the web UI's privacy note (eigenbeleg.le-space.de/#datenschutz).`;
@@ -52,6 +54,7 @@ const { values: v } = parseArgs({
 		logo: { type: 'boolean', default: false },
 		'issuer-logo': { type: 'string' },
 		'no-chart': { type: 'boolean', default: false },
+		currency: { type: 'string' },
 		out: { type: 'string' },
 		'alchemy-key': { type: 'string' },
 		'nearblocks-key': { type: 'string' },
@@ -78,7 +81,8 @@ const body = v.job
 			...(v.document ? { document: v.document } : {}),
 			...(v.logo ? { logo: true } : {}),
 			...(v['issuer-logo'] && !v.preview ? { issuerLogo: new Uint8Array(await readFile(v['issuer-logo'])) } : {}),
-			...(v['no-chart'] ? { chart: false } : {})
+			...(v['no-chart'] ? { chart: false } : {}),
+			...(v.currency ? { currency: v.currency.toUpperCase() } : {})
 		};
 
 try {
@@ -91,7 +95,7 @@ try {
 		akashIndexer: v['akash-indexer']
 	});
 	const s = summary;
-	console.log(`${s.chain} ${s.network}, ${s.period.from} to ${s.period.to}: ${s.transactions} transaction(s), ${s.positions} position(s), ${s.totalEur} EUR${s.eigenbelege.length ? `, Eigenbelege ${s.eigenbelege[0]}…${s.eigenbelege.at(-1)}` : ''}`);
+	console.log(`${s.chain} ${s.network}, ${s.period.from} to ${s.period.to}: ${s.transactions} transaction(s), ${s.positions} position(s), ${s.totalEur} ${s.currency ?? 'EUR'}${s.eigenbelege.length ? `, Eigenbelege ${s.eigenbelege[0]}…${s.eigenbelege.at(-1)}` : ''}`);
 	for (const k of s.kontoauszuege) for (const a of k.assets) console.log(`${k.number} ${k.account} ${a.asset}: ${a.opening} → ${a.closing}${a.reconciled === true ? ' ✓' : a.reconciled === false ? ' (difference)' : ''}`);
 	if (files.length) console.log(`Files: ${files.join(', ')}`);
 	else if (!v.preview) console.log('No files: nothing in this period.');

@@ -41,7 +41,7 @@ export const routeFor = (months) => `${ROUTE}/${months}`;
  * @property {string} createdAt ISO
  * @property {string} origin this API's public origin at creation, for the cancel link in each mail
  * @property {string} token the cancel token (the file is encrypted; see above)
- * @property {{ chain: string, network: string, addresses: string[], payer: { name: string, address: string }, email: string, includeKinds: string[], logo: boolean, chart?: boolean, document: 'eigenbelege' | 'kontoauszug' | 'beide', issuerLogo?: string }} job
+ * @property {{ chain: string, network: string, addresses: string[], payer: { name: string, address: string }, email: string, includeKinds: string[], logo: boolean, chart?: boolean, currency?: string, document: 'eigenbelege' | 'kontoauszug' | 'beide', issuerLogo?: string }} job
  *   the request body of each month, without the period; issuerLogo: the payer's own logo as base64, when one was sent
  * @property {number} monthsLeft
  * @property {string} nextMonth YYYY-MM, the next month to deliver (the month after it, from FROM_DAY)
@@ -150,7 +150,7 @@ export function subscriptionJob(body, { today, blocks, months = MONTHS }) {
 	// as the documents carry it: the picture alone (a PNG laid on white, a JPEG without its EXIF),
 	// not the file that was sent.
 	const issuerLogo = probe.issuerLogo ? Buffer.from(issuerLogoImage(probe.issuerLogo).bytes).toString('base64') : null;
-	return { chain: probe.chain, network: probe.network, addresses: probe.addresses, payer: { name: probe.payer.name, address: probe.payer.address }, email: probe.email, includeKinds: probe.includeKinds, logo: probe.logo, chart: probe.chart, document: probe.document, language: probe.language, ...(issuerLogo ? { issuerLogo } : {}) };
+	return { chain: probe.chain, network: probe.network, addresses: probe.addresses, payer: { name: probe.payer.name, address: probe.payer.address }, email: probe.email, includeKinds: probe.includeKinds, logo: probe.logo, chart: probe.chart, ...(probe.currency !== 'EUR' ? { currency: probe.currency } : {}), document: probe.document, language: probe.language, ...(issuerLogo ? { issuerLogo } : {}) };
 }
 
 /**

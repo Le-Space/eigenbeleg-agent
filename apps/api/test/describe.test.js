@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import express from 'express';
 import { generatePrivateKey } from 'viem/accounts';
 import { fixedRates } from '@le-space/eigenbeleg';
-import { parseRequest } from '@eigenbeleg/pipeline';
+import { CURRENCIES, parseRequest } from '@eigenbeleg/pipeline';
 
 import { createApp } from '../src/app.js';
 import { createPaywall } from '../src/paywall.js';
@@ -37,6 +37,9 @@ test('the example passes the check, and the schema names what the check takes', 
 	// The enums are the check's own.
 	for (const format of REQUEST_SCHEMA.properties.format.enum) assert.doesNotThrow(() => parseRequest({ ...REQUEST_EXAMPLE, format, document: 'eigenbelege' }, { today: '2026-11-06' }));
 	assert.throws(() => parseRequest({ ...REQUEST_EXAMPLE, format: 'docx' }, { today: '2026-11-06' }));
+	assert.deepEqual(REQUEST_SCHEMA.properties.currency.enum, CURRENCIES);
+	for (const currency of REQUEST_SCHEMA.properties.currency.enum) assert.equal(parseRequest({ ...REQUEST_EXAMPLE, currency }, { today: '2026-11-06' }).currency, currency);
+	assert.throws(() => parseRequest({ ...REQUEST_EXAMPLE, currency: 'JPY' }, { today: '2026-11-06' }));
 	// No real person: the made-up payer of the README.
 	assert.equal(REQUEST_EXAMPLE.payer.name, 'Wolkenfabrik Hosting GmbH');
 });

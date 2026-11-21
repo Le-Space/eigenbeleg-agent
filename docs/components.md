@@ -39,7 +39,7 @@ Browser (UI at /ui/, a PWA)
  ├─ same origin ─────────────▶ only the page's own files (HTML, JS, fonts, icons)
  ├─ chain readers ───────────▶ NearBlocks API, FastNEAR archival RPC, PublicNode (Akash), Filfox, Aleph API
  │                          └▶ Cloudflare Worker (deploy/akash-proxy) ─▶ console-api.akash.network
- └─ rates ───────────────────▶ api.kraken.com, api.coingecko.com, data-api.ecb.europa.eu
+ └─ rates ───────────────────▶ api.kraken.com, api.coingecko.com, data-api.ecb.europa.eu, www.cbr.ru (RUB documents)
 
 Agent (x402 client)
  └─ ────────────────────────▶ our API: /llms.txt, /blocks, /eigenbeleg/preview, /eigenbeleg
@@ -54,7 +54,7 @@ Our API process
  ├─ chain reader Filecoin ───▶ filfox.info
  ├─ Aleph Cloud credits ─────▶ api2.aleph.im
  ├─ Ethereum, Base ──────────▶ eth-mainnet/base-mainnet.g.alchemy.com (only with ALCHEMY_KEY)
- └─ rates ───────────────────▶ api.coingecko.com (price at 00:00 UTC), api.kraken.com (fallback: the daily open), data-api.ecb.europa.eu (USD)
+ └─ rates ───────────────────▶ api.coingecko.com (price at 00:00 UTC), api.kraken.com (fallback: the daily open), data-api.ecb.europa.eu (USD; the documents' currency), www.cbr.ru (RUB documents)
 ```
 
 Two different "networks" are in play and need not match:

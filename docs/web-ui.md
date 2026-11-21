@@ -57,7 +57,8 @@ no other host. A test holds the list against every URL in the packages.
 | filecoin.blockscout.com | Filecoin Pay: what was paid in and taken out | the addresses |
 | api2.aleph.im | Aleph Cloud credits | the addresses |
 | eth-mainnet.g.alchemy.com, base-mainnet.g.alchemy.com | Ethereum and Base, only with the person's own Alchemy key ([#25](https://github.com/Le-Space/eigenbeleg-agent/issues/25)) | the addresses, and the key |
-| data-api.ecb.europa.eu | EUR per USD (Aleph credits) | the currency only |
+| data-api.ecb.europa.eu | EUR per USD (Aleph credits); EUR in the documents' currency when it is not EUR | the currency only |
+| www.cbr.ru | EUR in RUB, for documents in RUB (Bank of Russia) | the currency only |
 | api.coingecko.com, api.kraken.com | EUR rates (the price at 00:00 UTC, `@le-space/rates`) | the currency only |
 
 All of these send `Access-Control-Allow-Origin` (checked 6 Nov 2026), except the

@@ -26,7 +26,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 
-import { RequestError, blocksFor, checkBlock, describeBlocks, generate, issuerLogoImage, parseRequest } from '@eigenbeleg/pipeline';
+import { CURRENCIES, RequestError, blocksFor, checkBlock, describeBlocks, generate, issuerLogoImage, parseRequest } from '@eigenbeleg/pipeline';
 import { VAT } from '@eigenbeleg/pipeline/prices';
 import { composeMail } from './mail.js';
 import { apiBuild, buildFields } from './build.js';
@@ -155,6 +155,7 @@ export function createApp({
 				includeKinds: ['fee', 'storage'],
 				logo: 'true | false (optional: the chain\'s mark, small, beside the title)',
 				chart: 'true | false (optional, default true: the diagram above a statement\'s bookings – the balance, or the consumption per day)',
+				currency: `${CURRENCIES.join(' | ')} (optional, default EUR: the currency of the documents, ISO 4217)`,
 				issuerLogo: 'optional: the payer\'s own logo, a PNG or JPEG file as base64 text (at most 512 kB), drawn top right in the head of every document; never logged, see llms.txt for what is kept',
 				issuerLogoId: logos ? 'optional, instead of issuerLogo: the id POST /eigenbeleg/preview answered with for a picture sent there, within 24 hours' : null,
 				email: mailer ? 'belege@example.org (optional: the files also by mail, for a document management system\'s inbox)' : null,
@@ -243,6 +244,7 @@ The same for tools: GET ${base}/openapi.json (OpenAPI 3.1); every 402 of POST /e
   "includeKinds": ["fee", "storage"],         optional: of the chain's kinds in GET /blocks (fee, storage, transfer, call, swap; storage is NEAR's; NEAR's default has its swaps at a DEX too)
   "logo": false,                              optional: the chain's mark, small, beside the title
   "chart": true,                              optional, default true: the diagram above a statement's bookings (the balance, or the consumption per day)
+  "currency": "EUR",                          optional, default EUR: the documents' currency, one of ${CURRENCIES.join(', ')} (ISO 4217); see the choices below
   "reference": { "DOI": { "eur": "0.05", "from": "2026-01-01" } }   only for a chain whose asset has no published rate (doichain): the payer's own euro value per unit and the day it holds from
   "issuerLogo": "iVBORw0KGgo…",               optional: the payer's own logo, a PNG or JPEG file as base64 text; see Notes
 ${logos ? '  "issuerLogoId": "…",                        optional, instead of issuerLogo: the id the preview answered with; see Notes\n' : ''}  "email": "belege@example.org",              optional${mailer ? '' : ' (not offered by this instance)'}: the files also by mail, once the payment is settled
@@ -254,7 +256,7 @@ ${logos ? '  "issuerLogoId": "…",                        optional, instead of 
 The request has choices that change what the person gets. Take each from what the person said. Where they said nothing, tell them the default you will use – or ask, when the answer is not obvious – before anything is bought: once, in one message, not question by question. Never make up the payer's name or address.
 
 - **Which document** (\`document\`): \`eigenbelege\` (the default: one Eigenbeleg per payment, for payments without a receipt from the other side), \`kontoauszug\` (the account's statement: opening balance, every booking, closing balance) or \`beide\`. "Receipts for my fees" means eigenbelege; "a statement", "the balance" or "what did the account do" means kontoauszug; "everything for my bookkeeping" means beide. For \`aleph\` and \`filecoin-pay\` the statement is a Verbrauchsauszug.
-- **Currency: EUR, and only EUR.** Every value is in euro at the rate of the payment's day; the documents are for German bookkeeping. No other base currency can be chosen yet (USD, CHF …): if the person asks for one, say so, and do not convert the figures yourself.
+- **Currency** (\`currency\`, EUR by default): the currency the books are kept in, as an ISO 4217 code: EUR, USD, CHF, GBP, SEK, NOK, DKK, PLN, CZK, HUF, RON, ISK, TRY or RUB. A value in another currency than EUR is the euro rate of the payment's day times that currency's official rate of the day (the ECB's euro reference rate; for RUB the Bank of Russia's; USD where CoinGecko has the day: its own USD price of the same 00:00 UTC snapshot), and every position names both. One currency per document, no second EUR column. Ask only when the person's books are not in EUR (a company in Switzerland, say); never convert the figures yourself. Doichain's Eigenbelege, valued by the payer's reference value in EUR, are in EUR only.
 - **The chain's logo** (\`logo\`, off by default): the network's mark, small, beside the title, to tell the documents of several chains apart. There is one for NEAR, Akash, Filecoin and Aleph Cloud; the other chains get none, without an error. It is the chain's mark, not the person's company logo: that is the next choice. Switch it on when the person asks for a logo or for documents that are easy to tell apart; otherwise mention it only if they ask what can be changed.
 - **Their own logo** (\`issuerLogo\`, none by default): the logo of the person's company, top right in the head of every document, beside or without the chain's mark. Only a file the person gives you (PNG or JPEG, at most 512 kB; no SVG): never take one from the web or make one up. Ask for it once when the person wants their own documents to look like theirs or asks for "our logo"; otherwise mention it only if they ask what can be changed. Tell them before buying that a subscription keeps the picture until it ends, and a preview keeps it for 24 hours.
 - **The diagram** (\`chart\`, on by default): above a statement's bookings, the balance over the period or the consumption per day. Only on statements, and none for a period of one day or without bookings. Switch it off when the person wants a plain statement, tables only, or the fewest pages.
@@ -277,7 +279,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 	});
 	// Also under /testnet/ when the test route is on, so a client takes https://…/testnet as its API base.
 	const under = (/** @type {string} */ path) => (testnet ? [path, `/testnet${path}`] : path);
-	app.get(under('/blocks'), (_req, res) => res.json({ blocks: describeBlocks(blocks) }));
+	app.get(under('/blocks'), (_req, res) => res.json({ blocks: describeBlocks(blocks), currencies: CURRENCIES }));
 	app.get(under('/blocks/:chain/check'), async (req, res) => res.json(await checkBlock(req.params.chain, deps)));
 	// The security policy, a page of its own: the repository is private, so the public reads it here.
 	app.get(SECURITY_PATH, (_req, res) => {

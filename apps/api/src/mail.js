@@ -47,7 +47,7 @@ const WORDS = {
 		hello: 'Guten Tag,',
 		intro: (/** @type {string} */ what, /** @type {string} */ where, /** @type {string} */ period) => `anbei ${what} für ${where}, ${period}, als PDF/A für die Buchhaltung.`,
 		attached: 'Im Anhang',
-		eigenbelege: (/** @type {number} */ n, /** @type {number} */ positions, /** @type {string} */ eur) => `${n} ${n === 1 ? 'Eigenbeleg' : 'Eigenbelege'} (${positions} Positionen, ${eur} EUR)`,
+		eigenbelege: (/** @type {number} */ n, /** @type {number} */ positions, /** @type {string} */ eur, currency = 'EUR') => `${n} ${n === 1 ? 'Eigenbeleg' : 'Eigenbelege'} (${positions} Positionen, ${eur} ${currency})`,
 		statement: (/** @type {string} */ kind, /** @type {string} */ account) => `${kind} für ${account}`,
 		balance: (/** @type {{ asset: string, opening: string, closing: string, reconciled: boolean | null }} */ a) => `${a.asset}: Anfangsbestand ${a.opening}, Endbestand ${a.closing}${a.reconciled === null ? '' : a.reconciled ? ', mit der Chain abgestimmt' : ', nicht abgestimmt – bitte prüfen'}`,
 		csv: 'alle Bewegungen, für die Tabellenkalkulation',
@@ -72,7 +72,7 @@ const WORDS = {
 		hello: 'Hello,',
 		intro: (/** @type {string} */ what, /** @type {string} */ where, /** @type {string} */ period) => `attached ${what} for ${where}, ${period}, as PDF/A for the books. The documents are in German, as German bookkeeping needs them.`,
 		attached: 'Attached',
-		eigenbelege: (/** @type {number} */ n, /** @type {number} */ positions, /** @type {string} */ eur) => `${n} ${n === 1 ? 'Eigenbeleg' : 'Eigenbelege'} (${positions} positions, ${eur} EUR)`,
+		eigenbelege: (/** @type {number} */ n, /** @type {number} */ positions, /** @type {string} */ eur, currency = 'EUR') => `${n} ${n === 1 ? 'Eigenbeleg' : 'Eigenbelege'} (${positions} positions, ${eur} ${currency})`,
 		statement: (/** @type {string} */ kind, /** @type {string} */ account) => `${kind} for ${account}`,
 		balance: (/** @type {{ asset: string, opening: string, closing: string, reconciled: boolean | null }} */ a) => `${a.asset}: opening balance ${a.opening}, closing balance ${a.closing}${a.reconciled === null ? '' : a.reconciled ? ', reconciled with the chain' : ', not reconciled – please check'}`,
 		csv: 'every movement, for the spreadsheet',
@@ -117,7 +117,7 @@ export function composeMail(job, out, { origin, source = SOURCE_URL, subscriptio
 	const listed = [];
 	if (out.pdf && wantBelege) {
 		attachments.push({ filename: `${name(s.eigenbelege[0] ?? s.number)}.pdf`, content: Buffer.from(out.pdf), contentType: 'application/pdf' });
-		listed.push([`${name(s.eigenbelege[0] ?? s.number)}.pdf`, w.eigenbelege(s.eigenbelege.length, s.positions, s.totalEur)]);
+		listed.push([`${name(s.eigenbelege[0] ?? s.number)}.pdf`, w.eigenbelege(s.eigenbelege.length, s.positions, s.totalEur, s.currency)]);
 	}
 	for (const st of out.statements) attachments.push({ filename: `${name(st.number)}.pdf`, content: Buffer.from(st.pdf), contentType: 'application/pdf' });
 	if (wantStatement) for (const k of s.kontoauszuege) listed.push([`${name(k.number)}.pdf`, `${w.statement(statementKind, k.account)} – ${k.assets.map(w.balance).join('; ')}`]);

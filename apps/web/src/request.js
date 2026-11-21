@@ -24,6 +24,7 @@ import { isAlchemyKey } from '@eigenbeleg/pipeline/keyed';
  * @property {boolean} chart the diagram above a statement's bookings
  * @property {Uint8Array | null} [issuerLogo] the issuer's own logo, a PNG or JPEG file's bytes; it stays in this browser
  * @property {'eigenbelege' | 'kontoauszug' | 'beide'} document which documents are made
+ * @property {string} [currency] the documents' currency (ISO 4217); EUR when not given
  * @property {string} [referenceEur] the issuer's own value in EUR per unit, for a chain whose asset has no rate (DOI); '' for none
  * @property {string} [referenceFrom] YYYY-MM-DD, the day it holds from
  * @property {string} [referenceAsset] the asset it is for
@@ -58,6 +59,7 @@ export function requestBody(f) {
 		chart: f.chart,
 		...(f.issuerLogo ? { issuerLogo: f.issuerLogo } : {}),
 		document: f.document,
+		...(f.currency && f.currency !== 'EUR' ? { currency: f.currency } : {}),
 		...(f.referenceAsset && f.referenceEur?.trim() ? { reference: { [f.referenceAsset]: { eur: referenceEur(f.referenceEur) ?? f.referenceEur.trim(), from: f.referenceFrom ?? '' } } } : {}),
 		format: 'json',
 		payer: { name: f.name.trim(), address: f.postal.trim() }

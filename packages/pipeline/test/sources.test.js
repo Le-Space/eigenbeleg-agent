@@ -14,6 +14,7 @@ import { CHAINS } from '@le-space/chains/registry';
 import { dataSources } from '../src/sources.js';
 import { KEYED_BLOCKS, keyedSources } from '../src/keyed.js';
 import { NETWORKS } from '../../onchain-pay/src/networks.js';
+import { DOICHAIN as DOICHAIN_CHAIN } from '@le-space/chains/doichain-chain';
 
 /** Explorer links are printed on the documents, never fetched. */
 /**
@@ -39,6 +40,8 @@ test('dataSources names every host the readers and the rates ask, and only those
 		// Filecoin Pay without a key: the makers' index and Blockscout's own instance (Filfox is Filecoin's already).
 		new URL(FILECOIN_PAY.index).origin,
 		new URL(FILECOIN_PAY.api).origin,
+		// Doichain's public ElectrumX servers, over WebSocket
+		...DOICHAIN_CHAIN.endpoints.electrum.map((u) => new URL(u).origin),
 		'https://api.coingecko.com',
 		'https://api.kraken.com',
 		'https://data-api.ecb.europa.eu'

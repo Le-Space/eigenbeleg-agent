@@ -18,9 +18,9 @@ const payer = { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12
 const fetch = /** @type {typeof globalThis.fetch} */ (async () => assert.fail('nothing is fetched'));
 
 test('without an Alchemy key there are no EVM blocks: not in GET /blocks, not in a request, not in the web UI', async () => {
-	assert.deepEqual(describeBlocks().map((b) => b.chain), ['near', 'akash', 'filecoin', 'filecoin-pay', 'aleph']);
-	assert.deepEqual(Object.keys(blocksFor({ alchemyKey: 'not a key!' })), ['near', 'akash', 'filecoin', 'filecoin-pay', 'aleph']);
-	assert.deepEqual(Object.keys(blocksFor()), ['near', 'akash', 'filecoin', 'filecoin-pay', 'aleph']);
+	assert.deepEqual(describeBlocks().map((b) => b.chain), ['near', 'akash', 'filecoin', 'doichain', 'filecoin-pay', 'aleph']);
+	assert.deepEqual(Object.keys(blocksFor({ alchemyKey: 'not a key!' })), ['near', 'akash', 'filecoin', 'doichain', 'filecoin-pay', 'aleph']);
+	assert.deepEqual(Object.keys(blocksFor()), ['near', 'akash', 'filecoin', 'doichain', 'filecoin-pay', 'aleph']);
 	assert.throws(() => parseRequest({ chain: 'base', addresses: [OWN], period: { month: '2026-10' }, payer }, { today: '2026-11-06' }), RequestError);
 	assert.equal((await checkBlock('ethereum')).ok, false);
 	const req = parseRequest({ chain: 'near', addresses: ['relay.aurora'], period: { month: '2026-10' }, payer }, { today: '2026-11-06' });
@@ -28,7 +28,7 @@ test('without an Alchemy key there are no EVM blocks: not in GET /blocks, not in
 	// A block that needs the key refuses without one, rather than ask Blockscout.
 	await assert.rejects(blocksFor({ alchemyKey: KEY }).base.read({ account: OWN, from: '2026-10-01', to: '2026-10-31', fetch }), /needs an Alchemy key/);
 	const withKey = describeBlocks(blocksFor({ alchemyKey: KEY }));
-	assert.deepEqual(withKey.map((b) => b.chain), ['near', 'akash', 'filecoin', 'filecoin-pay', 'aleph', 'ethereum', 'base']);
+	assert.deepEqual(withKey.map((b) => b.chain), ['near', 'akash', 'filecoin', 'doichain', 'filecoin-pay', 'aleph', 'ethereum', 'base']);
 	assert.deepEqual(withKey.find((b) => b.chain === 'base')?.assets, ['ETH', 'USDC', 'ALEPH']);
 	assert.ok(!JSON.stringify(withKey).includes(KEY), 'the key is in no descriptor');
 });

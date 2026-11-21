@@ -9,6 +9,7 @@
 import * as near from '@le-space/chains/near';
 import * as akash from '@le-space/chains/akash';
 import * as filecoin from '@le-space/chains/filecoin';
+import * as doichain from '@le-space/chains/doichain';
 import * as aleph from './readers/aleph.js';
 import * as filecoinPay from './readers/filecoin-pay.js';
 
@@ -33,6 +34,8 @@ export const CHAINS_VERSION = '0.6.0';
  * @property {string[]} [documents] the documents it gives, when not all (Filecoin Pay: the statement only)
  * @property {'month'} [period] reads whole finished months only
  * @property {string} [statementPrefix] the statement's number prefix, when not KA (VA: a Verbrauchsauszug, `isUsageStatement`)
+ * @property {string[]} [referenceAssets] assets no price source quotes (DOI): valued only by a reference value the request hands in
+ *   (`reference`), never by a price feed; without one their amounts stay without a euro value
  * @property {'alchemyKey'} [needs] a key only the server has (keyed.js); such a block is never in BLOCKS
  */
 
@@ -78,6 +81,22 @@ export const BLOCKS = {
 		statement: filecoin.statementFilecoin,
 		probe: filecoin.probe,
 		isAddress: filecoin.isFilecoinAddress
+	},
+	doichain: {
+		name: '@le-space/chains/doichain',
+		chain: 'doichain',
+		networks: ['mainnet'],
+		assets: ['DOI'],
+		// The miner fee of an own payment and what was sent or received; a name operation is a payment with a note.
+		kinds: ['fee', 'transfer'],
+		// DOI is quoted nowhere that may be used: its euro value is the issuer's own reference value, or none.
+		referenceAssets: ['DOI'],
+		source: 'public ElectrumX servers of the Doichain network (doi.works), no key; only a server on the valid chain (block 431,018) is read',
+		version: CHAINS_VERSION,
+		read: doichain.readDoichain,
+		statement: doichain.statementDoichain,
+		probe: doichain.probe,
+		isAddress: doichain.isDoichainAddress
 	},
 	'filecoin-pay': {
 		name: '@le-space/chains/filecoin-pay',

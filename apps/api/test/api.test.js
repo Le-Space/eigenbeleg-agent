@@ -450,7 +450,7 @@ test('GET /llms.txt tells agents what is sold, the price and the x402 steps', as
 		assert.match(text, /## Choices to settle with the person[\s\S]*tell them the default you will use[\s\S]*Currency: EUR, and only EUR[\s\S]*`logo`, off by default[\s\S]*not the person's company logo[\s\S]*`chart`, on by default/);
 		assert.match(text, /PAYMENT-REQUIRED[\s\S]*PAYMENT-SIGNATURE[\s\S]*PAYMENT-RESPONSE/);
 		assert.match(text, /web UI at https:\/\/eigenbeleg\.example\.org\/ui\/ instead: it does everything in their browser/);
-		assert.match(text, /"chain": "near" \| "akash" \| "filecoin" \| "filecoin-pay" \| "aleph"/);
+		assert.match(text, /"chain": "near" \| "akash" \| "filecoin" \| "doichain" \| "filecoin-pay" \| "aleph"/);
 		assert.match(text, /- aleph \(Aleph Cloud credits/);
 		// The issuer's own logo: the field, its limits, and that it is the user's own file.
 		assert.match(text, /"issuerLogo": "iVBORw0KGgo…"/);

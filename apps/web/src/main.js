@@ -17,7 +17,7 @@ import { BLOCKS, describeBlocks } from '@eigenbeleg/pipeline/blocks';
 import { KEYED_BLOCKS, blocksFor, isAlchemyKey, keyedSources } from '@eigenbeleg/pipeline/keyed';
 import { dataSources } from '@eigenbeleg/pipeline/sources';
 import { detectLang, lang, locale, setLang, t } from './i18n.js';
-import { fileName, isNearblocksKey, rememberAccounts, rememberKey, rememberNearblocksKey, rememberPayer, rememberedAccounts, rememberedKey, rememberedNearblocksKey, rememberedPayer, requestBody } from './request.js';
+import { fileName, isNearblocksKey, rememberAccounts, rememberKey, rememberNearblocksKey, rememberPayer, rememberedAccounts, rememberedKey, rememberedNearblocksKey, rememberedPayer, requestBody, referenceEur } from './request.js';
 import { AKASH_INDEXER } from './config.js';
 import { registerServiceWorker } from './pwa.js';
 import { SOURCE_URL, localStamp, parseBuild, utcStamp } from './build.js';
@@ -111,7 +111,11 @@ function values() {
 		logo: fd.get('logo') === 'on',
 		chart: fd.get('chart') === 'on',
 		issuerLogo: issuerLogo?.bytes ?? null,
-		document: /** @type {'eigenbelege' | 'kontoauszug' | 'beide'} */ (s('document') || 'eigenbelege')
+		document: /** @type {'eigenbelege' | 'kontoauszug' | 'beide'} */ (s('document') || 'eigenbelege'),
+		referenceEur: s('referenceEur'),
+		referenceFrom: s('referenceFrom'),
+		// only for a chain whose asset no price source quotes (Doichain)
+		referenceAsset: blocks.find((b) => b.chain === s('chain'))?.referenceAssets?.[0] ?? ''
 	};
 }
 
@@ -128,7 +132,7 @@ function lastMonth() {
 }
 
 /** How the chains are written for people; the value stays the block's id. */
-const CHAIN_NAMES = /** @type {Record<string, string>} */ ({ near: 'NEAR', akash: 'Akash (AKT)', filecoin: 'Filecoin (FIL, USDFC)', 'filecoin-pay': 'Filecoin Pay (USDFC)', aleph: 'Aleph Cloud (Credits)', ethereum: 'Ethereum (ETH, USDC, ALEPH)', base: 'Base (ETH, USDC, ALEPH)' });
+const CHAIN_NAMES = /** @type {Record<string, string>} */ ({ near: 'NEAR', akash: 'Akash (AKT)', filecoin: 'Filecoin (FIL, USDFC)', doichain: 'Doichain (DOI)', 'filecoin-pay': 'Filecoin Pay (USDFC)', aleph: 'Aleph Cloud (Credits)', ethereum: 'Ethereum (ETH, USDC, ALEPH)', base: 'Base (ETH, USDC, ALEPH)' });
 
 function fillChains() {
 	chainSel.replaceChildren(...blocks.map((b) => new Option('', b.chain)));
@@ -181,6 +185,7 @@ function syncChain() {
 	$('chain-note').dataset.i18n = noteKey;
 	$('chain-note').textContent = t(noteKey);
 	$('nb-keys').hidden = chainSel.value !== 'near';
+	$('reference').hidden = !b?.referenceAssets?.length;
 	// A swap is a credit purchase on Aleph, a swap at a DEX elsewhere.
 	const swapKey = chainSel.value === 'aleph' ? 'kindSwap' : 'kindSwapDex';
 	$('kind-swap').dataset.i18n = swapKey;
@@ -223,6 +228,10 @@ async function onCreate(e) {
 	clearResult();
 	const f = values();
 	if (f.includeKinds.length === 0 && (blocks.find((x) => x.chain === f.chain)?.kinds ?? []).length > 0) return say('form-error', t('pickKind'));
+	if (f.referenceAsset) {
+		const given = f.referenceEur.trim();
+		if (given ? !referenceEur(given) || !f.referenceFrom : f.document !== 'kontoauszug') return say('form-error', t(given ? 'badReference' : 'needReference'));
+	}
 	if (f.name.trim().length < 2 || f.postal.trim().length < 5) return say('form-error', t('needPayer'));
 	const kept = rememberPayer(remember.checked ? { name: f.name.trim(), postal: f.postal.trim(), logo: issuerLogo?.bytes ?? null } : null);
 	if (!kept) say('logo-error', t('logoNotKept'));

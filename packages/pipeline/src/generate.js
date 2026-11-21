@@ -6,6 +6,7 @@
 
 import { sortEntries } from '@le-space/ledger';
 import { buildDocument, buildStatement, eigenbelegCsv, eigenbelegPdf, statementPdf, valueEntries } from '@le-space/eigenbeleg';
+import { withReferenceRates } from '@le-space/rates/reference-rate';
 import { dayRates } from './rates.js';
 import { BLOCKS } from './blocks.js';
 
@@ -25,7 +26,8 @@ export const reconciled = (difference) => (difference === null ? null : /^-?0(\.
 
 /**
  * @param {ReturnType<typeof import('./request.js').parseRequest>} req
- * @param {{ fetch?: typeof fetch, rates?: import('@le-space/eigenbeleg').Rates, nearblocksKey?: string, alchemyKey?: string, blocks?: Record<string, import('./blocks.js').Block>, now?: () => Date, probeDay?: string, endpoints?: Record<string, Record<string, string>> }} [deps]
+ * @param {{ fetch?: typeof fetch, rates?: import('@le-space/eigenbeleg').Rates, nearblocksKey?: string, alchemyKey?: string, blocks?: Record<string, import('./blocks.js').Block>, now?: () => Date, probeDay?: string, endpoints?: Record<string, Record<string, string>>, connect?: (url: string) => Promise<any> }} [deps]
+ *   connect: instead of a WebSocket to an ElectrumX server (Doichain), for tests
  *   blocks: what this side serves (BLOCKS when not given; the API with an Alchemy key: `blocksFor(deps)`, keyed.js)
  *   alchemyKey: the server's, for the EVM blocks; it goes to their reads only
  *   endpoints: per chain, endpoints to use instead of the reader's own, e.g. `{ akash: { indexer: 'https://…' } }` for a CORS proxy
@@ -38,7 +40,7 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	if (!block) throw new Error(`no building block for chain ${req.chain} here`);
 	const wantBelege = req.document !== 'kontoauszug';
 	const wantStatement = req.document !== 'eigenbelege';
-	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey, endpoints: deps.endpoints?.[req.chain], ...(block.needs === 'alchemyKey' ? { alchemyKey: deps.alchemyKey } : {}) };
+	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey, endpoints: deps.endpoints?.[req.chain], own: req.addresses, ...(deps.connect ? { connect: deps.connect } : {}), ...(block.needs === 'alchemyKey' ? { alchemyKey: deps.alchemyKey } : {}) };
 	/** @type {import('@le-space/ledger').LedgerEntry[]} */
 	const entries = [];
 	/** @type {{ account: string, opening: Record<string, string>, closing: Record<string, string>, method: 'archive' | 'derived', at: any }[]} */
@@ -52,7 +54,10 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 		} else entries.push(...(await block.read({ ...read, account })));
 	}
 	onProgress?.({ step: 'rates' });
-	const rates = deps.rates ?? dayRates({ fetch: deps.fetch });
+	// An asset no price source quotes (DOI) is valued by the request's reference value and by nothing else: with
+	// no value handed in its table is empty, so it gets no euro value and never reaches a price feed.
+	const priced = deps.rates ?? dayRates({ fetch: deps.fetch });
+	const rates = block.referenceAssets?.length ? withReferenceRates(priced, Object.fromEntries(block.referenceAssets.map((a) => [a, req.reference?.[a] ?? []]))) : priced;
 	const valued = await valueEntries(sortEntries(entries), rates);
 	const issuedAt = (deps.now?.() ?? new Date()).toISOString();
 	const doc = buildDocument({ payer: req.payer, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single' });

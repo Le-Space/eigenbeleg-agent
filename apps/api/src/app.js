@@ -128,6 +128,7 @@ export function createApp({
 				number: 'EB-2026-001 (optional, from your own range)',
 				includeKinds: ['fee', 'storage'],
 				logo: 'true | false (optional: the chain\'s mark, small, beside the title)',
+				chart: 'true | false (optional, default true: the diagram above a statement\'s bookings – the balance, or the consumption per day)',
 				email: mailer ? 'belege@example.org (optional: the files also by mail, for a document management system\'s inbox)' : null,
 				language: 'en | de (optional, default en: the language of the mail; the documents are German either way)'
 			},
@@ -203,6 +204,7 @@ The same for tools: GET ${base}/openapi.json (OpenAPI 3.1); every 402 of POST /e
   "number": "EB-2026-001",                    optional, first number of the payer's own range,
   "includeKinds": ["fee", "storage"],         optional: of the chain's kinds in GET /blocks (fee, storage, transfer, call; storage is NEAR's)
   "logo": false,                              optional: the chain's mark, small, beside the title
+  "chart": true,                              optional, default true: the diagram above a statement's bookings (the balance, or the consumption per day)
   "email": "belege@example.org",              optional${mailer ? '' : ' (not offered by this instance)'}: the files also by mail, once the payment is settled
   "language": "en" | "de"                     optional, default en: the language of the mail (the documents are German either way)
 }

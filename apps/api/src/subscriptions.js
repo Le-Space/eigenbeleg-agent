@@ -41,7 +41,7 @@ export const routeFor = (months) => `${ROUTE}/${months}`;
  * @property {string} createdAt ISO
  * @property {string} origin this API's public origin at creation, for the cancel link in each mail
  * @property {string} token the cancel token (the file is encrypted; see above)
- * @property {{ chain: string, network: string, addresses: string[], payer: { name: string, address: string }, email: string, includeKinds: string[], logo: boolean, document: 'eigenbelege' | 'kontoauszug' | 'beide' }} job
+ * @property {{ chain: string, network: string, addresses: string[], payer: { name: string, address: string }, email: string, includeKinds: string[], logo: boolean, chart?: boolean, document: 'eigenbelege' | 'kontoauszug' | 'beide' }} job
  *   the request body of each month, without the period
  * @property {number} monthsLeft
  * @property {string} nextMonth YYYY-MM, the next month to deliver (the month after it, from FROM_DAY)
@@ -146,7 +146,7 @@ export function subscriptionJob(body, { today, blocks, months = MONTHS }) {
 	if (body.format !== undefined && body.format !== 'json') throw new RequestError('format: a subscription has none; the files go by mail');
 	const probe = parseRequest({ ...body, period: { month: today.slice(0, 7) }, format: 'json', document: body.document ?? 'kontoauszug' }, { today, blocks });
 	if (!probe.email) throw new RequestError('email: needed for a subscription; the statements go by mail, like belege@example.org');
-	return { chain: probe.chain, network: probe.network, addresses: probe.addresses, payer: { name: probe.payer.name, address: probe.payer.address }, email: probe.email, includeKinds: probe.includeKinds, logo: probe.logo, document: probe.document, language: probe.language };
+	return { chain: probe.chain, network: probe.network, addresses: probe.addresses, payer: { name: probe.payer.name, address: probe.payer.address }, email: probe.email, includeKinds: probe.includeKinds, logo: probe.logo, chart: probe.chart, document: probe.document, language: probe.language };
 }
 
 /**

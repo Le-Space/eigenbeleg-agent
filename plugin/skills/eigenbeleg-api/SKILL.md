@@ -106,7 +106,8 @@ the body.
   "payer": { "name": "Wolkenfabrik Hosting GmbH", "address": "Musterstraße 1, 12345 Beispielstadt" },
   "number": "EB-2026-001",
   "includeKinds": ["fee", "storage"],
-  "logo": false
+  "logo": false,
+  "chart": true
 }
 ```
 
@@ -125,6 +126,8 @@ the body.
 - `includeKinds`: optional, of the chain's kinds in `GET /blocks` (`fee`,
   `storage`, `transfer`, `call`; `swap` for Aleph credit purchases).
 - `logo`: optional, the chain's mark beside the title.
+- `chart`: optional, `true` by default: the diagram above a statement's bookings
+  (the balance over the period, or the consumption per day); `false` leaves it out.
 - `email`: optional, the files also by mail, once the payment is settled; only
   where `llms.txt` says the instance offers it.
 - `language`: optional, `en` (the default) or `de`: the language of that mail

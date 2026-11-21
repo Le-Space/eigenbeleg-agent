@@ -4,6 +4,7 @@
 // are made up (Wolkenfabrik Hosting GmbH); the API answers in Aleph's shape.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { pdfaStructure } from '@le-space/pdf/testing/pdfa-structure';
 
 import { toChecksumAddress } from '@le-space/chains/evm-address';
 import { RequestError, describeBlocks, generate, parseRequest } from '../src/index.js';
@@ -103,6 +104,18 @@ test('a month of Aleph credits is a Verbrauchsauszug: opening, purchases, usage 
 	assert.deepEqual(out.summary.eigenbelege, ['EB-2026-001'], 'the August purchase would be one; the statement was asked for, so none is drawn');
 	const statementCsv = lines.filter((l) => l.includes(PURCHASE));
 	assert.equal(statementCsv.length, 2, 'the credits bought and the payment for them, both excluded from a statement-only request');
+});
+
+test('the statement carries its diagram unless the request switches it off (belege#889)', async () => {
+	const body = { chain: 'aleph', addresses: [ACCOUNT], period: { month: '2026-08' }, format: 'json', payer };
+	const run = async (/** @type {object} */ more) => (await generate(parseRequest({ ...body, ...more }, { today: '2026-11-06' }), { fetch, now: () => new Date('2026-11-06T12:00:00Z') })).statements[0].pdf;
+	const [drawn, again, asked, without] = [await run({}), await run({}), await run({ chart: true }), await run({ chart: false })];
+	assert.deepEqual(drawn, again, 'the same bytes every time');
+	assert.deepEqual(drawn, asked, 'on unless switched off');
+	// The diagram is vectors and a few labels in the embedded fonts: a larger file, and no picture in it.
+	assert.ok(drawn.length > without.length + 500, `${drawn.length} > ${without.length}`);
+	assert.deepEqual(pdfaStructure(drawn).images, []);
+	assert.deepEqual(pdfaStructure(drawn).pdfaid, { part: '2', conformance: 'B' });
 });
 
 test('Aleph: an Eigenbeleg per purchase of credits, the ALEPH paid at the token’s rate of the day, with the paying transaction (#23)', async () => {

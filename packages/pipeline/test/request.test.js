@@ -42,6 +42,10 @@ test('the logo is off unless asked for, and only true or false', () => {
 	assert.equal(parseRequest(ok).logo, false);
 	assert.equal(parseRequest({ ...ok, logo: true }).logo, true);
 	refused({ logo: 'yes' });
+	// The diagram on a statement: on unless switched off.
+	assert.equal(parseRequest(ok).chart, true);
+	assert.equal(parseRequest({ ...ok, chart: false }).chart, false);
+	refused({ chart: 'no' });
 	// The mail's language: en unless asked for de; the documents are German either way.
 	assert.equal(parseRequest(ok).language, 'en');
 	assert.equal(parseRequest({ ...ok, language: 'de' }).language, 'de');

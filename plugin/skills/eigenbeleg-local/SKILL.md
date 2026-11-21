@@ -95,7 +95,8 @@ passed as a file with `--job job.json`.
   `transfer`, `call`, `swap` (Aleph credit purchases). Default: fee and storage.
 - `--number`: the first Eigenbeleg number of the payer's own range; the others
   count up. `--statement`: the Kontoauszug's number.
-- `--logo`: the chain's mark beside the title. `--out DIR`: where the files go.
+- `--logo`: the chain's mark beside the title. `--no-chart`: a statement without
+  its diagram. `--out DIR`: where the files go.
 - `--nearblocks-key` (or `NEARBLOCKS_API_KEY`): for a NEAR month with many
   transactions, beyond NearBlocks' free limit per IP.
 - `--akash-indexer URL`: an Akash Console indexer other than the default, for

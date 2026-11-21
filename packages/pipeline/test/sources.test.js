@@ -13,9 +13,16 @@ import { alchemyBaseUrl } from '@le-space/chains/alchemy';
 import { CHAINS } from '@le-space/chains/registry';
 import { dataSources } from '../src/sources.js';
 import { KEYED_BLOCKS, keyedSources } from '../src/keyed.js';
+import { NETWORKS } from '../../onchain-pay/src/networks.js';
 
 /** Explorer links are printed on the documents, never fetched. */
-const PRINTED_ONLY = new Set(['https://nearblocks.io', 'https://testnet.nearblocks.io', 'https://www.mintscan.io', 'https://filfox.info/en', new URL(ALEPH_EXPLORER).origin]);
+/**
+ * The explorers of the payment networks (packages/onchain-pay): links in an answer, never fetched. That package's
+ * ElectrumX servers (wss://) are asked by nothing yet; when the API takes such payments they are named in dataSources.
+ */
+const PAYMENT_EXPLORERS = Object.values(NETWORKS).map((n) => new URL(n.explorer.tx.replace('{tx}', 'x')).origin);
+
+const PRINTED_ONLY = new Set(['https://nearblocks.io', 'https://testnet.nearblocks.io', 'https://www.mintscan.io', 'https://filfox.info/en', new URL(ALEPH_EXPLORER).origin, ...PAYMENT_EXPLORERS]);
 
 /** Every origin in a nested object of endpoint strings. @param {unknown} o */
 const originsIn = (o) => [...JSON.stringify(o).matchAll(/https:\/\/[a-z0-9.-]+\.[a-z]+/g)].map((m) => m[0]);

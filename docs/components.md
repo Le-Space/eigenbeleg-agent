@@ -19,6 +19,7 @@ not separate services:
 | Chain readers | `@le-space/chains` (npm, from Le-Space/belege), wired by `packages/pipeline/src/blocks.js` | read the payments of the addresses on the Eigenbeleg, and the balances for the Kontoauszug |
 | Rates | `@le-space/rates` (npm), named by `packages/pipeline/src/rates.js` | EUR per asset and day: the price at 00:00 UTC |
 | Documents | `@le-space/eigenbeleg` and `@le-space/pdf` (npm, from Le-Space/belege) | Eigenbelege and Kontoauszug as PDF/A-2b, CSV |
+| On-chain payment (not wired in yet) | `packages/onchain-pay` | a plain payment on a Bitcoin-like chain through ElectrumX: its URI, a signed transaction from a key, sending it, recognising it at the recipient; the network (Doichain, Bitcoin) is a parameter. For paying in DOI, [#61](https://github.com/Le-Space/eigenbeleg-agent/issues/61) |
 
 On testnet the relayer and the recipient are the same account,
 `eigenbeleg-api.testnet` (`RELAYER_ACCOUNT_ID` = `PAY_TO`). They can be two

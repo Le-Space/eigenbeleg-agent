@@ -1,0 +1,19 @@
+{
+  "name": "@eigenbeleg/onchain-pay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "description": "A plain payment on a Bitcoin-like chain (Doichain, Bitcoin): build and sign it from a key, broadcast it through an ElectrumX server, recognise it at the recipient, and its payment URI. The network is a parameter.",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./networks": "./src/networks.js",
+    "./testing": "./test/support/fake-electrum.js"
+  },
+  "dependencies": {
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "@scure/btc-signer": "2.4.1"
+  }
+}

@@ -4,7 +4,7 @@
 // and dropped; it is never logged or stored.
 
 import { monthPeriod } from '@le-space/ledger';
-import { DEFAULT_KINDS } from '@le-space/eigenbeleg/document';
+import { DEFAULT_KINDS, DOCUMENT_CURRENCIES } from '@le-space/eigenbeleg/document';
 import { IMAGE_LIMITS, ImageError, pdfImage } from '@le-space/pdf/image';
 import { BLOCKS } from './blocks.js';
 
@@ -19,6 +19,9 @@ const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 const MAX_LOGO_TEXT = Math.ceil(IMAGE_LIMITS.bytes / 3) * 4;
 
 export class RequestError extends Error {}
+
+/** The currencies a document can be in (ISO 4217): EUR, the default, and those with an official rate against it (@le-space/eigenbeleg). */
+export const CURRENCIES = Object.freeze(Object.keys(DOCUMENT_CURRENCIES));
 
 /** One mailbox: local part, @, a host with a dot; no spaces, brackets or display names. */
 const EMAIL = /^[^\s@<>,;"()[\]]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
@@ -80,7 +83,7 @@ export function issuerLogoImage(bytes) {
  * @param {{ preview?: boolean, today?: string, blocks?: Record<string, import('./blocks.js').Block> }} [opts] today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
  *   must not get the payer's name and address (a body with `payer` is refused) and has no format; blocks: what this side serves
  *   (the API with an Alchemy key: `blocksFor(deps)`, keyed.js), the keyless BLOCKS when not given
- * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean, chart: boolean, issuerLogo: Uint8Array | null, email: string | null, language: 'de' | 'en' }}
+ * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean, chart: boolean, issuerLogo: Uint8Array | null, email: string | null, language: 'de' | 'en', currency: string, reference: Record<string, { from: string, eur: string, by: string }[]> }}
  */
 export function parseRequest(body, { preview = false, today, blocks = BLOCKS } = {}) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
@@ -160,6 +163,10 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	// The language of the mail (and of what else is said to the person); the documents are German either way.
 	const language = body.language ?? 'en';
 	if (language !== 'de' && language !== 'en') throw new RequestError('language: "de" or "en" (the language of the mail; the documents are German)');
+	// The currency the documents are in (ISO 4217): EUR unless another is asked for. A value in another
+	// currency is the euro rate of the day times that currency's official rate of the day, both named.
+	const currency = body.currency ?? 'EUR';
+	if (typeof currency !== 'string' || !CURRENCIES.includes(currency)) throw new RequestError(`currency: one of ${CURRENCIES.join(', ')} (ISO 4217, default EUR)`);
 	// Only the kinds the chain has (storage deposits are NEAR's); the default is what the chain has of fee
 	// and storage, or the block's own default (NEAR: its swaps too; Aleph: its credit purchases).
 	const kindsOffered = block.kinds ?? [...KINDS];
@@ -188,6 +195,10 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 		}
 	}
 
+	// A reference value is the issuer's figure in EUR; there is no second leg for it here, so its documents stay in EUR.
+	if (currency !== 'EUR' && Object.keys(reference).length) throw new RequestError(`currency: a reference value is in EUR, so a document valued by it is in EUR too; leave out currency or the reference`);
+	if (currency !== 'EUR' && (block.referenceAssets ?? []).length && document !== 'kontoauszug')
+		throw new RequestError(`currency: ${chain}'s Eigenbelege are valued by a reference value in EUR and are in EUR only; ask for "document": "kontoauszug" in ${currency}, or leave out currency`);
 	// An Eigenbeleg is a euro amount: for an asset nothing quotes it needs the issuer's value. The statement does not.
 	const unvalued = (block.referenceAssets ?? []).filter((a) => !reference[a]);
 	if (!preview && unvalued.length && document !== 'kontoauszug')
@@ -209,6 +220,7 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 		chart,
 		issuerLogo,
 		email,
-		language
+		language,
+		currency
 	};
 }

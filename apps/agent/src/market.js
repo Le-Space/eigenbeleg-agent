@@ -110,7 +110,7 @@ async function deliverable(r, dir) {
 	return [
 		`## ${rc.task}`,
 		'',
-		`${rc.summary.positions} positions, total ${rc.summary.totalEur} EUR (${Object.entries(rc.summary.quantities).map(([a, q]) => `${q} ${a}`).join(', ')}). Checks: ${rc.passed ? 'passed' : 'FAILED'}.`,
+		`${rc.summary.positions} positions, total ${rc.summary.totalEur} ${rc.summary.currency ?? 'EUR'} (${Object.entries(rc.summary.quantities).map(([a, q]) => `${q} ${a}`).join(', ')}). Checks: ${rc.passed ? 'passed' : 'FAILED'}.`,
 		rc.transaction ? `Bought from the Eigenbeleg API, paid on NEAR: ${rc.explorer}` : '',
 		'',
 		'The market takes Markdown deliverables, so the PDF/A-2b stays with the agent\'s operator for this job; the CSV below has every position:',

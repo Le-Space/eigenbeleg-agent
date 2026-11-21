@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// One request, start to end: read the chain, value in EUR, build the
+// One request, start to end: read the chain, value in EUR (or the
+// request's currency), build the
 // Eigenbelege (one per transaction) and the Kontoauszug per account, draw
 // the files. Nothing is kept afterwards. Runs in Node (the API) and in a
 // browser (the web UI) alike.
@@ -56,11 +57,13 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	onProgress?.({ step: 'rates' });
 	// An asset no price source quotes (DOI) is valued by the request's reference value and by nothing else: with
 	// no value handed in its table is empty, so it gets no euro value and never reaches a price feed.
-	const priced = deps.rates ?? dayRates({ fetch: deps.fetch });
+	// The request's currency (EUR unless another): the rates come in it, and the documents are in it.
+	const currency = req.currency ?? 'EUR';
+	const priced = deps.rates ?? dayRates({ fetch: deps.fetch, currency });
 	const rates = block.referenceAssets?.length ? withReferenceRates(priced, Object.fromEntries(block.referenceAssets.map((a) => [a, req.reference?.[a] ?? []]))) : priced;
-	const valued = await valueEntries(sortEntries(entries), rates);
+	const valued = await valueEntries(sortEntries(entries), rates, { currency });
 	const issuedAt = (deps.now?.() ?? new Date()).toISOString();
-	const doc = buildDocument({ payer: req.payer, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single' });
+	const doc = buildDocument({ payer: req.payer, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single', currency });
 	const belege = new Map(doc.transactions.map((t) => [t.hash, t.number]));
 	const statements = balances.map((b, i) =>
 		buildStatement({
@@ -76,7 +79,8 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 			at: b.at,
 			belege,
 			number: balances.length > 1 ? `${req.statementNumber}-${i + 1}` : req.statementNumber,
-			issuedAt
+			issuedAt,
+			currency
 		})
 	);
 	const summary = {
@@ -88,7 +92,9 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 		positions: doc.positions.length,
 		transactions: doc.transactions.length,
 		notOnIt: doc.excluded.length,
+		// `totalEur` keeps its name and holds the total in `currency`.
 		totalEur: doc.totals.eur,
+		currency,
 		quantities: doc.totals.quantities,
 		kontoauszuege: statements.map((s) => ({
 			number: s.number,

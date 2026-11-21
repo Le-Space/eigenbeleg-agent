@@ -38,6 +38,8 @@ export function dataSources({ akashIndexer = 'https://console-api.akash.network'
 		...DOICHAIN.endpoints.electrum.map((url) => ({ origin: new URL(url).origin, chain: 'doichain', learns: /** @type {const} */ ('addresses'), what: 'Doichain transactions and balance (a public ElectrumX server)' })),
 		{ origin: 'https://api.kraken.com', chain: 'rates', learns: 'assets', what: 'EUR rates where CoinGecko has none (Kraken, the day\'s open)' },
 		{ origin: 'https://api.coingecko.com', chain: 'rates', learns: 'assets', what: 'EUR rates (CoinGecko, the price at 00:00 UTC)' },
-		{ origin: 'https://data-api.ecb.europa.eu', chain: 'rates', learns: 'assets', what: 'EUR per USD, for Aleph credits (ECB reference rate)' }
+		{ origin: 'https://data-api.ecb.europa.eu', chain: 'rates', learns: 'assets', what: 'EUR per USD, for Aleph credits, and the euro in the documents\' currency when it is not EUR (ECB reference rate)' },
+		// Only for documents in RUB: the ECB has no rate for the ruble since 2022-03-01.
+		{ origin: 'https://www.cbr.ru', chain: 'rates', learns: 'assets', what: 'the euro in rubles, for documents in RUB (Bank of Russia, official rate of the day)' }
 	];
 }

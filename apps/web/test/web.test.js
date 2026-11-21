@@ -38,6 +38,10 @@ test('the form becomes the request the pipeline checks, as the API would', () =>
 	// The statement's diagram: on unless the form's box is unticked.
 	assert.equal(req.chart, true);
 	assert.equal(parseRequest(requestBody({ ...form, chart: false }), { today: '2026-11-06' }).chart, false);
+	// The documents' currency: EUR unless the dropdown says another; EUR is not even written into the body.
+	assert.equal(req.currency, 'EUR');
+	assert.ok(!('currency' in requestBody({ ...form, currency: 'EUR' })));
+	assert.equal(parseRequest(requestBody({ ...form, currency: 'CHF' }), { today: '2026-11-06' }).currency, 'CHF');
 	assert.equal(fileName('EB-2026/007 ä'), 'EB-2026_007__');
 });
 

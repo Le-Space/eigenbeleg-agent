@@ -7,6 +7,7 @@ import { ExactNearScheme } from '@x402/near/exact/server';
 import { fixedRates } from '@le-space/eigenbeleg';
 import { sampleJpeg, samplePng } from '@le-space/pdf/testing/sample-images';
 
+import { CURRENCIES } from '@eigenbeleg/pipeline';
 import { createApp } from '../src/app.js';
 import { recordedNear } from '../../agent/src/recorded.js';
 
@@ -447,7 +448,7 @@ test('GET /llms.txt tells agents what is sold, the price and the x402 steps', as
 		assert.match(text, /POST https:\/\/eigenbeleg\.example\.org\/eigenbeleg: USDC on NEAR testnet \(near:testnet\): \$0\.10 to eigenbeleg-api\.testnet; Base \(eip155:8453\): \$0\.10 to 0x1111/);
 		assert.match(text, /transferWithAuthorization/);
 		// The choices an agent settles with the person: which document, the currency (EUR only), the chain's logo, the diagram.
-		assert.match(text, /## Choices to settle with the person[\s\S]*tell them the default you will use[\s\S]*Currency: EUR, and only EUR[\s\S]*`logo`, off by default[\s\S]*not the person's company logo[\s\S]*`chart`, on by default/);
+		assert.match(text, /## Choices to settle with the person[\s\S]*tell them the default you will use[\s\S]*Currency\*\* \(`currency`, EUR by default\)[\s\S]*Bank of Russia[\s\S]*`logo`, off by default[\s\S]*not the person's company logo[\s\S]*`chart`, on by default/);
 		assert.match(text, /PAYMENT-REQUIRED[\s\S]*PAYMENT-SIGNATURE[\s\S]*PAYMENT-RESPONSE/);
 		assert.match(text, /web UI at https:\/\/eigenbeleg\.example\.org\/ui\/ instead: it does everything in their browser/);
 		assert.match(text, /"chain": "near" \| "akash" \| "filecoin" \| "doichain" \| "filecoin-pay" \| "aleph"/);
@@ -541,6 +542,10 @@ test('the files by mail: queued once the answer is out, stable subject and file 
 		assert.match(m.html, /href="https:\/\/eigenbeleg\.example\.org\/ui\/"/);
 		// English is the default; the language is checked like every field.
 		assert.equal((await post(base, { ...job, language: 'fr' })).status, 400);
+		// The documents' currency is checked like every field, and the 400 lists the codes.
+		const badCurrency = await post(base, { ...job, currency: 'JPY' });
+		assert.equal(badCurrency.status, 400);
+		assert.match((await badCurrency.json()).error, /^currency: one of EUR, USD, CHF, GBP, SEK, NOK, DKK, PLN, CZK, HUF, RON, ISK, TRY, RUB/);
 		const { composeMail } = await import('../src/mail.js');
 		const summary = { eigenbelege: ['EB-2026-042'], number: 'EB-2026-042', period: { from: '2026-11-01', to: '2026-11-30' }, chain: 'near', network: 'mainnet', transactions: 1, positions: 1, totalEur: '0.01', kontoauszuege: [{ number: 'KA-2026-11-01', account: 'relay.aurora', assets: [{ asset: 'NEAR', opening: '1', closing: '1', reconciled: true }] }] };
 		const en = composeMail({ ...job, email: 'belege@example.org', language: 'en', document: 'kontoauszug' }, { summary, pdf: null, csv: null, statements: [] });
@@ -668,6 +673,7 @@ test('the test route: testnet data only, its own testnet 402, TEST- files, limit
 		assert.match(await (await globalThis.fetch(base + '/llms.txt')).text(), /## Test \(testnet\)\n\n- POST http:\/\/127\.0\.0\.1:\d+\/testnet\/eigenbeleg: the same documents for testnet addresses only/);
 
 		assert.ok((await (await globalThis.fetch(base + '/testnet/blocks')).json()).blocks.length, 'the API base /testnet has the blocks too');
+		assert.deepEqual((await (await globalThis.fetch(base + '/blocks')).json()).currencies, CURRENCIES, 'and the currencies a document can be in');
 		// 8: the per-IP limit counts the 402s too (8 above, so the 9th is too many).
 		const limited = await tpost(tjob);
 		assert.equal(limited.status, 429);

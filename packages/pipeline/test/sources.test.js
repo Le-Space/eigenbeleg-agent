@@ -31,7 +31,8 @@ const originsIn = (o) => [...JSON.stringify(o).matchAll(/https:\/\/[a-z0-9.-]+\.
 
 test('dataSources names every host the readers and the rates ask, and only those', async () => {
 	// The readers' default endpoints (what the browser asks without a proxy), and the rate hosts
-	// (@le-space/rates asks the ECB only for USD, for Aleph credits; the other central banks never).
+	// (@le-space/rates asks the ECB for USD, for Aleph credits, and for a document's currency other than EUR; the
+	// Bank of Russia for documents in RUB; the other central banks never).
 	const expected = new Set([
 		...originsIn(near.NETWORKS),
 		...originsIn(AKASH_CHAIN.endpoints),
@@ -44,7 +45,9 @@ test('dataSources names every host the readers and the rates ask, and only those
 		...DOICHAIN_CHAIN.endpoints.electrum.map((u) => new URL(u).origin),
 		'https://api.coingecko.com',
 		'https://api.kraken.com',
-		'https://data-api.ecb.europa.eu'
+		'https://data-api.ecb.europa.eu',
+		// The Bank of Russia, only for documents in RUB
+		'https://www.cbr.ru'
 	].filter((o) => !PRINTED_ONLY.has(o)));
 	// And nothing in this repository's own packages asks anywhere else.
 	const root = new URL('../../', import.meta.url).pathname;

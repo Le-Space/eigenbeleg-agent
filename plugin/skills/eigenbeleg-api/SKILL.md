@@ -79,6 +79,34 @@ the payment days, as PDF/A-2b and CSV. It stores nothing beyond the request.
 6. **Hand over** the files, the summary and the payment transaction. Remind the
    person that an Eigenbeleg counts only with their signature.
 
+**If the 402 also lists an offer with scheme `onchain`** (DOI on Doichain; only
+where the instance offers it, see `payment.coins` in `GET /`), the person can pay
+in that coin instead. It is final only after a block, so tell them up front that
+the documents come about ten minutes after the payment:
+
+1. Sign a plain transaction that pays at least the offer's `amount` (smallest
+   unit) to its `payTo`, with final sequence numbers. Do not broadcast it.
+2. Send the same request with `PAYMENT-SIGNATURE`: base64 JSON
+   `{ "x402Version": 2, "accepted": <the offer, unchanged>, "payload": { "transaction": "<hex>" } }`.
+   The API ties the transaction to this request and broadcasts it.
+3. The answer is `202` with the txid, an explorer link, the confirmations and
+   `Retry-After`. Repeat the same request (payload `{ "txid": "…" }` is enough)
+   at that pace until it is `200` with the files.
+
+The payment belongs to that one request, unchanged, and stays redeemable for it
+for seven days, also after a `502`. Keep the body and the txid until the files
+are there.
+
+**From a wallet instead** (the person scans a QR code with DoiWallet; only where
+`payment.coins[].perOrder` is true): send the request with the header
+`X-Eigenbeleg-Order: doichain`. The offer in that 402 then has a `payTo` that is
+this request's alone, the payment URI in `extra.uri` (show it as a QR code; in
+DoiWallet it is scanned from the send screen) and `extra.payBefore`. After the
+person paid, send the same request, with that header, with `PAYMENT-SIGNATURE`
+and payload `{}`, using that offer unchanged as `accepted`, until it is `200`;
+the payment is found at the address. Without that header a payment a wallet
+sends by itself is not taken.
+
 If reading the chain fails, the API answers `502` and nothing is charged. A `402`
 after you paid means the payment was not accepted; do not pay again blindly, read
 the body.
@@ -91,7 +119,23 @@ the body.
   budget, and keeps a receipt: `npm run agent -- --help` in a checkout of
   https://github.com/Le-Space/eigenbeleg-agent (settings from `.env`:
   `API_URL`, `AGENT_ACCOUNT_ID` and `AGENT_SECRET_KEY` or `AGENT_EVM_KEY`,
-  `AGENT_BUDGET`).
+  `AGENT_BUDGET`). In DOI: `--pay doi` (the agent's DOI key, from `AGENT_DOI_KEY`,
+  `AGENT_DOI_KEY_FILE` or `AGENT_DOI_KEYCHAIN`, budget `AGENT_BUDGET_DOI`) or
+  `--pay qr` (a person pays from a wallet); it waits for the block and can be
+  continued with `--resume <txid>`.
+
+## Choices to settle with the person
+
+The request has choices that change what the person gets. Take each from what the person said. Where they said nothing, tell them the default you will use – or ask, when the answer is not obvious – before anything is bought: once, in one message, not question by question. Never make up the payer's name or address.
+
+- **Which document** (`document`): `eigenbelege` (the default: one Eigenbeleg per payment, for payments without a receipt from the other side), `kontoauszug` (the account's statement: opening balance, every booking, closing balance) or `beide`. "Receipts for my fees" means eigenbelege; "a statement", "the balance" or "what did the account do" means kontoauszug; "everything for my bookkeeping" means beide. For `aleph` and `filecoin-pay` the statement is a Verbrauchsauszug.
+- **Currency: EUR, and only EUR.** Every value is in euro at the rate of the payment's day; the documents are for German bookkeeping. No other base currency can be chosen yet (USD, CHF …): if the person asks for one, say so, and do not convert the figures yourself.
+- **The chain's logo** (`logo`, off by default): the network's mark, small, beside the title, to tell the documents of several chains apart. There is one for NEAR, Akash, Filecoin and Aleph Cloud; the other chains get none, without an error. It is the chain's mark, not the person's company logo: a logo of their own cannot be put on the documents yet. Switch it on when the person asks for a logo or for documents that are easy to tell apart; otherwise mention it only if they ask what can be changed.
+- **The diagram** (`chart`, on by default): above a statement's bookings, the balance over the period or the consumption per day. Only on statements, and none for a period of one day or without bookings. Switch it off when the person wants a plain statement, tables only, or the fewest pages.
+- **What goes on an Eigenbeleg** (`includeKinds`): network fees and, on NEAR, storage deposits by default. Transfers and contract calls are payments to someone who may have sent a receipt; include them only when the person says those payments have none.
+- **Language:** the documents are German whatever is asked for.
+
+After the preview, say what you are about to buy – document, period, these choices, the price – and buy only then.
 
 ## Request body
 
@@ -124,7 +168,8 @@ the body.
 - `payer`: name and postal address, printed on the documents.
 - `number`: optional, the first number of the payer's own range; the others count up.
 - `includeKinds`: optional, of the chain's kinds in `GET /blocks` (`fee`,
-  `storage`, `transfer`, `call`; `swap` for Aleph credit purchases).
+  `storage`, `transfer`, `call`; `swap` for a swap at a DEX on NEAR and for
+  Aleph credit purchases).
 - `logo`: optional, the chain's mark beside the title.
 - `chart`: optional, `true` by default: the diagram above a statement's bookings
   (the balance over the period, or the consumption per day); `false` leaves it out.

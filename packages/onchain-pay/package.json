@@ -9,11 +9,13 @@
   "exports": {
     ".": "./src/index.js",
     "./networks": "./src/networks.js",
+    "./electrum": "./src/electrum.js",
     "./testing": "./test/support/fake-electrum.js"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
+    "@scure/bip32": "1.7.0",
     "@scure/btc-signer": "2.4.1"
   }
 }

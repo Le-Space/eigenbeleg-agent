@@ -14,6 +14,8 @@ import { parseArgs } from 'node:util';
 
 import { runJob, subscribe } from './agent.js';
 import { createPayer } from './payer.js';
+import { createDoiPayer } from './doi-payer.js';
+import { doiKey } from './keys.js';
 import { marketPass } from './market.js';
 
 try {
@@ -40,11 +42,19 @@ Options: --chain, --network, --address (repeatable), --month YYYY-MM or --from/-
   --include fee,storage,transfer,call, --document eigenbelege|kontoauszug|beide,
   --email belege@example.org (the API also mails the files, e.g. to a document management system),
   --language de (the mail's language, default en; the documents are German),
-  --api URL (else API_URL), --out DIR (else OUT_DIR, default ./out).
+  --api URL (else API_URL), --out DIR (else OUT_DIR, default ./out),
+  --pay doi   pay in DOI (Doichain) where the API offers it: the agent signs from its DOI key, the API
+              broadcasts, and the agent waits for the block (about 10 minutes) before the files come;
+  --pay qr    pay in DOI from a wallet: the agent shows a QR code (DoiWallet: scan from the send screen)
+              and waits for the payment and its block; no key here;
+  --resume TXID   continue a stopped run with the DOI payment already made (the same job, unchanged).
 A subscription costs twelve times the price (1.20 USDC at $0.10): raise AGENT_BUDGET for it.
 Environment (.env): API_URL, AGENT_ACCOUNT_ID and AGENT_SECRET_KEY (or the near-cli keychain),
   PAY_NETWORK (near:testnet), AGENT_EVM_KEY (USDC on Base and Ethereum), PAY_PREFER (the network to
-  pay on when the API offers several), AGENT_BUDGET per payment (default $0.25).`;
+  pay on when the API offers several), AGENT_BUDGET per payment (default $0.25).
+  For --pay doi: AGENT_BUDGET_DOI per payment (default 5), and the DOI key (WIF) from AGENT_DOI_KEY (set it
+  with a hidden prompt: read -s AGENT_DOI_KEY && export AGENT_DOI_KEY), AGENT_DOI_KEY_FILE (chmod 600) or
+  AGENT_DOI_KEYCHAIN (a macOS keychain item's name). Never as an argument.`;
 
 const { values: v } = parseArgs({
 	options: {
@@ -68,6 +78,8 @@ const { values: v } = parseArgs({
 		email: { type: 'string' },
 		language: { type: 'string' },
 		api: { type: 'string' },
+		pay: { type: 'string' },
+		resume: { type: 'string' },
 		out: { type: 'string' }
 	}
 });
@@ -97,7 +109,16 @@ const env = process.env;
 const api = (v.api ?? env.API_URL ?? 'http://127.0.0.1:4402').replace(/\/$/, '');
 let paidFetch = fetch;
 let lastPayment = () => ({});
-if (env.AGENT_ACCOUNT_ID || env.AGENT_EVM_KEY) {
+if (v.pay !== undefined && v.pay !== 'doi' && v.pay !== 'qr') throw new Error(`--pay ${v.pay}: doi or qr (USDC needs no --pay)`);
+if (v.resume && !v.pay) throw new Error('--resume continues a DOI payment: use it with --pay doi or --pay qr');
+if (v.pay) {
+	if (v.subscribe || v.market) throw new Error('--pay doi and --pay qr buy single requests; a subscription and the market pay in USDC');
+	const budget = env.AGENT_BUDGET_DOI ?? '5';
+	const payer = createDoiPayer({ mode: v.pay === 'qr' ? 'qr' : 'key', key: v.pay === 'doi' && !v.resume ? await doiKey(env) : undefined, budget, resume: v.resume });
+	paidFetch = payer.paidFetch;
+	lastPayment = payer.last;
+	console.log(`Wallet: ${v.pay === 'qr' ? 'none here: a person pays from a wallet by QR code' : 'a DOI key'}, budget ${budget} DOI per payment. A DOI payment needs a block: the files come about 10 minutes after it.`);
+} else if (env.AGENT_ACCOUNT_ID || env.AGENT_EVM_KEY) {
 	const payer = await createPayer({
 		accountId: env.AGENT_ACCOUNT_ID,
 		secretKey: env.AGENT_SECRET_KEY,

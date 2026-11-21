@@ -4,7 +4,7 @@
 //   GET  /             what this is, the price and how to pay (JSON); a browser is sent to /ui/
 //   GET  /blocks       the building blocks by chain, for agents
 //   GET  /health
-//   POST /eigenbeleg   the Eigenbeleg, behind the x402 paywall
+//   POST /eigenbeleg   the Eigenbeleg, behind the x402 paywall; paid in a chain's own coin (DOI): 202 until its block, then the files
 //   POST /eigenbeleg/preview  free: positions and total, never the payer
 //   POST /eigenbeleg/subscribe  twelve monthly Kontoauszüge by mail, paid once (#20)
 //   POST /eigenbeleg/subscribe/:months  the same for 1 to 12 months, at months × the price
@@ -18,7 +18,9 @@
 // e-mail address when the files are wanted by mail) lives in memory until the
 // response is sent and the mail, if any, is out. Logs carry method, path,
 // status and duration only. The one exception is a subscription, kept
-// encrypted until its last month or its cancellation (subscriptions.js).
+// encrypted until its last month or its cancellation (subscriptions.js), and a
+// payment in a chain's own coin: its txid, amount, time and a hash of the
+// request, so that it is redeemed once (onchain.js).
 
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -34,7 +36,8 @@ import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatc
 
 /**
  * @param {object} o
- * @param {{ middleware: import('express').RequestHandler | null, info: Record<string, unknown> }} o.paywall
+ * @param {{ middleware: import('express').RequestHandler | null, info: Record<string, unknown>, step?: import('express').RequestHandler }} o.paywall
+ *   `step`: in front of the middleware, for a payment that is final only after a block (onchain.js)
  * @param {Parameters<typeof generate>[1]} [o.deps] with `alchemyKey` (ALCHEMY_KEY) the API also serves Ethereum and Base;
  *   the key goes to their reads only, never into an answer or a log
  * @param {(line: string) => void} [o.log]
@@ -101,6 +104,8 @@ export function createApp({
 		const { issuerLogoId: _id, ...rest } = body;
 		return { ...rest, issuerLogo: kept.bytes };
 	};
+	/** Payments in a chain's own coin, where this instance offers one (paywall.js, onchain.js). */
+	const coins = /** @type {{ network: string, name: string, asset: string, price: string, payTo: string, confirmations: number, wait: string, redeemableDays: number, explorer: string, servers: string[], perOrder: boolean, orderHeader: string | null, orderHours: number }[]} */ (/** @type {any} */ (paywall.info).coins ?? []);
 	const app = express();
 	app.disable('x-powered-by');
 	// The paywalls match the exact path: `/eigenbeleg/` or `/EIGENBELEG` must not
@@ -171,7 +176,7 @@ export function createApp({
 				? { ...testnet.info, what: TESTNET_WHAT, limits: testnetLimits(testnetLimit, testnetMailsPerDay) }
 				: 'not offered by this instance',
 			blocks: describeBlocks(blocks),
-			privacy: `Nothing is stored beyond the request; logs hold method, path, status and duration only. An e-mail address goes into that one mail and nowhere else.${logos ? ' A logo sent with the free preview is kept encrypted for 24 hours, then deleted.' : ''}${subs ? ' A subscription is the one exception: see subscription.privacy.' : ''}`,
+			privacy: `Nothing is stored beyond the request; logs hold method, path, status and duration only. An e-mail address goes into that one mail and nowhere else.${logos ? ' A logo sent with the free preview is kept encrypted for 24 hours, then deleted.' : ''}${subs ? ' A subscription is the one exception: see subscription.privacy.' : ''}${coins.length ? ` Of a payment in ${coins.map((c) => c.asset).join(', ')} the transaction id, amount and time and a SHA-256 hash of the request are kept, so that it is redeemed once; the paying address is public on the chain.` : ''}`,
 			data: 'Powered by NearBlocks.io APIs; EUR rates: the price at 00:00 UTC from CoinGecko, else Kraken (@le-space/rates).',
 			license: 'AGPL-3.0-or-later',
 			source
@@ -212,7 +217,16 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
   2. Sign what it asks for and send the same request again with \`PAYMENT-SIGNATURE\`. On NEAR: one NEP-366 delegate action with one \`ft_transfer\` of USDC (the payer needs USDC and a USDC storage registration, no NEAR). On Base or Ethereum: one EIP-3009 \`transferWithAuthorization\` of USDC (the payer needs USDC, no ETH).
   3. The answer carries the files and \`PAYMENT-RESPONSE\` (the transaction). If reading the chain fails, nothing is charged.
   Clients: @x402/fetch with @x402/near or @x402/evm (JavaScript), or this repository's agent: npm run agent -- --help.
-${testnet ? `\n## Test (testnet)\n\n- POST ${base}/testnet/eigenbeleg: ${TESTNET_WHAT}. GET ${base}/testnet/blocks as well, so a client takes ${base}/testnet as its API base (this repository's agent: --api ${base}/testnet --network testnet). Paid like POST /eigenbeleg, with USDC on NEAR testnet (near:testnet): ${testnetPrice(testnet)}. ${testnetLimits(testnetLimit, testnetMailsPerDay)}. For developing and testing clients; no contract, no invoice, no value.\n` : ''}
+${coins.map((c) => `
+### Paying in ${c.asset} (${c.name})
+
+POST ${base}/eigenbeleg also takes ${c.price}${c.perOrder ? '' : ` to ${c.payTo}`}: the 402's accepts list it with scheme \`onchain\`, network ${c.network}, the amount in the smallest unit. A block takes its time, so this purchase has two steps; tell the person the documents come ${c.wait} after the payment.
+  1. Sign a plain transaction that pays at least the amount to that address, with final sequence numbers. Do not broadcast it.
+  2. Send the same request with \`PAYMENT-SIGNATURE\`: base64 JSON { "x402Version": 2, "accepted": <that entry of accepts, unchanged>, "payload": { "transaction": "<hex>" } }. This server ties the transaction to the request and broadcasts it. A transaction the network already knows is refused, because anybody could have copied it.
+  3. The answer is 202 with the txid, an explorer link, the confirmations so far and \`Retry-After\`. Repeat the same request (the same header, or payload { "txid": "…" }) until it is 200 with the files and \`PAYMENT-RESPONSE\`; the documents are built after ${c.confirmations} confirmation(s).
+  The payment belongs to this one request (the same body, byte for byte in its values) and stays redeemable for it for ${c.redeemableDays} days, also when reading the chain failed in between (502) or the same files are wanted again. A 402 on a repeat names the reason in the header's \`error\` (replaced, dropped, too small, another request). Not for subscriptions yet.${c.perOrder ? `
+  From a wallet (a QR code) instead: send the request with the header \`${c.orderHeader}\`. The 402's offer then has a \`payTo\` that is this request's alone, the payment URI in \`extra.uri\` and \`extra.payBefore\` (${c.orderHours} hours). Let the person pay it, then send the same request, with that header, with \`PAYMENT-SIGNATURE\` and payload {} until it is 200: the payment is found at the address, no txid needed. Use the offer of that 402, unchanged, as \`accepted\`.` : ' Not from a wallet by itself: the transaction has to come through this server.'} Kept of the payment: txid, amount, time and a SHA-256 hash of the request${c.perOrder ? ' (and of an order its address, that hash and its time)' : ''}; the paying address is public on ${c.name}. Asked about it: ${c.servers.join(', ')} (ElectrumX; they see the transaction and this server's IP address, never the request).
+`).join('')}${testnet ? `\n## Test (testnet)\n\n- POST ${base}/testnet/eigenbeleg: ${TESTNET_WHAT}. GET ${base}/testnet/blocks as well, so a client takes ${base}/testnet as its API base (this repository's agent: --api ${base}/testnet --network testnet). Paid like POST /eigenbeleg, with USDC on NEAR testnet (near:testnet): ${testnetPrice(testnet)}. ${testnetLimits(testnetLimit, testnetMailsPerDay)}. For developing and testing clients; no contract, no invoice, no value.\n` : ''}
 The same for tools: GET ${base}/openapi.json (OpenAPI 3.1); every 402 of POST /eigenbeleg also carries the body's JSON Schema and an example (the x402 bazaar extension).
 
 ## Body
@@ -226,7 +240,7 @@ The same for tools: GET ${base}/openapi.json (OpenAPI 3.1); every 402 of POST /e
   "document": "eigenbelege" | "kontoauszug" | "beide",
   "payer": { "name": "…", "address": "street, postcode town" }   printed on the documents; used for this response only, never stored or logged,
   "number": "EB-2026-001",                    optional, first number of the payer's own range,
-  "includeKinds": ["fee", "storage"],         optional: of the chain's kinds in GET /blocks (fee, storage, transfer, call; storage is NEAR's)
+  "includeKinds": ["fee", "storage"],         optional: of the chain's kinds in GET /blocks (fee, storage, transfer, call, swap; storage is NEAR's; NEAR's default has its swaps at a DEX too)
   "logo": false,                              optional: the chain's mark, small, beside the title
   "chart": true,                              optional, default true: the diagram above a statement's bookings (the balance, or the consumption per day)
   "issuerLogo": "iVBORw0KGgo…",               optional: the payer's own logo, a PNG or JPEG file as base64 text; see Notes
@@ -234,16 +248,29 @@ ${logos ? '  "issuerLogoId": "…",                        optional, instead of 
   "language": "en" | "de"                     optional, default en: the language of the mail (the documents are German either way)
 }
 
+## Choices to settle with the person
+
+The request has choices that change what the person gets. Take each from what the person said. Where they said nothing, tell them the default you will use – or ask, when the answer is not obvious – before anything is bought: once, in one message, not question by question. Never make up the payer's name or address.
+
+- **Which document** (\`document\`): \`eigenbelege\` (the default: one Eigenbeleg per payment, for payments without a receipt from the other side), \`kontoauszug\` (the account's statement: opening balance, every booking, closing balance) or \`beide\`. "Receipts for my fees" means eigenbelege; "a statement", "the balance" or "what did the account do" means kontoauszug; "everything for my bookkeeping" means beide. For \`aleph\` and \`filecoin-pay\` the statement is a Verbrauchsauszug.
+- **Currency: EUR, and only EUR.** Every value is in euro at the rate of the payment's day; the documents are for German bookkeeping. No other base currency can be chosen yet (USD, CHF …): if the person asks for one, say so, and do not convert the figures yourself.
+- **The chain's logo** (\`logo\`, off by default): the network's mark, small, beside the title, to tell the documents of several chains apart. There is one for NEAR, Akash, Filecoin and Aleph Cloud; the other chains get none, without an error. It is the chain's mark, not the person's company logo: a logo of their own cannot be put on the documents yet. Switch it on when the person asks for a logo or for documents that are easy to tell apart; otherwise mention it only if they ask what can be changed.
+- **The diagram** (\`chart\`, on by default): above a statement's bookings, the balance over the period or the consumption per day. Only on statements, and none for a period of one day or without bookings. Switch it off when the person wants a plain statement, tables only, or the fewest pages.
+- **What goes on an Eigenbeleg** (\`includeKinds\`): network fees and, on NEAR, storage deposits by default. Transfers and contract calls are payments to someone who may have sent a receipt; include them only when the person says those payments have none.
+- **Language:** the documents are German whatever is asked for.
+
+After the preview, say what you are about to buy – document, period, these choices, the price – and buy only then.
+
 ## Notes
 
 ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is paid with) and the gas, read through this server's Alchemy key; the whole history of the address is read, so a busy address takes a while.\n" : ''}- filecoin-pay (the balance in the Filecoin Pay contract of Filecoin Onchain Cloud, by the payer's address, 0x… or f410f…): one finished month (\`period.month\`), \`document\` kontoauszug only – a Verbrauchsauszug (VA-…) with the balance before and after, what was paid in and taken out, and each settlement of a rail to its storage provider, valued at the day's USDC rate. No Eigenbeleg: a settlement is no single payment. Only USDFC; a settlement pays up to the moment it names, so a month's settlements need not cover exactly that month. The paying in itself is on the payer's \`filecoin\` Kontoauszug.
 - aleph (Aleph Cloud credits, by the Ethereum address): one finished month (\`period.month\`). \`document\` kontoauszug (the default) is a Verbrauchsauszug (VA-…), usage per day and resource, valued at the USD price per credit and the ECB rate of the day; eigenbelege gives one Eigenbeleg per purchase of credits (kind swap: a token for credits, in USD at the ECB rate, with the paying transaction's hash on Ethereum or Base). Usage itself gets no Eigenbeleg: it is no single payment.
-- issuerLogo: the logo of the person or company the documents are for, drawn top right in the head of every document, fitted into 120 × 40 pt. The file's bytes as plain base64 (no \`data:\` prefix), PNG or JPEG (no SVG, GIF or CMYK), at most 512 kB and 2048 pixels a side, at most 6 times as wide as high and twice as high as wide; a transparent PNG is laid on white, a JPEG loses its EXIF. A picture outside these limits is a 400 that says why, before anything is paid. Never logged, and used for this response only – except in a subscription, which keeps the picture encrypted with its other details until the last statement or the cancellation. The free preview takes it too and checks it (it draws nothing), so send it there first.${logos ? ' A picture sent with the preview is kept on this server for 24 hours, encrypted, and then deleted: the preview answers with `issuerLogoId` and `issuerLogoUntil`, and POST /eigenbeleg or the subscription within that time takes `"issuerLogoId": "…"` instead of the picture. Tell the user that it is kept for a day; where the answer has no issuerLogoId, or after 24 hours, send issuerLogo again.' : ' No picture of a preview is kept here: send issuerLogo again with the paid request.'} It is the user's own file: ask for it, never fetch a logo from the web yourself. \`logo\` is something else: the chain's mark.
+- issuerLogo: the logo of the person or company the documents are for, drawn top right in the head of every document, fitted into 120 × 40 pt. The file's bytes as plain base64 (no \`data:\` prefix), PNG or JPEG (no SVG, GIF or CMYK), at most 512 kB and 2048 pixels a side, at most 6 times as wide as high and twice as high as wide; a transparent PNG is laid on white, a JPEG loses its EXIF. A picture outside these limits is a 400 that says why, before anything is paid. Never logged, and used for this response only – except in a subscription, which keeps the picture encrypted with its other details until the last statement or the cancellation. The free preview takes it too and checks it (it draws nothing), so send it there first.${logos ? ' A picture sent with the preview is kept on this server for 24 hours, encrypted, and then deleted: the preview answers with `issuerLogoId` and `issuerLogoUntil`, and POST /eigenbeleg or the subscription within that time takes `"issuerLogoId": "…"` instead of the picture. Tell the user that it is kept for a day; where the answer has no issuerLogoId, or after 24 hours, send issuerLogo again. A payment that waits for its block is tied to the exact body: with such a payment send the picture itself as issuerLogo, so the body still works when it is sent again after those 24 hours.' : ' No picture of a preview is kept here: send issuerLogo again with the paid request.'} It is the user's own file: ask for it, never fetch a logo from the web yourself. \`logo\` is something else: the chain's mark.
 - The documents are in German. An Eigenbeleg counts only once the payer signs it; whether a tax adviser accepts it is theirs to decide.
 - email: the files go as attachments (stable names: EB-….pdf, KA-….pdf, EB-….csv; subject "Eigenbeleg EB-… · chain network · period"), so a document management system's inbox can sort them. The answer says \`mail: queued\` (format json) or carries X-Eigenbeleg-Mail: queued. The address is used for that one mail only.
 - As a skill (Agent Skills format, agentskills.io): ${source}/tree/main/plugin/skills/eigenbeleg-api – these steps for Claude Code and other agents that read SKILL.md. Without paying, on the user's own machine (nothing sent here): ${source}/tree/main/plugin/skills/eigenbeleg-local, i.e. \`npm run local\` in a checkout.
 - Help: ${SUPPORT.help}; payments, invoices and credits: ${SUPPORT.payments}. Send the status and \`error\` of the answer and, for a payment, the transaction hash; never documents, names, postal addresses, keys or tokens. Le Space never asks for a seed phrase, passkey, private key or token. Security weaknesses: privately to ${SUPPORT.security}, never in public; the policy: ${base}${SECURITY_PATH}.
-- Nothing is stored beyond the request. Source (AGPL-3.0-or-later): ${source}
+- Nothing is stored beyond the request${coins.length ? ' (and what is kept of a payment in a coin, above)' : ''}. Source (AGPL-3.0-or-later): ${source}
 `);
 	});
 	// Also under /testnet/ when the test route is on, so a client takes https://…/testnet as its API base.
@@ -435,7 +462,8 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 			});
 		}
 	});
-	app.post('/eigenbeleg', express.json({ limit: BODY_WITH_LOGO }), validate, workFirst, pay, deliver());
+	// A payment in a chain's own coin is judged first: 202 while it waits for its block (onchain.js).
+	app.post('/eigenbeleg', express.json({ limit: BODY_WITH_LOGO }), validate, paywall.step ?? ((_req, _res, next) => next()), workFirst, pay, deliver());
 
 	// The test route: the same work, for testnet addresses only, paid in testnet USDC on its own
 	// paywall. Anything else is refused before the 402, so testnet USDC never buys a mainnet document.

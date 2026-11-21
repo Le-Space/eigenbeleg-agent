@@ -54,8 +54,8 @@ test('the logo is off unless asked for, and only true or false', () => {
 	refused({ language: 'fr' });
 });
 
-test('a chain offers only its own kinds; the default is what it has of fee and storage', () => {
-	assert.deepEqual(parseRequest(ok).includeKinds, ['fee', 'storage']);
+test('a chain offers only its own kinds; the default is what it has of fee and storage, on NEAR its swaps too', () => {
+	assert.deepEqual(parseRequest(ok).includeKinds, ['fee', 'storage', 'swap']);
 	const akash = { ...ok, chain: 'akash', addresses: [moduleAddress('akash', 'wolkenfabrik-example')] };
 	assert.deepEqual(parseRequest(akash).includeKinds, ['fee']);
 	refused({ ...akash, includeKinds: ['fee', 'storage'] });

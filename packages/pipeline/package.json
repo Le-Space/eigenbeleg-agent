@@ -16,11 +16,11 @@
     "./prices": "./src/prices.js"
   },
   "dependencies": {
-    "@le-space/chains": "0.5.2",
+    "@le-space/chains": "0.6.0",
     "@le-space/eigenbeleg": "0.5.0",
     "@le-space/ledger": "0.3.0",
     "@le-space/pdf": "0.2.0",
-    "@le-space/rates": "0.4.0"
+    "@le-space/rates": "0.5.0"
   },
   "devDependencies": {
     "@noble/hashes": "2.4.0"

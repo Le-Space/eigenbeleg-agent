@@ -11,7 +11,9 @@ A plain payment on a Bitcoin-like chain, through an ElectrumX server: for paying
 | `checkPayment({ network, server, txid, address, amount, minConfirmations })` | Does it pay that address that amount, and how many blocks deep is it? `reason: 'unconfirmed'` is the one worth asking again for. |
 | `verifyChain(network, server)` | Is the server on the network's valid chain? |
 
-`server` is whatever answers ElectrumX requests, `{ request(method, params) }`: for example `connectElectrum()` of `@le-space/chains`. It sees the script hashes it is asked for and the caller's IP address.
+`receiveAddresses(network, xpub)` gives the receiving addresses of an account from its extended public key (xpub or zpub, BIP84), one per index: for a recipient who wants an address per order and holds no spending key where the addresses are made.
+
+`server` is whatever answers ElectrumX requests, `{ request(method, params) }`: `connectElectrum(url)` here opens one over WebSocket (Node 22, browsers), and `withServer(network, fn)` runs `fn` with the first of the network's servers that answers and follows the valid chain. It sees the script hashes it is asked for and the caller's IP address.
 
 What holds:
 

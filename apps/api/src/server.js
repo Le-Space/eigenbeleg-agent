@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { blocksFor } from '@eigenbeleg/pipeline';
 import { createApp } from './app.js';
 import { createMailer } from './mail.js';
+import { DOICHAIN } from '@eigenbeleg/onchain-pay/networks';
+import { createOrderStore, createPaymentStore } from './onchain.js';
 import { createPaywall, createTestnetPaywall } from './paywall.js';
 import { DEV_TESTNET_FLAG, isProduction } from './release.js';
 import { join } from 'node:path';
@@ -25,7 +27,7 @@ const env = process.env;
 const perNetwork = (/** @type {string} */ prefix) =>
 	Object.fromEntries(
 		Object.entries(env)
-			.filter(([k, v]) => k.startsWith(prefix) && v)
+			.filter(([k, v]) => k.startsWith(prefix) && v && k !== 'PRICE_DOI')
 			.map(([k, v]) => [k.slice(prefix.length).toLowerCase().replace('_', ':'), /** @type {string} */ (v)])
 	);
 // A production build takes mainnet payments only and refuses to start otherwise (release.js).
@@ -50,7 +52,21 @@ const paywall = await createPaywall({
 	timeoutSeconds: env.PAY_TIMEOUT_SECONDS ? Number(env.PAY_TIMEOUT_SECONDS) : undefined,
 	pingApiKey: env.PING_API_KEY,
 	pingUrl: env.PING_FACILITATOR_URL,
-	pingAmountOut: env.PING_AMOUNT_OUT
+	pingAmountOut: env.PING_AMOUNT_OUT,
+	// DOI beside USDC, only with DOI_XPUB (an address per order) or DOI_PAY_TO (one address), onchain.js:
+	// a production build takes the published price only.
+	onchain: env.DOI_XPUB || env.DOI_PAY_TO
+		? {
+				network: DOICHAIN,
+				payTo: env.DOI_PAY_TO || undefined,
+				xpub: env.DOI_XPUB || undefined,
+				orders: createOrderStore({ dir: env.PAYMENTS_DIR ?? '/var/lib/eigenbeleg/payments' }),
+				price: env.PRICE_DOI || undefined,
+				confirmations: env.DOI_CONFIRMATIONS ? Number(env.DOI_CONFIRMATIONS) : undefined,
+				servers: (env.DOI_ELECTRUM ?? '').split(',').map((u) => u.trim()).filter(Boolean),
+				store: createPaymentStore({ dir: env.PAYMENTS_DIR ?? '/var/lib/eigenbeleg/payments' })
+			}
+		: undefined
 }).catch((/** @type {Error} */ e) => {
 	console.error(`eigenbeleg API not started: ${e.message}`);
 	process.exit(1);

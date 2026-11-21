@@ -48,6 +48,17 @@ at the ECB's EUR rate of each payment's day.
   person's own, goes to that provider only, and belongs in the environment, never
   in a chat or a file you write.
 
+## Choices to settle with the person
+
+The request has choices that change what the person gets. Take each from what the person said. Where they said nothing, tell them the default you will use – or ask, when the answer is not obvious – before anything is bought: once, in one message, not question by question. Never make up the payer's name or address.
+
+- **Which document** (`--document`): `eigenbelege` (the default: one Eigenbeleg per payment, for payments without a receipt from the other side), `kontoauszug` (the account's statement: opening balance, every booking, closing balance) or `beide`. "Receipts for my fees" means eigenbelege; "a statement", "the balance" or "what did the account do" means kontoauszug; "everything for my bookkeeping" means beide. For `aleph` and `filecoin-pay` the statement is a Verbrauchsauszug.
+- **Currency: EUR, and only EUR.** Every value is in euro at the rate of the payment's day; the documents are for German bookkeeping. No other base currency can be chosen yet (USD, CHF …): if the person asks for one, say so, and do not convert the figures yourself.
+- **The chain's logo** (`--logo`, off by default): the network's mark, small, beside the title, to tell the documents of several chains apart. There is one for NEAR, Akash, Filecoin and Aleph Cloud; the other chains get none, without an error. It is the chain's mark, not the person's company logo: a logo of their own cannot be put on the documents yet. Switch it on when the person asks for a logo or for documents that are easy to tell apart; otherwise mention it only if they ask what can be changed.
+- **The diagram** (on by default; `--no-chart` leaves it out): above a statement's bookings, the balance over the period or the consumption per day. Only on statements, and none for a period of one day or without bookings. Switch it off when the person wants a plain statement, tables only, or the fewest pages.
+- **What goes on an Eigenbeleg** (`--include`): network fees and, on NEAR, storage deposits by default. Transfers and contract calls are payments to someone who may have sent a receipt; include them only when the person says those payments have none.
+- **Language:** the documents are German whatever is asked for.
+
 ## Steps
 
 1. **Get the code** once:
@@ -92,7 +103,8 @@ passed as a file with `--job job.json`.
   most 92. A period reaching today ends yesterday.
 - `--document`: `eigenbelege` (default), `kontoauszug` or `beide`.
 - `--include`: the chain's kinds, comma-separated: `fee`, `storage` (NEAR),
-  `transfer`, `call`, `swap` (Aleph credit purchases). Default: fee and storage.
+  `transfer`, `call`, `swap` (a swap at a DEX on NEAR, Aleph credit purchases).
+  Default: fee and storage, on NEAR swaps too.
 - `--number`: the first Eigenbeleg number of the payer's own range; the others
   count up. `--statement`: the Kontoauszug's number.
 - `--logo`: the chain's mark beside the title. `--no-chart`: a statement without

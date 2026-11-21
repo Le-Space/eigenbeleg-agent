@@ -5,7 +5,7 @@ import { blocksFor } from '@eigenbeleg/pipeline';
 import { createApp } from './app.js';
 import { createMailer } from './mail.js';
 import { DOICHAIN } from '@eigenbeleg/onchain-pay/networks';
-import { createPaymentStore } from './onchain.js';
+import { createOrderStore, createPaymentStore } from './onchain.js';
 import { createPaywall, createTestnetPaywall } from './paywall.js';
 import { DEV_TESTNET_FLAG, isProduction } from './release.js';
 import { createStore, startScheduler } from './subscriptions.js';
@@ -51,11 +51,14 @@ const paywall = await createPaywall({
 	pingApiKey: env.PING_API_KEY,
 	pingUrl: env.PING_FACILITATOR_URL,
 	pingAmountOut: env.PING_AMOUNT_OUT,
-	// DOI beside USDC, only with DOI_PAY_TO (onchain.js): a production build takes the published price only.
-	onchain: env.DOI_PAY_TO
+	// DOI beside USDC, only with DOI_XPUB (an address per order) or DOI_PAY_TO (one address), onchain.js:
+	// a production build takes the published price only.
+	onchain: env.DOI_XPUB || env.DOI_PAY_TO
 		? {
 				network: DOICHAIN,
-				payTo: env.DOI_PAY_TO,
+				payTo: env.DOI_PAY_TO || undefined,
+				xpub: env.DOI_XPUB || undefined,
+				orders: createOrderStore({ dir: env.PAYMENTS_DIR ?? '/var/lib/eigenbeleg/payments' }),
 				price: env.PRICE_DOI || undefined,
 				confirmations: env.DOI_CONFIRMATIONS ? Number(env.DOI_CONFIRMATIONS) : undefined,
 				servers: (env.DOI_ELECTRUM ?? '').split(',').map((u) => u.trim()).filter(Boolean),

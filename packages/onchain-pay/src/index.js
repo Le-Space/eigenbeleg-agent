@@ -2,6 +2,7 @@
 // @eigenbeleg/onchain-pay: a plain payment on a Bitcoin-like chain – see payment.js.
 export { BITCOIN, DOICHAIN, NETWORKS } from './networks.js';
 export { UNREACHABLE, connectElectrum, withServer } from './electrum.js';
+export { receiveAddresses } from './xpub.js';
 export {
 	MAX_INPUTS,
 	PaymentError,

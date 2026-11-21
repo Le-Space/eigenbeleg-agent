@@ -15,7 +15,8 @@
 //         `near` is the old name of this mode with one NEAR network.
 //         - a chain's own coin (DOI on Doichain, onchain.js; DOI_PAY_TO): a plain
 //           transaction the payer signs and this server broadcasts, scheme
-//           `onchain`. Final only after a block, so the answer is 202 first;
+//           `onchain`, or (with DOI_XPUB) a wallet pays the address of its
+//           order. Final only after a block, so the answer is 202 first;
 //           only on POST /eigenbeleg, not for subscriptions.
 //   ping  PingPay Agent Pay: the agent pays USDC on Base (or another origin
 //         chain), NEAR Intents settles to the NEAR recipient configured in the
@@ -91,7 +92,10 @@ export const NETWORKS = {
  * @param {string} [c.pingAmountOut] destination USDC base units (>= 200000)
  * @param {object} [c.onchain] a payment in a chain's own coin beside USDC (onchain.js); unset: not offered
  * @param {import('@eigenbeleg/onchain-pay/networks').Network} c.onchain.network
- * @param {string} c.onchain.payTo the address that receives the coin
+ * @param {string} [c.onchain.payTo] the one address that receives the coin; or
+ * @param {string} [c.onchain.xpub] the account's extended public key: an address per order (never in an answer or a log)
+ * @param {import('./onchain.js').OrderStore} [c.onchain.orders] where the orders are kept
+ * @param {number} [c.onchain.gap]
  * @param {string} [c.onchain.price] a decimal of the coin; default: the published price
  * @param {number} [c.onchain.confirmations] default 1
  * @param {import('./onchain.js').PaymentStore} c.onchain.store
@@ -112,7 +116,7 @@ export async function createPaywall(c) {
 		const { network } = c.onchain;
 		const published = coinPriceFor(network.id);
 		const price = c.onchain.price ?? published;
-		if (price === undefined) throw new Error(`${network.symbol}_PAY_TO is set, but no price: PRICE_${network.symbol} (development), or a published one in packages/pipeline/src/prices.js`);
+		if (price === undefined) throw new Error(`${network.symbol} payments are switched on, but there is no price: PRICE_${network.symbol} (development), or a published one in packages/pipeline/src/prices.js`);
 		const confirmations = c.onchain.confirmations ?? 1;
 		checkOnchain({ production: !!c.production, mode: c.mode, symbol: network.symbol, price, published, confirmations, servers: c.onchain.servers?.length ? c.onchain.servers : network.electrum });
 		onchain = createOnchain({ ...c.onchain, price, confirmations });

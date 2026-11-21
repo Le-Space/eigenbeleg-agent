@@ -71,6 +71,12 @@ export function fakeChain(base, { wrongChain = false } = {}) {
 						});
 					return list;
 				}
+				case 'blockchain.scripthash.get_history': {
+					const list = [];
+					for (const [txid, tx] of txs)
+						if (tx.vout.some((o) => !o.nameOp && scripthashOf(Uint8Array.from(Buffer.from(o.script, 'hex'))) === first)) list.push({ tx_hash: txid, height: tx.height });
+					return list;
+				}
 				case 'blockchain.transaction.get': {
 					const tx = txs.get(first);
 					if (!tx) throw new Error('No such mempool or blockchain transaction');

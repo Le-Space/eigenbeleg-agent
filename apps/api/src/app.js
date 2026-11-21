@@ -27,6 +27,7 @@ import express from 'express';
 import { RequestError, blocksFor, checkBlock, describeBlocks, generate, parseRequest } from '@eigenbeleg/pipeline';
 import { VAT } from '@eigenbeleg/pipeline/prices';
 import { composeMail } from './mail.js';
+import { apiBuild, buildFields } from './build.js';
 import { openapi } from './describe.js';
 import { SECURITY_HTML, SECURITY_MAIL, SECURITY_PATH } from './security-page.js';
 import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatches } from './subscriptions.js';
@@ -38,6 +39,7 @@ import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatc
  *   the key goes to their reads only, never into an answer or a log
  * @param {(line: string) => void} [o.log]
  * @param {string} [o.source] where the source of this running version is (AGPL-3.0-or-later, section 13)
+ * @param {import('./build.js').Build} [o.build] which build this is (build.js); from the environment or git when not given
  * @param {string | null} [o.web] the built web UI (apps/web/dist); null: no UI
  * @param {{ max: number, windowMs: number }} [o.previewLimit] free previews per IP
  * @param {import('./mail.js').Mailer | null} [o.mailer] sends the files by mail when a request asks (`email`); null: not offered here
@@ -67,6 +69,7 @@ export function createApp({
 	deps: given = {},
 	log = (l) => console.log(l),
 	source = 'https://github.com/Le-Space/eigenbeleg-agent',
+	build = apiBuild(),
 	web = WEB_DIST,
 	previewLimit = { max: 10, windowMs: 60_000 },
 	mailer = null,
@@ -106,6 +109,8 @@ export function createApp({
 		}
 		res.json({
 			service: 'eigenbeleg',
+			// Which build answers: the version, and the commit with its instant (build.js).
+			...buildFields(build),
 			what: 'Eigenbelege (self-issued proofs of payment, never invoices) for the payments of own blockchain addresses, as PDF/A-2b and CSV',
 			endpoint: 'POST /eigenbeleg',
 			preview: 'POST /eigenbeleg/preview (free; the same body without payer)',
@@ -159,7 +164,7 @@ export function createApp({
 	// For tools and agents that read a description instead of prose (describe.js).
 	app.get('/openapi.json', (req, res) => {
 		res.setHeader('Cache-Control', 'public, max-age=3600');
-		res.json(openapi({ base: origin(req, publicUrl), payment: /** @type {Record<string, unknown>} */ (paywall.info), chains: Object.keys(blocks), terms: TERMS_PATH, source, subscriptions: Boolean(subs) }));
+		res.json(openapi({ base: origin(req, publicUrl), payment: /** @type {Record<string, unknown>} */ (paywall.info), chains: Object.keys(blocks), terms: TERMS_PATH, source, subscriptions: Boolean(subs), build }));
 	});
 	// For agents (llms.txt convention): what is sold, the price, the x402 flow, and where people go instead.
 	app.get('/llms.txt', (req, res) => {
@@ -172,8 +177,9 @@ export function createApp({
 					? 'free (development mode)'
 					: `paid via ${p.mode}`;
 		const base = origin(req, publicUrl);
+		const stamp = [build.version ? `version ${build.version}` : '', build.commit ? `commit ${build.commit.slice(0, 12)} of ${build.date.slice(0, 10)}` : ''].filter(Boolean).join(', ');
 		res.type('text/plain; charset=utf-8').send(`# Eigenbeleg API
-
+${stamp ? `\nThis instance: ${stamp}.\n` : ''}
 > Eigenbelege (self-issued proofs of payment for German bookkeeping; never invoices) for the payments of a person's own blockchain addresses: network fees, storage deposits, transfers. PDF/A-2b and CSV, with the EUR rate of each payment's day and its source. Paid per request with x402.
 
 People use the web UI at ${base}/ui/ instead: it does everything in their browser, for free, and sends nothing here. This API is for agents acting for someone.
@@ -248,7 +254,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 			].join('\n')
 		);
 	});
-	app.get('/health', (_req, res) => res.json({ ok: true, paywall: paywall.info.mode }));
+	app.get('/health', (_req, res) => res.json({ ok: true, paywall: paywall.info.mode, ...buildFields(build) }));
 
 	// The subscription (#20): checked like a paid request before a price is named; stored only once the
 	// payment is settled (the x402 middleware turns an unsettled 200 into a 402 after this handler).

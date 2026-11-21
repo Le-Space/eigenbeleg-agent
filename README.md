@@ -204,6 +204,7 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 | `POST /eigenbeleg/subscribe/<months>` | The same for 1 to 12 months in advance, at months × the price of one request |
 | `GET /eigenbeleg/subscribe/<id>/cancel?token=…` | The link in every subscription mail: deletes the subscription |
 | `GET /ui/` | The web UI (a static PWA that talks to none of these routes), when `npm run web:build` has run |
+| `GET /health` | `ok`, the paywall's mode, and which build answers: `version`, `commit`, `built` (the commit's instant). `GET /` names the same, `/openapi.json` carries them as `info.version`, `x-commit`, `x-built`. The page's footer shows the same commit: page and API are one image |
 | `GET /llms.txt` | For agents: what is sold, the price, the x402 steps and the body, as plain text |
 | `GET /openapi.json` | For tools: the API as OpenAPI 3.1, with the body's JSON Schema, this instance's chains and its price (`x-payment-info`). Every 402 of `POST /eigenbeleg` carries the same schema and an example (the x402 `bazaar` extension), so a client learns what to send from the 402 itself |
 | `GET /ui/?lang=de`, `GET /ui/?lang=en` | The page in one language under its own address, the text in the markup: for search engines (canonical, `hreflang`, structured data) and for a link someone shares. `/ui/` itself adapts to the reader |

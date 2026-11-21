@@ -26,7 +26,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 
-import { RequestError, blocksFor, checkBlock, describeBlocks, generate, parseRequest } from '@eigenbeleg/pipeline';
+import { RequestError, blocksFor, checkBlock, describeBlocks, generate, issuerLogoImage, parseRequest } from '@eigenbeleg/pipeline';
 import { VAT } from '@eigenbeleg/pipeline/prices';
 import { composeMail } from './mail.js';
 import { apiBuild, buildFields } from './build.js';
@@ -47,6 +47,7 @@ import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatc
  * @param {{ max: number, windowMs: number }} [o.previewLimit] free previews per IP
  * @param {import('./mail.js').Mailer | null} [o.mailer] sends the files by mail when a request asks (`email`); null: not offered here
  * @param {import('./subscriptions.js').Store | null} [o.subscriptions] where subscriptions are kept (#20); null, or no mailer: not offered here
+ * @param {import('./logos.js').LogoStore | null} [o.logos] where a preview's logo is kept for 24 hours (logos.js); null: the preview checks a picture and keeps none
  * @param {{ middleware: import('express').RequestHandler | null, info: Record<string, unknown> } | null} [o.testnet] the test
  *   route's paywall (paywall.js, createTestnetPaywall); null: the test route is off
  * @param {{ max: number, windowMs: number }} [o.testnetLimit] requests to the test route per IP, the 402s included
@@ -77,6 +78,7 @@ export function createApp({
 	previewLimit = { max: 10, windowMs: 60_000 },
 	mailer = null,
 	subscriptions = null,
+	logos = null,
 	testnet = null,
 	testnetLimit = { max: 30, windowMs: 3_600_000 },
 	testnetMailsPerDay = TESTNET_MAILS_PER_DAY,
@@ -88,6 +90,20 @@ export function createApp({
 	/** Subscriptions need somewhere to keep them and a way to send them. */
 	const subs = mailer && subscriptions ? subscriptions : null;
 	const today = () => (deps.now?.() ?? new Date()).toISOString().slice(0, 10);
+	/**
+	 * A body that names a preview's picture (`issuerLogoId`) becomes one that carries it. The id is
+	 * the key to the picture and goes nowhere else: not into the job, an answer or a log line.
+	 * @param {any} body
+	 */
+	const withKeptLogo = async (body) => {
+		if (!body || typeof body !== 'object' || Array.isArray(body) || body.issuerLogoId === undefined || body.issuerLogoId === null) return body;
+		if (body.issuerLogo !== undefined && body.issuerLogo !== null) throw new RequestError('issuerLogoId: either the id a preview answered with or issuerLogo, not both');
+		if (!logos) throw new RequestError('issuerLogoId: this instance keeps no pictures; send the file as issuerLogo');
+		const kept = await logos.get(body.issuerLogoId);
+		if (!kept) throw new RequestError('issuerLogoId: no such picture (a preview\'s picture is kept for 24 hours); send the file as issuerLogo');
+		const { issuerLogoId: _id, ...rest } = body;
+		return { ...rest, issuerLogo: kept.bytes };
+	};
 	/** Payments in a chain's own coin, where this instance offers one (paywall.js, onchain.js). */
 	const coins = /** @type {{ network: string, name: string, asset: string, price: string, payTo: string, confirmations: number, wait: string, redeemableDays: number, explorer: string, servers: string[], perOrder: boolean, orderHeader: string | null, orderHours: number }[]} */ (/** @type {any} */ (paywall.info).coins ?? []);
 	const app = express();
@@ -139,6 +155,8 @@ export function createApp({
 				includeKinds: ['fee', 'storage'],
 				logo: 'true | false (optional: the chain\'s mark, small, beside the title)',
 				chart: 'true | false (optional, default true: the diagram above a statement\'s bookings – the balance, or the consumption per day)',
+				issuerLogo: 'optional: the payer\'s own logo, a PNG or JPEG file as base64 text (at most 512 kB), drawn top right in the head of every document; never logged, see llms.txt for what is kept',
+				issuerLogoId: logos ? 'optional, instead of issuerLogo: the id POST /eigenbeleg/preview answered with for a picture sent there, within 24 hours' : null,
 				email: mailer ? 'belege@example.org (optional: the files also by mail, for a document management system\'s inbox)' : null,
 				language: 'en | de (optional, default en: the language of the mail; the documents are German either way)'
 			},
@@ -151,14 +169,14 @@ export function createApp({
 						request: 'the body of POST /eigenbeleg with email, without period (document: kontoauszug by default; eigenbelege or beide too)',
 						price: /** @type {any} */ (paywall.info).subscription ?? null,
 						cancel: 'the link in every mail deletes the subscription; no refund of the remaining months',
-						privacy: 'chain, addresses, payer, e-mail address and options are kept encrypted until the last statement or the cancellation, then deleted'
+						privacy: 'chain, addresses, payer (with the logo, if one was sent), e-mail address and options are kept encrypted until the last statement or the cancellation, then deleted'
 					}
 				: 'not offered by this instance',
 			testnet: testnet
 				? { ...testnet.info, what: TESTNET_WHAT, limits: testnetLimits(testnetLimit, testnetMailsPerDay) }
 				: 'not offered by this instance',
 			blocks: describeBlocks(blocks),
-			privacy: `Nothing is stored beyond the request; logs hold method, path, status and duration only. An e-mail address goes into that one mail and nowhere else.${subs ? ' A subscription is the one exception: see subscription.privacy.' : ''}${coins.length ? ` Of a payment in ${coins.map((c) => c.asset).join(', ')} the transaction id, amount and time and a SHA-256 hash of the request are kept, so that it is redeemed once; the paying address is public on the chain.` : ''}`,
+			privacy: `Nothing is stored beyond the request; logs hold method, path, status and duration only. An e-mail address goes into that one mail and nowhere else.${logos ? ' A logo sent with the free preview is kept encrypted for 24 hours, then deleted.' : ''}${subs ? ' A subscription is the one exception: see subscription.privacy.' : ''}${coins.length ? ` Of a payment in ${coins.map((c) => c.asset).join(', ')} the transaction id, amount and time and a SHA-256 hash of the request are kept, so that it is redeemed once; the paying address is public on the chain.` : ''}`,
 			data: 'Powered by NearBlocks.io APIs; EUR rates: the price at 00:00 UTC from CoinGecko, else Kraken (@le-space/rates).',
 			license: 'AGPL-3.0-or-later',
 			source
@@ -226,7 +244,8 @@ The same for tools: GET ${base}/openapi.json (OpenAPI 3.1); every 402 of POST /e
   "logo": false,                              optional: the chain's mark, small, beside the title
   "chart": true,                              optional, default true: the diagram above a statement's bookings (the balance, or the consumption per day)
   "reference": { "DOI": { "eur": "0.05", "from": "2026-01-01" } }   only for a chain whose asset has no published rate (doichain): the payer's own euro value per unit and the day it holds from
-  "email": "belege@example.org",              optional${mailer ? '' : ' (not offered by this instance)'}: the files also by mail, once the payment is settled
+  "issuerLogo": "iVBORw0KGgo…",               optional: the payer's own logo, a PNG or JPEG file as base64 text; see Notes
+${logos ? '  "issuerLogoId": "…",                        optional, instead of issuerLogo: the id the preview answered with; see Notes\n' : ''}  "email": "belege@example.org",              optional${mailer ? '' : ' (not offered by this instance)'}: the files also by mail, once the payment is settled
   "language": "en" | "de"                     optional, default en: the language of the mail (the documents are German either way)
 }
 
@@ -236,7 +255,8 @@ The request has choices that change what the person gets. Take each from what th
 
 - **Which document** (\`document\`): \`eigenbelege\` (the default: one Eigenbeleg per payment, for payments without a receipt from the other side), \`kontoauszug\` (the account's statement: opening balance, every booking, closing balance) or \`beide\`. "Receipts for my fees" means eigenbelege; "a statement", "the balance" or "what did the account do" means kontoauszug; "everything for my bookkeeping" means beide. For \`aleph\` and \`filecoin-pay\` the statement is a Verbrauchsauszug.
 - **Currency: EUR, and only EUR.** Every value is in euro at the rate of the payment's day; the documents are for German bookkeeping. No other base currency can be chosen yet (USD, CHF …): if the person asks for one, say so, and do not convert the figures yourself.
-- **The chain's logo** (\`logo\`, off by default): the network's mark, small, beside the title, to tell the documents of several chains apart. There is one for NEAR, Akash, Filecoin and Aleph Cloud; the other chains get none, without an error. It is the chain's mark, not the person's company logo: a logo of their own cannot be put on the documents yet. Switch it on when the person asks for a logo or for documents that are easy to tell apart; otherwise mention it only if they ask what can be changed.
+- **The chain's logo** (\`logo\`, off by default): the network's mark, small, beside the title, to tell the documents of several chains apart. There is one for NEAR, Akash, Filecoin and Aleph Cloud; the other chains get none, without an error. It is the chain's mark, not the person's company logo: that is the next choice. Switch it on when the person asks for a logo or for documents that are easy to tell apart; otherwise mention it only if they ask what can be changed.
+- **Their own logo** (\`issuerLogo\`, none by default): the logo of the person's company, top right in the head of every document, beside or without the chain's mark. Only a file the person gives you (PNG or JPEG, at most 512 kB; no SVG): never take one from the web or make one up. Ask for it once when the person wants their own documents to look like theirs or asks for "our logo"; otherwise mention it only if they ask what can be changed. Tell them before buying that a subscription keeps the picture until it ends, and a preview keeps it for 24 hours.
 - **The diagram** (\`chart\`, on by default): above a statement's bookings, the balance over the period or the consumption per day. Only on statements, and none for a period of one day or without bookings. Switch it off when the person wants a plain statement, tables only, or the fewest pages.
 - **What goes on an Eigenbeleg** (\`includeKinds\`): network fees and, on NEAR, storage deposits by default. Transfers and contract calls are payments to someone who may have sent a receipt; include them only when the person says those payments have none.
 - **Language:** the documents are German whatever is asked for.
@@ -247,6 +267,7 @@ After the preview, say what you are about to buy – document, period, these cho
 
 ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is paid with) and the gas, read through this server's Alchemy key; the whole history of the address is read, so a busy address takes a while.\n" : ''}${blocks.doichain ? "- doichain (DOI, by the own address: dc1…, M… or N…, 6…): read from public ElectrumX servers of the Doichain network, and only from one on the valid chain. DOI has no published rate and no price feed is asked for it: an Eigenbeleg needs the payer's own value in \`reference\` (EUR per DOI, from a day on), which the documents name as a reference value of the payer, not an exchange rate. Without it only \`document\` kontoauszug, in DOI alone. A name operation is a payment with a note.\n" : ''}- filecoin-pay (the balance in the Filecoin Pay contract of Filecoin Onchain Cloud, by the payer's address, 0x… or f410f…): one finished month (\`period.month\`), \`document\` kontoauszug only – a Verbrauchsauszug (VA-…) with the balance before and after, what was paid in and taken out, and each settlement of a rail to its storage provider, valued at the day's USDC rate. No Eigenbeleg: a settlement is no single payment. Only USDFC; a settlement pays up to the moment it names, so a month's settlements need not cover exactly that month. The paying in itself is on the payer's \`filecoin\` Kontoauszug.
 - aleph (Aleph Cloud credits, by the Ethereum address): one finished month (\`period.month\`). \`document\` kontoauszug (the default) is a Verbrauchsauszug (VA-…), usage per day and resource, valued at the USD price per credit and the ECB rate of the day; eigenbelege gives one Eigenbeleg per purchase of credits (kind swap: a token for credits, in USD at the ECB rate, with the paying transaction's hash on Ethereum or Base). Usage itself gets no Eigenbeleg: it is no single payment.
+- issuerLogo: the logo of the person or company the documents are for, drawn top right in the head of every document, fitted into 120 × 40 pt. The file's bytes as plain base64 (no \`data:\` prefix), PNG or JPEG (no SVG, GIF or CMYK), at most 512 kB and 2048 pixels a side, at most 6 times as wide as high and twice as high as wide; a transparent PNG is laid on white, a JPEG loses its EXIF. A picture outside these limits is a 400 that says why, before anything is paid. Never logged, and used for this response only – except in a subscription, which keeps the picture encrypted with its other details until the last statement or the cancellation. The free preview takes it too and checks it (it draws nothing), so send it there first.${logos ? ' A picture sent with the preview is kept on this server for 24 hours, encrypted, and then deleted: the preview answers with `issuerLogoId` and `issuerLogoUntil`, and POST /eigenbeleg or the subscription within that time takes `"issuerLogoId": "…"` instead of the picture. Tell the user that it is kept for a day; where the answer has no issuerLogoId, or after 24 hours, send issuerLogo again. A payment that waits for its block is tied to the exact body: with such a payment send the picture itself as issuerLogo, so the body still works when it is sent again after those 24 hours.' : ' No picture of a preview is kept here: send issuerLogo again with the paid request.'} It is the user's own file: ask for it, never fetch a logo from the web yourself. \`logo\` is something else: the chain's mark.
 - The documents are in German. An Eigenbeleg counts only once the payer signs it; whether a tax adviser accepts it is theirs to decide.
 - email: the files go as attachments (stable names: EB-….pdf, KA-….pdf, EB-….csv; subject "Eigenbeleg EB-… · chain network · period"), so a document management system's inbox can sort them. The answer says \`mail: queued\` (format json) or carries X-Eigenbeleg-Mail: queued. The address is used for that one mail only.
 - As a skill (Agent Skills format, agentskills.io): ${source}/tree/main/plugin/skills/eigenbeleg-api – these steps for Claude Code and other agents that read SKILL.md. Without paying, on the user's own machine (nothing sent here): ${source}/tree/main/plugin/skills/eigenbeleg-local, i.e. \`npm run local\` in a checkout.
@@ -287,21 +308,21 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 	// The subscription (#20): checked like a paid request before a price is named; stored only once the
 	// payment is settled (the x402 middleware turns an unsettled 200 into a 402 after this handler).
 	/** @type {import('express').RequestHandler} */
-	const validateSubscription = (req, res, next) => {
+	const validateSubscription = async (req, res, next) => {
 		try {
 			if (!subs) throw new RequestError('subscriptions: not offered by this instance; buy each month with POST /eigenbeleg');
 			// The plain route sells MONTHS; /subscribe/<months> sells 1 to MONTHS at months × the price.
 			const months = req.params.months === undefined ? MONTHS : Number(req.params.months);
 			if (!Number.isInteger(months) || months < 1 || months > MONTHS) throw new RequestError(`months: 1 to ${MONTHS} (POST /eigenbeleg/subscribe/<months>)`);
 			res.locals.months = months;
-			res.locals.subJob = subscriptionJob(req.body, { today: today(), blocks, months });
+			res.locals.subJob = subscriptionJob(await withKeptLogo(req.body), { today: today(), blocks, months });
 			next();
 		} catch (e) {
 			if (e instanceof RequestError) res.status(400).json({ error: e.message });
 			else next(e);
 		}
 	};
-	app.post(['/eigenbeleg/subscribe', '/eigenbeleg/subscribe/:months'], express.json({ limit: '32kb' }), validateSubscription, (req, res, next) => (paywall.middleware ?? ((_r, _s, n) => n()))(req, res, next), (req, res) => {
+	app.post(['/eigenbeleg/subscribe', '/eigenbeleg/subscribe/:months'], express.json({ limit: BODY_WITH_LOGO }), validateSubscription, (req, res, next) => (paywall.middleware ?? ((_r, _s, n) => n()))(req, res, next), (req, res) => {
 		const s = newSubscription(res.locals.subJob, { now: deps.now?.() ?? new Date(), origin: origin(req, publicUrl), months: res.locals.months });
 		res.on('finish', () => {
 			if (res.statusCode >= 400 || !subs) return;
@@ -330,9 +351,9 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 	});
 
 	/** @type {import('express').RequestHandler} */
-	const validate = (req, res, next) => {
+	const validate = async (req, res, next) => {
 		try {
-			res.locals.job = parseRequest(req.body, { blocks });
+			res.locals.job = parseRequest(await withKeptLogo(req.body), { blocks });
 			if (res.locals.job.email && !mailer) throw new RequestError('email: this instance sends no mail; leave it out and take the files from the response');
 			next();
 		} catch (e) {
@@ -347,10 +368,10 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 	// The free preview: same checks and the same reading as the paid route,
 	// but no payer, no files, and a few per minute per IP (it costs the data
 	// sources as much as a paid run).
-	app.post('/eigenbeleg/preview', express.json({ limit: '32kb' }), perIp(previewLimit, 'too many previews; try again in a minute'), async (req, res) => {
+	app.post('/eigenbeleg/preview', express.json({ limit: BODY_WITH_LOGO }), perIp(previewLimit, 'too many previews; try again in a minute'), async (req, res) => {
 		let job;
 		try {
-			job = parseRequest(req.body, { preview: true, blocks });
+			job = parseRequest(await withKeptLogo(req.body), { preview: true, blocks });
 		} catch (e) {
 			if (e instanceof RequestError) res.status(400).json({ error: e.message });
 			else res.status(500).json({ error: 'internal error' });
@@ -358,7 +379,11 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 		}
 		try {
 			const { summary } = await generate(job, deps, { preview: true });
-			res.json(summary);
+			// A picture sent with the preview is kept for 24 hours, as the documents will carry it, so
+			// the paid request names its id instead of sending it again. One that came by its id stays as it is.
+			const sent = req.body?.issuerLogo !== undefined && req.body?.issuerLogo !== null;
+			const kept = sent && job.issuerLogo && logos ? await logos.put(issuerLogoImage(job.issuerLogo).bytes) : null;
+			res.json({ ...summary, ...(kept ? { issuerLogoId: kept.id, issuerLogoUntil: kept.until } : {}) });
 		} catch (e) {
 			failed(res, e);
 		}
@@ -440,7 +465,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 		}
 	});
 	// A payment in a chain's own coin is judged first: 202 while it waits for its block (onchain.js).
-	app.post('/eigenbeleg', express.json({ limit: '32kb' }), validate, paywall.step ?? ((_req, _res, next) => next()), workFirst, pay, deliver());
+	app.post('/eigenbeleg', express.json({ limit: BODY_WITH_LOGO }), validate, paywall.step ?? ((_req, _res, next) => next()), workFirst, pay, deliver());
 
 	// The test route: the same work, for testnet addresses only, paid in testnet USDC on its own
 	// paywall. Anything else is refused before the 402, so testnet USDC never buys a mainnet document.
@@ -465,7 +490,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 			else next();
 		};
 		const testPay = testnet.middleware ?? ((_req, _res, next) => next());
-		app.post('/testnet/eigenbeleg', perIp(testnetLimit, 'too many test requests; try again later'), express.json({ limit: '32kb' }), validate, testnetOnly, testPay, deliver({ test: true }));
+		app.post('/testnet/eigenbeleg', perIp(testnetLimit, 'too many test requests; try again later'), express.json({ limit: BODY_WITH_LOGO }), validate, testnetOnly, testPay, deliver({ test: true }));
 	} else app.post('/testnet/eigenbeleg', (_req, res) => res.status(404).json({ error: 'the test route is off on this instance' }));
 
 	app.use((/** @type {any} */ err, /** @type {any} */ _req, /** @type {any} */ res, /** @type {any} */ _next) => {
@@ -476,6 +501,13 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 	});
 	return app;
 }
+
+/**
+ * The body of a request that may carry the issuer's logo (the paid route, the test route, the
+ * preview and the subscription): a file of at most 512 kB as base64, about 683 kB of text. Every
+ * other body stays within 32 kB.
+ */
+const BODY_WITH_LOGO = '720kb';
 
 /** What the test route sells. */
 export const TESTNET_WHAT = 'the same documents for testnet addresses only (network: testnet), every PDF marked TESTNET and every file name TEST-; test only, no value, no booking document';

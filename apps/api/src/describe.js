@@ -40,6 +40,8 @@ export const REQUEST_SCHEMA = /** @type {const} */ ({
 		logo: { type: 'boolean', description: 'Optional: the chain\'s mark, small, beside the title.' },
 		reference: { type: 'object', description: 'Only for a chain whose asset has no published rate (doichain: DOI): the payer\'s own euro value per unit, e.g. { "DOI": { "eur": "0.05", "from": "2026-01-01" } }. Printed as the payer\'s reference value, not an exchange rate. Needed for Eigenbelege there; without it only the statement.' },
 		chart: { type: 'boolean', description: 'Optional, default true: the diagram above a statement\'s bookings (the balance over the period, or the consumption per day). false leaves it out.' },
+		issuerLogo: { type: 'string', contentEncoding: 'base64', maxLength: 699052, description: 'Optional: the payer\'s own logo, drawn top right in the head of every document. A PNG or JPEG file as plain base64 text: at most 512 kB and 2048 pixels a side, at most 6 times as wide as high and twice as high as wide. Never logged; used for this response only, except by a subscription, which keeps it encrypted with its other details until its end. The preview checks it and draws nothing.' },
+		issuerLogoId: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'Optional, instead of issuerLogo, where the instance keeps a preview\'s picture: the id POST /eigenbeleg/preview answered with for a picture sent there. Valid for 24 hours; then the picture is deleted.' },
 		email: { type: 'string', maxLength: 254, description: 'Optional, where the instance offers mail: the files also to this address, used for that one mail.' },
 		language: { type: 'string', enum: ['de', 'en'], description: 'Optional, default en: the language of the mail. The documents are German.' }
 	},

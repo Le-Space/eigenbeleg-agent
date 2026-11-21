@@ -22,6 +22,7 @@ import { isAlchemyKey } from '@eigenbeleg/pipeline/keyed';
  * @property {string[]} includeKinds
  * @property {boolean} logo the chain's mark on the documents
  * @property {boolean} chart the diagram above a statement's bookings
+ * @property {Uint8Array | null} [issuerLogo] the issuer's own logo, a PNG or JPEG file's bytes; it stays in this browser
  * @property {'eigenbelege' | 'kontoauszug' | 'beide'} document which documents are made
  * @property {string} [referenceEur] the issuer's own value in EUR per unit, for a chain whose asset has no rate (DOI); '' for none
  * @property {string} [referenceFrom] YYYY-MM-DD, the day it holds from
@@ -55,6 +56,7 @@ export function requestBody(f) {
 		includeKinds: [...f.includeKinds],
 		logo: f.logo,
 		chart: f.chart,
+		...(f.issuerLogo ? { issuerLogo: f.issuerLogo } : {}),
 		document: f.document,
 		...(f.referenceAsset && f.referenceEur?.trim() ? { reference: { [f.referenceAsset]: { eur: referenceEur(f.referenceEur) ?? f.referenceEur.trim(), from: f.referenceFrom ?? '' } } } : {}),
 		format: 'json',
@@ -68,23 +70,47 @@ export const fileName = (n) => String(n).replace(/[^A-Za-z0-9._-]/g, '_');
 /** The payer kept in this browser, only when the user ticks "remember". */
 const PAYER_KEY = 'payer';
 
-/** @returns {{ name: string, postal: string } | null} */
-export function rememberedPayer() {
+/** A file's bytes as base64 text, to keep them beside the payer. @param {Uint8Array} bytes */
+export function bytesToText(bytes) {
+	let s = '';
+	for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+	return btoa(s);
+}
+
+/** @param {string} text base64 @returns {Uint8Array | null} null: not base64 */
+export function textToBytes(text) {
 	try {
-		const p = JSON.parse(globalThis.localStorage?.getItem(PAYER_KEY) ?? 'null');
-		return p && typeof p.name === 'string' && typeof p.postal === 'string' ? { name: p.name, postal: p.postal } : null;
+		const s = atob(text);
+		const out = new Uint8Array(s.length);
+		for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+		return out;
 	} catch {
 		return null;
 	}
 }
 
-/** @param {{ name: string, postal: string } | null} p null forgets it */
+/** @returns {{ name: string, postal: string, logo: Uint8Array | null } | null} logo: the issuer's logo as it was kept */
+export function rememberedPayer() {
+	try {
+		const p = JSON.parse(globalThis.localStorage?.getItem(PAYER_KEY) ?? 'null');
+		return p && typeof p.name === 'string' && typeof p.postal === 'string' ? { name: p.name, postal: p.postal, logo: typeof p.logo === 'string' ? textToBytes(p.logo) : null } : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * @param {{ name: string, postal: string, logo?: Uint8Array | null } | null} p null forgets it, the logo with it
+ * @returns {boolean} false: the browser did not keep it (private mode, blocked or full storage)
+ */
 export function rememberPayer(p) {
 	try {
-		if (p) globalThis.localStorage?.setItem(PAYER_KEY, JSON.stringify({ name: p.name, postal: p.postal }));
+		if (p) globalThis.localStorage?.setItem(PAYER_KEY, JSON.stringify({ name: p.name, postal: p.postal, ...(p.logo ? { logo: bytesToText(p.logo) } : {}) }));
 		else globalThis.localStorage?.removeItem(PAYER_KEY);
+		return true;
 	} catch {
 		// private mode or blocked storage: nothing is kept
+		return false;
 	}
 }
 

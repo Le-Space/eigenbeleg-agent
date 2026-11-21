@@ -107,6 +107,10 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 button.link { background: none; border: none; padding: 0; color: var(--link); text-decoration: underline; font-weight: 400; border-radius: 0; }
 .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 0.75rem 0; }
 .error { color: var(--error); font-weight: 500; min-height: 1em; }
+/* The issuer's own logo beside its field: on white, as the documents carry it. */
+.logo-chosen { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 0.5rem 0; color: var(--muted); font-size: 0.9rem; }
+.logo-chosen[hidden] { display: none; }
+.logo-chosen img { max-width: 180px; max-height: 60px; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 4px; }
 .error:empty { display: none; }
 
 .summary { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1rem; margin: 0; }

@@ -26,7 +26,8 @@ Options: --chain near|akash|filecoin|filecoin-pay|aleph (ethereum, base with --a
   --address (repeatable, up to ten), --month YYYY-MM or --from/--to YYYY-MM-DD (finished days, at most 92),
   --name and --postal (the issuer, printed on the documents; they stay on this machine),
   --document eigenbelege|kontoauszug|beide, --include fee,storage,transfer,call,swap, --number EB-2026-001,
-  --statement KA-2026-10, --logo, --no-chart (a statement without its diagram), --out DIR (default ./out), --preview.
+  --statement KA-2026-10, --logo (the chain's mark), --issuer-logo FILE (your own logo, a PNG or JPEG file, top right on
+  every document; it stays on this machine), --no-chart (a statement without its diagram), --out DIR (default ./out), --preview.
 Keys, all optional and yours: --alchemy-key or ALCHEMY_KEY (Ethereum and Base; goes to Alchemy only),
   --nearblocks-key or NEARBLOCKS_API_KEY (a month with many NEAR transactions), --akash-indexer URL.
 The data sources your machine asks: see the web UI's privacy note (eigenbeleg.le-space.de/#datenschutz).`;
@@ -49,6 +50,7 @@ const { values: v } = parseArgs({
 		include: { type: 'string' },
 		document: { type: 'string' },
 		logo: { type: 'boolean', default: false },
+		'issuer-logo': { type: 'string' },
 		'no-chart': { type: 'boolean', default: false },
 		out: { type: 'string' },
 		'alchemy-key': { type: 'string' },
@@ -75,6 +77,7 @@ const body = v.job
 			...(v.include ? { includeKinds: v.include.split(',') } : {}),
 			...(v.document ? { document: v.document } : {}),
 			...(v.logo ? { logo: true } : {}),
+			...(v['issuer-logo'] && !v.preview ? { issuerLogo: new Uint8Array(await readFile(v['issuer-logo'])) } : {}),
 			...(v['no-chart'] ? { chart: false } : {})
 		};
 

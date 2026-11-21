@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import { parseRequest } from '@eigenbeleg/pipeline';
-import { fileName, isNearblocksKey, rememberAccounts, rememberKey, rememberNearblocksKey, rememberedAccounts, rememberedKey, rememberedNearblocksKey, requestBody, splitAddresses } from '../src/request.js';
+import { samplePng } from '@le-space/pdf/testing/sample-images';
+import { fileName, isNearblocksKey, rememberAccounts, rememberKey, rememberNearblocksKey, rememberedAccounts, rememberedKey, rememberedNearblocksKey, rememberedPayer, rememberPayer, requestBody, splitAddresses, bytesToText, textToBytes } from '../src/request.js';
 
 /** @type {import('../src/request.js').FormValues} */
 const form = {
@@ -38,6 +39,34 @@ test('the form becomes the request the pipeline checks, as the API would', () =>
 	assert.equal(req.chart, true);
 	assert.equal(parseRequest(requestBody({ ...form, chart: false }), { today: '2026-11-06' }).chart, false);
 	assert.equal(fileName('EB-2026/007 ä'), 'EB-2026_007__');
+});
+
+test('the issuer’s own logo goes into the request as its bytes, and is kept only with the payer', () => {
+	assert.ok(!('issuerLogo' in requestBody(form)));
+	const req = parseRequest(requestBody({ ...form, issuerLogo: samplePng() }), { today: '2026-11-06' });
+	assert.deepEqual(req.issuerLogo, samplePng());
+	assert.deepEqual(textToBytes(bytesToText(samplePng())), samplePng());
+	const large = Uint8Array.from({ length: 200_000 }, (_, i) => i % 251);
+	assert.deepEqual(textToBytes(bytesToText(large)), large);
+	assert.equal(textToBytes('not base64!'), null);
+
+	const store = new Map();
+	globalThis.localStorage = /** @type {any} */ ({ getItem: (/** @type {string} */ k) => store.get(k) ?? null, setItem: (/** @type {string} */ k, /** @type {string} */ v) => store.set(k, v), removeItem: (/** @type {string} */ k) => store.delete(k) });
+	try {
+		const payer = { name: 'Wolkenfabrik Hosting GmbH', postal: 'Musterstraße 1\n12345 Beispielstadt' };
+		assert.equal(rememberPayer(payer), true);
+		assert.deepEqual(rememberedPayer(), { ...payer, logo: null });
+		rememberPayer({ ...payer, logo: samplePng() });
+		assert.deepEqual(rememberedPayer(), { ...payer, logo: samplePng() });
+		assert.deepEqual([...store.keys()], ['payer'], 'one entry: the logo is forgotten with the payer');
+		rememberPayer(null);
+		assert.equal(store.size, 0);
+		// A full or blocked storage keeps nothing, and says so.
+		globalThis.localStorage = /** @type {any} */ ({ setItem: () => { throw new Error('quota'); } });
+		assert.equal(rememberPayer({ ...payer, logo: samplePng() }), false);
+	} finally {
+		delete (/** @type {any} */ (globalThis).localStorage);
+	}
 });
 
 test('chain, network and addresses are kept only while their "remember" is ticked', () => {

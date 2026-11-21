@@ -15,6 +15,7 @@ an issue, a PR or a chat.
 | API + web UI (`/ui/`) | one Docker container `eigenbeleg` on Le Space's host, behind Caddy, network `edge` | `ghcr.io/le-space/eigenbeleg-agent:main`, built by `.github/workflows/image.yml` after the tests on `main` pass; Watchtower pulls it within 5 minutes ([`deploy/compose.yaml`](../deploy/compose.yaml)) |
 | Settings | `.env` next to `compose.yaml` on the host | by hand; never committed |
 | Subscriptions | Docker volume `subscriptions` (`/var/lib/eigenbeleg`), encrypted with `SUBSCRIPTION_KEY` | with the container |
+| A preview's logo | the same volume, `logos/` (`LOGO_DIR`): encrypted with a key made from its id, deleted after 24 hours | with the container |
 | Akash CORS proxy | Cloudflare Worker ([`deploy/akash-proxy`](../deploy/akash-proxy)) | **not deployed yet**; not needed for the launch (the page reads Akash without it, as far back as the public node keeps) |
 
 The image is a production build: it refuses to start with a testnet payment network,

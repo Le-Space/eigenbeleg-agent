@@ -113,7 +113,33 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	const foreign = includeKinds.filter((k) => !kindsOffered.includes(k));
 	if (foreign.length) throw new RequestError(`includeKinds: ${chain} has ${kindsOffered.join(', ') || 'no kinds (a statement only)'}, not ${foreign.join(', ')}`);
 
+	// A reference value for an asset no price source quotes (Doichain's DOI): the issuer's own figure, in EUR
+	// per unit, from a day on. It is printed as such ("Referenzwert von …, Stand …, kein Börsenkurs").
+	/** @type {Record<string, { from: string, eur: string, by: string }[]>} */
+	const reference = {};
+	if (body.reference !== undefined) {
+		const assets = block.referenceAssets ?? [];
+		if (!body.reference || typeof body.reference !== 'object' || Array.isArray(body.reference)) throw new RequestError('reference: an object like { "DOI": { "eur": "0.05", "from": "2026-01-01" } }');
+		for (const [asset, given] of Object.entries(body.reference)) {
+			if (!assets.includes(asset)) throw new RequestError(`reference: ${chain} takes a reference value for ${assets.join(', ') || 'no asset'}, not for ${String(asset).slice(0, 20)}`);
+			const lines = Array.isArray(given) ? given : [given];
+			if (lines.length < 1 || lines.length > 12) throw new RequestError('reference: one to twelve values per asset');
+			reference[asset] = lines.map((line) => {
+				if (!line || typeof line !== 'object' || typeof line.eur !== 'string' || !/^\d{1,9}(\.\d{1,12})?$/.test(line.eur) || !(Number(line.eur) > 0)) throw new RequestError('reference: eur is a positive decimal string like "0.05" (EUR per unit)');
+				if (!isDate(line.from)) throw new RequestError('reference: from is the day the value holds from, YYYY-MM-DD');
+				// Who set it is the issuer; the preview names nobody.
+				return { from: line.from, eur: line.eur, by: preview ? '' : payer.name.trim() };
+			});
+		}
+	}
+
+	// An Eigenbeleg is a euro amount: for an asset nothing quotes it needs the issuer's value. The statement does not.
+	const unvalued = (block.referenceAssets ?? []).filter((a) => !reference[a]);
+	if (!preview && unvalued.length && document !== 'kontoauszug')
+		throw new RequestError(`reference: ${unvalued.join(', ')} has no published rate, and an Eigenbeleg needs a euro value. Hand in your own reference value, e.g. "reference": { "${unvalued[0]}": { "eur": "0.05", "from": "2026-01-01" } }, or ask for "document": "kontoauszug" (in ${unvalued.join(', ')} only)`);
+
 	return {
+		reference,
 		chain,
 		network,
 		addresses,

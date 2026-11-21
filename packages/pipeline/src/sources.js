@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Every host the pipeline asks, and what it learns: the web UI shows this list
 // before the first request and builds its Content-Security-Policy from it, so
-// the page can reach no other host. A test holds it against the URLs in the
+// the page can reach no other host (Doichain's ElectrumX servers are wss:// origins). A test holds it against the URLs in the
 // packages. Explorer links (nearblocks.io, mintscan.io, filfox.info/en,
 // explorer.aleph.cloud) are only printed on the documents, never fetched.
+
+import { DOICHAIN } from '@le-space/chains/doichain-chain';
 
 /**
  * @typedef {object} Source
@@ -32,6 +34,8 @@ export function dataSources({ akashIndexer = 'https://console-api.akash.network'
 		{ origin: 'https://api.goldsky.com', chain: 'filecoin-pay', learns: 'addresses', what: "Filecoin Pay settlements and balance (the makers' index, a subgraph at Goldsky)" },
 		{ origin: 'https://filecoin.blockscout.com', chain: 'filecoin-pay', learns: 'addresses', what: 'Filecoin Pay: what was paid in and taken out (the contract\'s events at Blockscout)' },
 		{ origin: 'https://api2.aleph.im', chain: 'aleph', learns: 'addresses', what: 'Aleph Cloud credit history and balance (Aleph API)' },
+		// Doichain is read over WebSocket; the first server that answers on the valid chain is asked.
+		...DOICHAIN.endpoints.electrum.map((url) => ({ origin: new URL(url).origin, chain: 'doichain', learns: /** @type {const} */ ('addresses'), what: 'Doichain transactions and balance (a public ElectrumX server)' })),
 		{ origin: 'https://api.kraken.com', chain: 'rates', learns: 'assets', what: 'EUR rates where CoinGecko has none (Kraken, the day\'s open)' },
 		{ origin: 'https://api.coingecko.com', chain: 'rates', learns: 'assets', what: 'EUR rates (CoinGecko, the price at 00:00 UTC)' },
 		{ origin: 'https://data-api.ecb.europa.eu', chain: 'rates', learns: 'assets', what: 'EUR per USD, for Aleph credits (ECB reference rate)' }

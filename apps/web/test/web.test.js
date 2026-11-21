@@ -313,3 +313,13 @@ test('each language has its own address: head, alternates and markup in that lan
 	assert.equal(urlLang('?lang=fr'), null);
 	assert.equal(urlLang(''), null);
 });
+
+test('a chain without a published rate (Doichain): the form\'s own reference value goes into the request', async () => {
+	const { requestBody, referenceEur } = await import('../src/request.js');
+	assert.deepEqual([referenceEur('0,05'), referenceEur(' 0.05 '), referenceEur('0'), referenceEur('fünf'), referenceEur('-1')], ['0.05', '0.05', null, null, null]);
+	const f = { chain: 'doichain', network: 'mainnet', addresses: 'dc1qexample', periodMode: /** @type {const} */ ('month'), month: '2026-10', from: '', to: '', name: 'Wolkenfabrik Hosting GmbH', postal: 'Musterstraße 1, 12345 Beispielstadt', number: '', statementNumber: '', includeKinds: ['fee'], logo: false, chart: true, document: /** @type {const} */ ('eigenbelege') };
+	assert.deepEqual(requestBody({ ...f, referenceAsset: 'DOI', referenceEur: '0,05', referenceFrom: '2026-01-01' }).reference, { DOI: { eur: '0.05', from: '2026-01-01' } });
+	assert.equal('reference' in requestBody({ ...f, referenceAsset: 'DOI', referenceEur: '', referenceFrom: '' }), false);
+	// another chain never carries one, whatever is left in the fields
+	assert.equal('reference' in requestBody({ ...f, chain: 'near', referenceAsset: '', referenceEur: '0,05', referenceFrom: '2026-01-01' }), false);
+});

@@ -38,6 +38,7 @@ export const REQUEST_SCHEMA = /** @type {const} */ ({
 		statementNumber: { type: 'string', maxLength: 40, description: 'Optional: the number of the Kontoauszug.' },
 		includeKinds: { type: 'array', items: { type: 'string', enum: ['fee', 'storage', 'transfer', 'call', 'swap'] }, description: 'Optional: the kinds of payment to write receipts for, of those the chain has (GET /blocks).' },
 		logo: { type: 'boolean', description: 'Optional: the chain\'s mark, small, beside the title.' },
+		reference: { type: 'object', description: 'Only for a chain whose asset has no published rate (doichain: DOI): the payer\'s own euro value per unit, e.g. { "DOI": { "eur": "0.05", "from": "2026-01-01" } }. Printed as the payer\'s reference value, not an exchange rate. Needed for Eigenbelege there; without it only the statement.' },
 		chart: { type: 'boolean', description: 'Optional, default true: the diagram above a statement\'s bookings (the balance over the period, or the consumption per day). false leaves it out.' },
 		email: { type: 'string', maxLength: 254, description: 'Optional, where the instance offers mail: the files also to this address, used for that one mail.' },
 		language: { type: 'string', enum: ['de', 'en'], description: 'Optional, default en: the language of the mail. The documents are German.' }

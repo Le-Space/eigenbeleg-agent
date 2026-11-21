@@ -23,7 +23,16 @@ import { isAlchemyKey } from '@eigenbeleg/pipeline/keyed';
  * @property {boolean} logo the chain's mark on the documents
  * @property {boolean} chart the diagram above a statement's bookings
  * @property {'eigenbelege' | 'kontoauszug' | 'beide'} document which documents are made
+ * @property {string} [referenceEur] the issuer's own value in EUR per unit, for a chain whose asset has no rate (DOI); '' for none
+ * @property {string} [referenceFrom] YYYY-MM-DD, the day it holds from
+ * @property {string} [referenceAsset] the asset it is for
  */
+
+/** "0,05" or "0.05" as the request writes it; null where it is no positive number. @param {string} text */
+export function referenceEur(text) {
+	const v = text.trim().replace(',', '.');
+	return /^\d{1,9}(\.\d{1,12})?$/.test(v) && Number(v) > 0 ? v : null;
+}
 
 /** @param {string} text */
 export function splitAddresses(text) {
@@ -47,6 +56,7 @@ export function requestBody(f) {
 		logo: f.logo,
 		chart: f.chart,
 		document: f.document,
+		...(f.referenceAsset && f.referenceEur?.trim() ? { reference: { [f.referenceAsset]: { eur: referenceEur(f.referenceEur) ?? f.referenceEur.trim(), from: f.referenceFrom ?? '' } } } : {}),
 		format: 'json',
 		payer: { name: f.name.trim(), address: f.postal.trim() }
 	};

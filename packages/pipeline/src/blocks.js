@@ -13,7 +13,7 @@ import * as aleph from './readers/aleph.js';
 import * as filecoinPay from './readers/filecoin-pay.js';
 
 /** The version of @le-space/chains the blocks are built on (a test holds it against the installed package). */
-export const CHAINS_VERSION = '0.5.1';
+export const CHAINS_VERSION = '0.5.2';
 
 /**
  * @typedef {object} Block
@@ -100,7 +100,7 @@ export const BLOCKS = {
 		name: '@le-space/chains/aleph',
 		chain: 'aleph',
 		networks: ['mainnet'],
-		assets: ['ALEPH-CREDIT (Aleph Cloud credits, by the Ethereum address)', 'USD (what a credit purchase is worth)'],
+		assets: ['ALEPH-CREDIT (Aleph Cloud credits, by the Ethereum address)', 'ALEPH or USD (what a credit purchase was paid with)'],
 		// The purchase of credits with a token: a payment of its own, so an Eigenbeleg (issue #23). Usage has none.
 		kinds: ['swap'],
 		defaultKinds: ['swap'],

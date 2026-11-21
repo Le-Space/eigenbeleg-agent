@@ -12,11 +12,11 @@
 // no single payment an Eigenbeleg could stand for; the purchase of credits
 // has (issue #23): @le-space/chains' `purchaseEntries` adds, for each
 // purchase row, the payment the account holder made, as a `sent` entry of
-// kind `swap` (a token for credits) in USD – what the credits paid for cost:
-// the row's price for a purchase in a dollar token, Aleph's list price for one
-// in ALEPH, whose `price` is ALEPH per credit and never dollars (@le-space/rates
-// 0.4.0, alephPurchase; until then a purchase in ALEPH came out many times too
-// high, #64) – valued at the ECB's rate of the day, with the paying transaction's
+// kind `swap` (a token for credits). Paid in ALEPH, it is the ALEPH that left
+// the wallet – credits paid for × the row's price, which is ALEPH per credit and
+// never dollars (#64) – valued at the token's market rate of that day, like any
+// other payment in a token; paid in a dollar token, it is in USD at the ECB's
+// rate of the day (@le-space/chains 0.5.2). With the paying transaction's
 // hash and its explorer link on Ethereum or Base. The credits bought stay
 // the `received` row, with the same hash, so the Eigenbeleg shows both
 // sides. Opening and closing balance: the balance now less what came and

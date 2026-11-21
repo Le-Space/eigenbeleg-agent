@@ -49,6 +49,8 @@ const fetch = /** @type {typeof globalThis.fetch} */ (
 				structure: { dimensions: { observation: [{ values: days.map((id) => ({ id })) }] } }
 			});
 		}
+		// The ALEPH token's rate of the day, for a purchase paid in ALEPH: 0.02 EUR.
+		if (url.origin === 'https://api.coingecko.com' && url.pathname.startsWith('/api/v3/coins/aleph/history')) return json({ market_data: { current_price: { eur: 0.02, usd: 0.025 } } });
 		if (url.origin !== 'https://api2.aleph.im') return json({}, 404);
 		if (url.pathname === `/api/v0/messages/${VM}`) return json({ message: { type: 'INSTANCE', content: { metadata: { name: 'wolkenfabrik-web' } } } });
 		const m = /^\/api\/v0\/addresses\/(0x[0-9a-fA-F]{40})\/(balance|credit_history)(\/summary)?$/.exec(url.pathname);
@@ -86,7 +88,7 @@ test('a month of Aleph credits is a Verbrauchsauszug: opening, purchases, usage 
 	assert.deepEqual(monthly.usageTotal, { label: 'Verbrauch gesamt (Aufwand)', amount: '2200', eur: '0.00176', rows: 2 });
 	assert.deepEqual([monthly.purchases.amount, monthly.purchases.eur, monthly.transfersIn.amount, monthly.transfersIn.eur, monthly.transfersOut.amount, monthly.fees], ['500000', '0.4', '50000', '', '5000', null]);
 	assert.equal(k.method, 'derived');
-	assert.ok(asked.every((u) => u.startsWith('https://api2.aleph.im/') || u.startsWith('https://data-api.ecb.europa.eu/')), asked.join('\n'));
+	assert.ok(asked.every((u) => u.startsWith('https://api2.aleph.im/') || u.startsWith('https://data-api.ecb.europa.eu/') || u.startsWith('https://api.coingecko.com/api/v3/coins/aleph/')), asked.join('\n'));
 
 	const lines = /** @type {string} */ (out.csv).split('\r\n');
 	const storage = lines.find((l) => l.includes('Aleph Cloud (storage)'));
@@ -103,21 +105,21 @@ test('a month of Aleph credits is a Verbrauchsauszug: opening, purchases, usage 
 	assert.equal(statementCsv.length, 2, 'the credits bought and the payment for them, both excluded from a statement-only request');
 });
 
-test('Aleph: an Eigenbeleg per purchase of credits, the payment in USD at the ECB rate, with the paying transaction (#23)', async () => {
+test('Aleph: an Eigenbeleg per purchase of credits, the ALEPH paid at the token’s rate of the day, with the paying transaction (#23)', async () => {
 	const req = parseRequest({ chain: 'aleph', addresses: [ACCOUNT], period: { month: '2026-08' }, format: 'json', document: 'beide', payer }, { today: '2026-11-06' });
 	assert.deepEqual(req.includeKinds, ['swap'], 'the purchase is on the Eigenbeleg by default');
 	const out = await generate(req, { fetch, now: () => new Date('2026-11-06T12:00:00Z') });
 	assert.deepEqual(out.summary.eigenbelege, ['EB-2026-001'], 'the July purchase is not in August; the August one is');
 	assert.equal(out.summary.transactions, 1);
-	// 500,000 credits × the list price = 0.50 USD × 0.8 EUR/USD = 0.40 EUR. The row's price × the credits,
-	// 50, is the ALEPH paid – what the document once took for dollars.
-	assert.equal(out.summary.totalEur, '0.4');
-	assert.deepEqual(out.summary.quantities, { USD: '0.5' });
+	// 500,000 credits × 0.0001 ALEPH per credit = 50 ALEPH paid, × 0.02 EUR, the token's rate of that day
+	// = 1.00 EUR. Never the 50 taken for dollars, as the document once did.
+	assert.equal(out.summary.totalEur, '1');
+	assert.deepEqual(out.summary.quantities, { ALEPH: '50' });
 	assert.ok(out.pdf instanceof Uint8Array && out.pdf.length > 1000, 'the Eigenbeleg is drawn');
 	assert.deepEqual(out.summary.kontoauszuege[0].assets.map((a) => a.asset), ['ALEPH-CREDIT'], 'no USD section on the Verbrauchsauszug');
 	const lines = /** @type {string} */ (out.csv).split('\r\n');
 	const paid = lines.find((l) => l.startsWith('EB-2026-001;'));
-	assert.match(paid ?? '', /;Kauf von Guthaben \(Credits\);Ausgang;Aleph Cloud \(Kauf von 500000 Credits mit ALEPH auf base\) \(aleph\);USD;native;-0,5;0,8;-0,4;EZB-Referenzkurs USD\/EUR vom 2026-08-10;0xcdcd/);
+	assert.match(paid ?? '', /;Kauf von Guthaben \(Credits\);Ausgang;Aleph Cloud \(Kauf von 500000 Credits mit ALEPH auf base\) \(aleph\);ALEPH;native;-50;0,02;-1;CoinGecko, Kurs 2026-08-10 00:00 UTC;0xcdcd/);
 	assert.match(paid ?? '', new RegExp(`;https://basescan\\.org/tx/${PURCHASE};ja;$`), 'the explorer link of the paying transaction');
 	const credits = lines.find((l) => l.includes(PURCHASE) && l.includes('ALEPH-CREDIT'));
 	assert.match(credits ?? '', /;Überweisung;Eingang;.*;500000;.*;nein;Eingang, keine Zahlung$/, 'the credits bought: the incoming movement of the same transaction');

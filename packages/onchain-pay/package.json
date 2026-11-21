@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.js",
     "./networks": "./src/networks.js",
+    "./electrum": "./src/electrum.js",
     "./testing": "./test/support/fake-electrum.js"
   },
   "dependencies": {

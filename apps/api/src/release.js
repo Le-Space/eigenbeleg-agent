@@ -12,7 +12,9 @@
 //   - PAYWALL=none (free),
 //   - no PAY_NETWORKS at all (the development default is near:testnet),
 //   - a payment RPC (NEAR_RPC_URL, EVM_RPC_*) that names a test network,
-//   - the development flag EIGENBELEG_DEV_TESTNET.
+//   - the development flag EIGENBELEG_DEV_TESTNET,
+//   - a payment in a chain's own coin (DOI_PAY_TO, onchain.js) at another price than the
+//     published one, with no confirmation, or through a server on this machine.
 // Outside production a testnet payment network needs EIGENBELEG_DEV_TESTNET=1.
 //
 // The one place testnet USDC is taken in production is the test route,
@@ -68,4 +70,30 @@ export function checkPayments({ production, allowTestnet, mode, networks, rpcUrl
 	}
 	const test = networks.filter((n) => TESTNET_NETWORKS.has(n));
 	if (test.length && !allowTestnet) throw new Error(`PAY_NETWORKS has the testnet network ${test.join(', ')}: set ${DEV_TESTNET_FLAG}=1 to take test payments (development only; a production build refuses it)`);
+}
+
+/**
+ * The settings of a payment in a chain's own coin (onchain.js). Throws when they are not allowed.
+ *
+ * @param {object} c
+ * @param {boolean} c.production
+ * @param {string} c.mode PAYWALL
+ * @param {string} c.symbol the coin, for the messages
+ * @param {string} c.price the price asked, a decimal of the coin
+ * @param {string | undefined} c.published the published price (@eigenbeleg/pipeline/prices), if any
+ * @param {number} c.confirmations
+ * @param {string[]} c.servers the ElectrumX servers asked
+ */
+export function checkOnchain({ production, mode, symbol, price, published, confirmations, servers }) {
+	if (mode !== 'x402' && mode !== 'near') throw new Error(`${symbol}_PAY_TO needs PAYWALL=x402: the ${symbol} offer stands in the same 402`);
+	for (const u of servers) if (!/^wss?:\/\/[^\s/]+$/.test(u)) throw new Error(`${symbol}_ELECTRUM: ElectrumX servers as wss://host:port, comma-separated`);
+	if (!production) return;
+	const no = (/** @type {string} */ why) => {
+		throw new Error(`production build: ${why} (apps/api/src/release.js).`);
+	};
+	if (published === undefined) no(`no price in ${symbol} is published yet; it is set in packages/pipeline/src/prices.js (COIN_PRICES), not in the environment`);
+	if (price !== published) no(`the price is ${price} ${symbol}, the published one ${published} ${symbol}. Leave PRICE_${symbol} unset`);
+	if (confirmations < 1) no(`${symbol}_CONFIRMATIONS is ${confirmations}; a payment counts after at least one block`);
+	const bad = servers.filter((u) => !u.startsWith('wss://') || TEST_RPC.test(u));
+	if (bad.length) no(`${bad.length} of the ${symbol}_ELECTRUM servers are unencrypted, on this machine or of a test network`);
 }

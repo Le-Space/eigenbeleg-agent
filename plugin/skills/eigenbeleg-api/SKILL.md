@@ -79,6 +79,24 @@ the payment days, as PDF/A-2b and CSV. It stores nothing beyond the request.
 6. **Hand over** the files, the summary and the payment transaction. Remind the
    person that an Eigenbeleg counts only with their signature.
 
+**If the 402 also lists an offer with scheme `onchain`** (DOI on Doichain; only
+where the instance offers it, see `payment.coins` in `GET /`), the person can pay
+in that coin instead. It is final only after a block, so tell them up front that
+the documents come about ten minutes after the payment:
+
+1. Sign a plain transaction that pays at least the offer's `amount` (smallest
+   unit) to its `payTo`, with final sequence numbers. Do not broadcast it.
+2. Send the same request with `PAYMENT-SIGNATURE`: base64 JSON
+   `{ "x402Version": 2, "accepted": <the offer, unchanged>, "payload": { "transaction": "<hex>" } }`.
+   The API ties the transaction to this request and broadcasts it.
+3. The answer is `202` with the txid, an explorer link, the confirmations and
+   `Retry-After`. Repeat the same request (payload `{ "txid": "…" }` is enough)
+   at that pace until it is `200` with the files.
+
+The payment belongs to that one request, unchanged, and stays redeemable for it
+for seven days, also after a `502`. Keep the body and the txid until the files
+are there. A payment sent from a wallet by itself (a QR code) is not taken yet.
+
 If reading the chain fails, the API answers `502` and nothing is charged. A `402`
 after you paid means the payment was not accepted; do not pay again blindly, read
 the body.

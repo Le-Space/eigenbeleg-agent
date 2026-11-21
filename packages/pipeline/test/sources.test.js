@@ -18,7 +18,8 @@ import { NETWORKS } from '../../onchain-pay/src/networks.js';
 /** Explorer links are printed on the documents, never fetched. */
 /**
  * The explorers of the payment networks (packages/onchain-pay): links in an answer, never fetched. That package's
- * ElectrumX servers (wss://) are asked by nothing yet; when the API takes such payments they are named in dataSources.
+ * ElectrumX servers (wss://) are asked by the API alone, and only where it takes such a payment (apps/api/src/onchain.js):
+ * GET / and /llms.txt name them there. The page and the readers never ask them, so dataSources does not list them.
  */
 const PAYMENT_EXPLORERS = Object.values(NETWORKS).map((n) => new URL(n.explorer.tx.replace('{tx}', 'x')).origin);
 

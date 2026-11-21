@@ -4,7 +4,7 @@
 //   GET  /             what this is, the price and how to pay (JSON); a browser is sent to /ui/
 //   GET  /blocks       the building blocks by chain, for agents
 //   GET  /health
-//   POST /eigenbeleg   the Eigenbeleg, behind the x402 paywall
+//   POST /eigenbeleg   the Eigenbeleg, behind the x402 paywall; paid in a chain's own coin (DOI): 202 until its block, then the files
 //   POST /eigenbeleg/preview  free: positions and total, never the payer
 //   POST /eigenbeleg/subscribe  twelve monthly Kontoauszüge by mail, paid once (#20)
 //   POST /eigenbeleg/subscribe/:months  the same for 1 to 12 months, at months × the price
@@ -18,7 +18,9 @@
 // e-mail address when the files are wanted by mail) lives in memory until the
 // response is sent and the mail, if any, is out. Logs carry method, path,
 // status and duration only. The one exception is a subscription, kept
-// encrypted until its last month or its cancellation (subscriptions.js).
+// encrypted until its last month or its cancellation (subscriptions.js), and a
+// payment in a chain's own coin: its txid, amount, time and a hash of the
+// request, so that it is redeemed once (onchain.js).
 
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -34,7 +36,8 @@ import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatc
 
 /**
  * @param {object} o
- * @param {{ middleware: import('express').RequestHandler | null, info: Record<string, unknown> }} o.paywall
+ * @param {{ middleware: import('express').RequestHandler | null, info: Record<string, unknown>, step?: import('express').RequestHandler }} o.paywall
+ *   `step`: in front of the middleware, for a payment that is final only after a block (onchain.js)
  * @param {Parameters<typeof generate>[1]} [o.deps] with `alchemyKey` (ALCHEMY_KEY) the API also serves Ethereum and Base;
  *   the key goes to their reads only, never into an answer or a log
  * @param {(line: string) => void} [o.log]
@@ -85,6 +88,8 @@ export function createApp({
 	/** Subscriptions need somewhere to keep them and a way to send them. */
 	const subs = mailer && subscriptions ? subscriptions : null;
 	const today = () => (deps.now?.() ?? new Date()).toISOString().slice(0, 10);
+	/** Payments in a chain's own coin, where this instance offers one (paywall.js, onchain.js). */
+	const coins = /** @type {{ network: string, name: string, asset: string, price: string, payTo: string, confirmations: number, wait: string, redeemableDays: number, explorer: string, servers: string[] }[]} */ (/** @type {any} */ (paywall.info).coins ?? []);
 	const app = express();
 	app.disable('x-powered-by');
 	// The paywalls match the exact path: `/eigenbeleg/` or `/EIGENBELEG` must not
@@ -153,7 +158,7 @@ export function createApp({
 				? { ...testnet.info, what: TESTNET_WHAT, limits: testnetLimits(testnetLimit, testnetMailsPerDay) }
 				: 'not offered by this instance',
 			blocks: describeBlocks(blocks),
-			privacy: `Nothing is stored beyond the request; logs hold method, path, status and duration only. An e-mail address goes into that one mail and nowhere else.${subs ? ' A subscription is the one exception: see subscription.privacy.' : ''}`,
+			privacy: `Nothing is stored beyond the request; logs hold method, path, status and duration only. An e-mail address goes into that one mail and nowhere else.${subs ? ' A subscription is the one exception: see subscription.privacy.' : ''}${coins.length ? ` Of a payment in ${coins.map((c) => c.asset).join(', ')} the transaction id, amount and time and a SHA-256 hash of the request are kept, so that it is redeemed once; the paying address is public on the chain.` : ''}`,
 			data: 'Powered by NearBlocks.io APIs; EUR rates: the price at 00:00 UTC from CoinGecko, else Kraken (@le-space/rates).',
 			license: 'AGPL-3.0-or-later',
 			source
@@ -194,7 +199,15 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
   2. Sign what it asks for and send the same request again with \`PAYMENT-SIGNATURE\`. On NEAR: one NEP-366 delegate action with one \`ft_transfer\` of USDC (the payer needs USDC and a USDC storage registration, no NEAR). On Base or Ethereum: one EIP-3009 \`transferWithAuthorization\` of USDC (the payer needs USDC, no ETH).
   3. The answer carries the files and \`PAYMENT-RESPONSE\` (the transaction). If reading the chain fails, nothing is charged.
   Clients: @x402/fetch with @x402/near or @x402/evm (JavaScript), or this repository's agent: npm run agent -- --help.
-${testnet ? `\n## Test (testnet)\n\n- POST ${base}/testnet/eigenbeleg: ${TESTNET_WHAT}. GET ${base}/testnet/blocks as well, so a client takes ${base}/testnet as its API base (this repository's agent: --api ${base}/testnet --network testnet). Paid like POST /eigenbeleg, with USDC on NEAR testnet (near:testnet): ${testnetPrice(testnet)}. ${testnetLimits(testnetLimit, testnetMailsPerDay)}. For developing and testing clients; no contract, no invoice, no value.\n` : ''}
+${coins.map((c) => `
+### Paying in ${c.asset} (${c.name})
+
+POST ${base}/eigenbeleg also takes ${c.price} to ${c.payTo}: the 402's accepts list it with scheme \`onchain\`, network ${c.network}, the amount in the smallest unit. A block takes its time, so this purchase has two steps; tell the person the documents come ${c.wait} after the payment.
+  1. Sign a plain transaction that pays at least the amount to that address, with final sequence numbers. Do not broadcast it.
+  2. Send the same request with \`PAYMENT-SIGNATURE\`: base64 JSON { "x402Version": 2, "accepted": <that entry of accepts, unchanged>, "payload": { "transaction": "<hex>" } }. This server ties the transaction to the request and broadcasts it. A transaction the network already knows is refused, because anybody could have copied it.
+  3. The answer is 202 with the txid, an explorer link, the confirmations so far and \`Retry-After\`. Repeat the same request (the same header, or payload { "txid": "…" }) until it is 200 with the files and \`PAYMENT-RESPONSE\`; the documents are built after ${c.confirmations} confirmation(s).
+  The payment belongs to this one request (the same body, byte for byte in its values) and stays redeemable for it for ${c.redeemableDays} days, also when reading the chain failed in between (502) or the same files are wanted again. A 402 on a repeat names the reason in the header's \`error\` (replaced, dropped, too small, another request). Not for subscriptions yet, and not from a wallet's QR code. Kept of the payment: txid, amount, time and a SHA-256 hash of the request; the paying address is public on ${c.name}. Asked about it: ${c.servers.join(', ')} (ElectrumX; they see the transaction and this server's IP address, never the request).
+`).join('')}${testnet ? `\n## Test (testnet)\n\n- POST ${base}/testnet/eigenbeleg: ${TESTNET_WHAT}. GET ${base}/testnet/blocks as well, so a client takes ${base}/testnet as its API base (this repository's agent: --api ${base}/testnet --network testnet). Paid like POST /eigenbeleg, with USDC on NEAR testnet (near:testnet): ${testnetPrice(testnet)}. ${testnetLimits(testnetLimit, testnetMailsPerDay)}. For developing and testing clients; no contract, no invoice, no value.\n` : ''}
 The same for tools: GET ${base}/openapi.json (OpenAPI 3.1); every 402 of POST /eigenbeleg also carries the body's JSON Schema and an example (the x402 bazaar extension).
 
 ## Body
@@ -223,7 +236,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 - email: the files go as attachments (stable names: EB-….pdf, KA-….pdf, EB-….csv; subject "Eigenbeleg EB-… · chain network · period"), so a document management system's inbox can sort them. The answer says \`mail: queued\` (format json) or carries X-Eigenbeleg-Mail: queued. The address is used for that one mail only.
 - As a skill (Agent Skills format, agentskills.io): ${source}/tree/main/plugin/skills/eigenbeleg-api – these steps for Claude Code and other agents that read SKILL.md. Without paying, on the user's own machine (nothing sent here): ${source}/tree/main/plugin/skills/eigenbeleg-local, i.e. \`npm run local\` in a checkout.
 - Help: ${SUPPORT.help}; payments, invoices and credits: ${SUPPORT.payments}. Send the status and \`error\` of the answer and, for a payment, the transaction hash; never documents, names, postal addresses, keys or tokens. Le Space never asks for a seed phrase, passkey, private key or token. Security weaknesses: privately to ${SUPPORT.security}, never in public; the policy: ${base}${SECURITY_PATH}.
-- Nothing is stored beyond the request. Source (AGPL-3.0-or-later): ${source}
+- Nothing is stored beyond the request${coins.length ? ' (and what is kept of a payment in a coin, above)' : ''}. Source (AGPL-3.0-or-later): ${source}
 `);
 	});
 	// Also under /testnet/ when the test route is on, so a client takes https://…/testnet as its API base.
@@ -411,7 +424,8 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 			});
 		}
 	});
-	app.post('/eigenbeleg', express.json({ limit: '32kb' }), validate, workFirst, pay, deliver());
+	// A payment in a chain's own coin is judged first: 202 while it waits for its block (onchain.js).
+	app.post('/eigenbeleg', express.json({ limit: '32kb' }), validate, paywall.step ?? ((_req, _res, next) => next()), workFirst, pay, deliver());
 
 	// The test route: the same work, for testnet addresses only, paid in testnet USDC on its own
 	// paywall. Anything else is refused before the 402, so testnet USDC never buys a mainnet document.

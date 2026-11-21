@@ -37,6 +37,8 @@ function start(extra) {
 		RELAYER_ACCOUNT_ID: '',
 		RELAYER_SECRET_KEY: '',
 		PAY_TO_EVM: '',
+		DOI_PAY_TO: '',
+		PRICE_DOI: '',
 		EVM_RELAYER_KEY: '',
 		NEAR_RPC_URL: '',
 		ALCHEMY_KEY: '',

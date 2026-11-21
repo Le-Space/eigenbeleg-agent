@@ -11,6 +11,20 @@ export const PRICES = Object.freeze({
 	'eip155:1': '$1.00'
 });
 
+/**
+ * Published prices of one request in a chain's own coin, by the network's id in
+ * @eigenbeleg/onchain-pay (e.g. doichain: '2.5'), as a decimal of the coin. None yet: a
+ * production build offers no such payment before its price stands here (apps/api/src/release.js).
+ *
+ * @type {Readonly<Record<string, string>>}
+ */
+export const COIN_PRICES = Object.freeze({});
+
+/** @param {string} id e.g. doichain @returns {string | undefined} */
+export function coinPriceFor(id) {
+	return Object.hasOwn(COIN_PRICES, id) ? COIN_PRICES[id] : undefined;
+}
+
 /** Months in a subscription bought on the plain route (POST /eigenbeleg/subscribe). */
 export const SUBSCRIPTION_MONTHS = 12;
 

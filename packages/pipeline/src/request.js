@@ -106,7 +106,7 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	const language = body.language ?? 'en';
 	if (language !== 'de' && language !== 'en') throw new RequestError('language: "de" or "en" (the language of the mail; the documents are German)');
 	// Only the kinds the chain has (storage deposits are NEAR's); the default is what the chain has of fee
-	// and storage, or the block's own default (Aleph: its credit purchases).
+	// and storage, or the block's own default (NEAR: its swaps too; Aleph: its credit purchases).
 	const kindsOffered = block.kinds ?? [...KINDS];
 	const includeKinds = body.includeKinds ?? (block.defaultKinds ?? DEFAULT_KINDS).filter((k) => kindsOffered.includes(k));
 	if (!Array.isArray(includeKinds) || includeKinds.some((k) => !KINDS.has(k))) throw new RequestError(`includeKinds: some of ${[...KINDS].join(', ')}`);

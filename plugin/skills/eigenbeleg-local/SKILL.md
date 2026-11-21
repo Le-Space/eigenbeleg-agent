@@ -92,7 +92,8 @@ passed as a file with `--job job.json`.
   most 92. A period reaching today ends yesterday.
 - `--document`: `eigenbelege` (default), `kontoauszug` or `beide`.
 - `--include`: the chain's kinds, comma-separated: `fee`, `storage` (NEAR),
-  `transfer`, `call`, `swap` (Aleph credit purchases). Default: fee and storage.
+  `transfer`, `call`, `swap` (a swap at a DEX on NEAR, Aleph credit purchases).
+  Default: fee and storage, on NEAR swaps too.
 - `--number`: the first Eigenbeleg number of the payer's own range; the others
   count up. `--statement`: the Kontoauszug's number.
 - `--logo`: the chain's mark beside the title. `--no-chart`: a statement without

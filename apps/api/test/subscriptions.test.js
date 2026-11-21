@@ -67,6 +67,9 @@ test('the store: one encrypted file per subscription, nothing readable without t
 test('the request is checked like a paid one, without a period and with an e-mail address; months is the route\'s, twelve by default', () => {
 	const blocks = blocksFor({});
 	const job = subscriptionJob({ ...body, months: 12, logo: true, includeKinds: ['fee'] }, { today: '2026-11-12', blocks });
+	// A picture would have to be stored for the months bought: a subscription takes none, and the job has no field for it.
+	assert.throws(() => subscriptionJob({ ...body, issuerLogo: 'iVBORw0KGgo=' }, { today: '2026-11-12', blocks }), /issuerLogo: a subscription takes none/);
+	assert.ok(!('issuerLogo' in job));
 	// The route per months: the body may name them, and must then agree with the route.
 	assert.deepEqual(subscriptionJob({ ...body, months: 3 }, { today: '2026-11-12', blocks, months: 3 }).addresses, ['relay.aurora']);
 	assert.throws(() => subscriptionJob({ ...body, months: 3 }, { today: '2026-11-12', blocks, months: 6 }), /months: this route sells 6/);

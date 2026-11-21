@@ -144,6 +144,8 @@ export function subscriptionJob(body, { today, blocks, months = MONTHS }) {
 	if (body.period !== undefined) throw new RequestError('period: a subscription has none; each month is made for the month before');
 	if (body.months !== undefined && body.months !== months) throw new RequestError(`months: this route sells ${months}; POST /eigenbeleg/subscribe/<months> sells 1 to ${MONTHS}`);
 	if (body.format !== undefined && body.format !== 'json') throw new RequestError('format: a subscription has none; the files go by mail');
+	// A subscription's details are kept for its months; a picture is not among what is kept.
+	if (body.issuerLogo !== undefined && body.issuerLogo !== null) throw new RequestError('issuerLogo: a subscription takes none (its details are stored for the months bought, a picture is not); buy the month with POST /eigenbeleg to have the logo on it');
 	const probe = parseRequest({ ...body, period: { month: today.slice(0, 7) }, format: 'json', document: body.document ?? 'kontoauszug' }, { today, blocks });
 	if (!probe.email) throw new RequestError('email: needed for a subscription; the statements go by mail, like belege@example.org');
 	return { chain: probe.chain, network: probe.network, addresses: probe.addresses, payer: { name: probe.payer.name, address: probe.payer.address }, email: probe.email, includeKinds: probe.includeKinds, logo: probe.logo, chart: probe.chart, document: probe.document, language: probe.language };

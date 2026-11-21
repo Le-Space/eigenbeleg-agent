@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { fixedRates } from '@le-space/eigenbeleg';
+import { samplePng } from '@le-space/pdf/testing/sample-images';
 import { recordedNear } from '../../agent/src/recorded.js';
 import { runLocal } from '../src/local.js';
 
@@ -61,6 +62,19 @@ test('the preview takes no payer and writes nothing', async () => {
 		assert.ok(summary.positions > 0);
 		assert.deepEqual(files, []);
 		assert.deepEqual(await readdir(dir), []);
+	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test('the issuer’s own logo, from a file on this machine, is on every document', async () => {
+	const dir = await mkdtemp(join(tmpdir(), 'eigenbeleg-local-'));
+	try {
+		const run = { outDir: dir, fetch: recorded([]), rates: fixedRates({ NEAR: '2.5' }), now: () => new Date(NOW), today: '2026-11-06', say: () => {} };
+		await runLocal({ ...run, body: { ...body, issuerLogo: samplePng() } });
+		for (const name of ['EB-2026-042.pdf', 'KA-2026-11-01.pdf']) assert.match((await readFile(join(dir, name))).toString('latin1'), /\/Subtype\s*\/Image/, name);
+		assert.doesNotMatch(await readFile(join(dir, 'EB-2026-042.summary.json'), 'utf8'), /issuerLogo/);
+		await assert.rejects(runLocal({ ...run, body: { ...body, issuerLogo: new Uint8Array(64) } }), /issuerLogo: the picture must be a PNG or a JPEG file/);
 	} finally {
 		await rm(dir, { recursive: true, force: true });
 	}

@@ -39,6 +39,7 @@ export const REQUEST_SCHEMA = /** @type {const} */ ({
 		includeKinds: { type: 'array', items: { type: 'string', enum: ['fee', 'storage', 'transfer', 'call', 'swap'] }, description: 'Optional: the kinds of payment to write receipts for, of those the chain has (GET /blocks).' },
 		logo: { type: 'boolean', description: 'Optional: the chain\'s mark, small, beside the title.' },
 		chart: { type: 'boolean', description: 'Optional, default true: the diagram above a statement\'s bookings (the balance over the period, or the consumption per day). false leaves it out.' },
+		issuerLogo: { type: 'string', contentEncoding: 'base64', maxLength: 699052, description: 'Optional: the payer\'s own logo, drawn top right in the head of every document. A PNG or JPEG file as plain base64 text: at most 512 kB and 2048 pixels a side, at most 6 times as wide as high and twice as high as wide. Used for this response only, never stored or logged. Not taken by the preview or a subscription.' },
 		email: { type: 'string', maxLength: 254, description: 'Optional, where the instance offers mail: the files also to this address, used for that one mail.' },
 		language: { type: 'string', enum: ['de', 'en'], description: 'Optional, default en: the language of the mail. The documents are German.' }
 	},

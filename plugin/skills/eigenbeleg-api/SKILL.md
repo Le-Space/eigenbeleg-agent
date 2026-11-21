@@ -128,6 +128,16 @@ the body.
 - `logo`: optional, the chain's mark beside the title.
 - `chart`: optional, `true` by default: the diagram above a statement's bookings
   (the balance over the period, or the consumption per day); `false` leaves it out.
+- `issuerLogo`: optional, the user's own logo (their company's), drawn top right
+  in the head of every document. A PNG or JPEG file as plain base64 text (no
+  `data:` prefix): at most 512 kB and 2048 pixels a side, at most 6 times as wide
+  as high and twice as high as wide; no SVG, GIF or CMYK. Used for that one
+  answer, never stored or logged. Leave it out of the preview's body and of a
+  subscription: both refuse it. Only a file the user gives you: read it from the
+  path they name and encode it (`base64 -w0 logo.png`, on macOS `base64 -i
+  logo.png`); never take a logo from the web or guess one. A picture outside the
+  limits is a 400 that says why, before anything is paid: tell the user what to
+  change.
 - `email`: optional, the files also by mail, once the payment is settled; only
   where `llms.txt` says the instance offers it.
 - `language`: optional, `en` (the default) or `de`: the language of that mail

@@ -134,6 +134,7 @@ export function createApp({
 				includeKinds: ['fee', 'storage'],
 				logo: 'true | false (optional: the chain\'s mark, small, beside the title)',
 				chart: 'true | false (optional, default true: the diagram above a statement\'s bookings – the balance, or the consumption per day)',
+				issuerLogo: 'optional: the payer\'s own logo, a PNG or JPEG file as base64 text (at most 512 kB), drawn top right in the head of every document; used for this response only, never stored or logged',
 				email: mailer ? 'belege@example.org (optional: the files also by mail, for a document management system\'s inbox)' : null,
 				language: 'en | de (optional, default en: the language of the mail; the documents are German either way)'
 			},
@@ -211,6 +212,7 @@ The same for tools: GET ${base}/openapi.json (OpenAPI 3.1); every 402 of POST /e
   "includeKinds": ["fee", "storage"],         optional: of the chain's kinds in GET /blocks (fee, storage, transfer, call; storage is NEAR's)
   "logo": false,                              optional: the chain's mark, small, beside the title
   "chart": true,                              optional, default true: the diagram above a statement's bookings (the balance, or the consumption per day)
+  "issuerLogo": "iVBORw0KGgo…",               optional: the payer's own logo, a PNG or JPEG file as base64 text; see Notes
   "email": "belege@example.org",              optional${mailer ? '' : ' (not offered by this instance)'}: the files also by mail, once the payment is settled
   "language": "en" | "de"                     optional, default en: the language of the mail (the documents are German either way)
 }
@@ -219,6 +221,7 @@ The same for tools: GET ${base}/openapi.json (OpenAPI 3.1); every 402 of POST /e
 
 ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is paid with) and the gas, read through this server's Alchemy key; the whole history of the address is read, so a busy address takes a while.\n" : ''}- filecoin-pay (the balance in the Filecoin Pay contract of Filecoin Onchain Cloud, by the payer's address, 0x… or f410f…): one finished month (\`period.month\`), \`document\` kontoauszug only – a Verbrauchsauszug (VA-…) with the balance before and after, what was paid in and taken out, and each settlement of a rail to its storage provider, valued at the day's USDC rate. No Eigenbeleg: a settlement is no single payment. Only USDFC; a settlement pays up to the moment it names, so a month's settlements need not cover exactly that month. The paying in itself is on the payer's \`filecoin\` Kontoauszug.
 - aleph (Aleph Cloud credits, by the Ethereum address): one finished month (\`period.month\`). \`document\` kontoauszug (the default) is a Verbrauchsauszug (VA-…), usage per day and resource, valued at the USD price per credit and the ECB rate of the day; eigenbelege gives one Eigenbeleg per purchase of credits (kind swap: a token for credits, in USD at the ECB rate, with the paying transaction's hash on Ethereum or Base). Usage itself gets no Eigenbeleg: it is no single payment.
+- issuerLogo: the logo of the person or company the documents are for, drawn top right in the head of every document, fitted into 120 × 40 pt. The file's bytes as plain base64 (no \`data:\` prefix), PNG or JPEG (no SVG, GIF or CMYK), at most 512 kB and 2048 pixels a side, at most 6 times as wide as high and twice as high as wide; a transparent PNG is laid on white, a JPEG loses its EXIF. A picture outside these limits is a 400 that says why, before anything is paid. Used for this response only, never stored or logged; the free preview and the subscription take none. It is the user's own file: ask for it, never fetch a logo from the web yourself. \`logo\` is something else: the chain's mark.
 - The documents are in German. An Eigenbeleg counts only once the payer signs it; whether a tax adviser accepts it is theirs to decide.
 - email: the files go as attachments (stable names: EB-….pdf, KA-….pdf, EB-….csv; subject "Eigenbeleg EB-… · chain network · period"), so a document management system's inbox can sort them. The answer says \`mail: queued\` (format json) or carries X-Eigenbeleg-Mail: queued. The address is used for that one mail only.
 - As a skill (Agent Skills format, agentskills.io): ${source}/tree/main/plugin/skills/eigenbeleg-api – these steps for Claude Code and other agents that read SKILL.md. Without paying, on the user's own machine (nothing sent here): ${source}/tree/main/plugin/skills/eigenbeleg-local, i.e. \`npm run local\` in a checkout.
@@ -411,7 +414,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 			});
 		}
 	});
-	app.post('/eigenbeleg', express.json({ limit: '32kb' }), validate, workFirst, pay, deliver());
+	app.post('/eigenbeleg', express.json({ limit: BODY_WITH_LOGO }), validate, workFirst, pay, deliver());
 
 	// The test route: the same work, for testnet addresses only, paid in testnet USDC on its own
 	// paywall. Anything else is refused before the 402, so testnet USDC never buys a mainnet document.
@@ -436,7 +439,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 			else next();
 		};
 		const testPay = testnet.middleware ?? ((_req, _res, next) => next());
-		app.post('/testnet/eigenbeleg', perIp(testnetLimit, 'too many test requests; try again later'), express.json({ limit: '32kb' }), validate, testnetOnly, testPay, deliver({ test: true }));
+		app.post('/testnet/eigenbeleg', perIp(testnetLimit, 'too many test requests; try again later'), express.json({ limit: BODY_WITH_LOGO }), validate, testnetOnly, testPay, deliver({ test: true }));
 	} else app.post('/testnet/eigenbeleg', (_req, res) => res.status(404).json({ error: 'the test route is off on this instance' }));
 
 	app.use((/** @type {any} */ err, /** @type {any} */ _req, /** @type {any} */ res, /** @type {any} */ _next) => {
@@ -447,6 +450,12 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 	});
 	return app;
 }
+
+/**
+ * The body of a request that may carry the issuer's logo: a file of at most 512 kB as base64
+ * (about 683 kB of text) beside the 32 kB every other route takes.
+ */
+const BODY_WITH_LOGO = '720kb';
 
 /** What the test route sells. */
 export const TESTNET_WHAT = 'the same documents for testnet addresses only (network: testnet), every PDF marked TESTNET and every file name TEST-; test only, no value, no booking document';

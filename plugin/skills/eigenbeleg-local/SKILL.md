@@ -97,6 +97,11 @@ passed as a file with `--job job.json`.
   count up. `--statement`: the Kontoauszug's number.
 - `--logo`: the chain's mark beside the title. `--no-chart`: a statement without
   its diagram. `--out DIR`: where the files go.
+- `--issuer-logo FILE`: the user's own logo (their company's), a PNG or JPEG
+  file on this machine, drawn top right in the head of every document. At most
+  512 kB and 2048 pixels a side, at most 6 times as wide as high and twice as
+  high as wide; no SVG. It stays on this machine. Only a file the user names;
+  never download one.
 - `--nearblocks-key` (or `NEARBLOCKS_API_KEY`): for a NEAR month with many
   transactions, beyond NearBlocks' free limit per IP.
 - `--akash-indexer URL`: an Akash Console indexer other than the default, for

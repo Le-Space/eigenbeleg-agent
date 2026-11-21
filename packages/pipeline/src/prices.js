@@ -13,12 +13,13 @@ export const PRICES = Object.freeze({
 
 /**
  * Published prices of one request in a chain's own coin, by the network's id in
- * @eigenbeleg/onchain-pay (e.g. doichain: '2.5'), as a decimal of the coin. None yet: a
- * production build offers no such payment before its price stands here (apps/api/src/release.js).
+ * @eigenbeleg/onchain-pay, as a decimal of the coin. A production build charges exactly these
+ * (apps/api/src/release.js), and offers the payment only where the instance names an address
+ * to receive it (DOI_PAY_TO).
  *
  * @type {Readonly<Record<string, string>>}
  */
-export const COIN_PRICES = Object.freeze({});
+export const COIN_PRICES = Object.freeze({ doichain: '5' });
 
 /** @param {string} id e.g. doichain @returns {string | undefined} */
 export function coinPriceFor(id) {

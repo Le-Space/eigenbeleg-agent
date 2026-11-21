@@ -96,9 +96,10 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	onProgress?.({ step: 'draw' });
 	// `req.logo` (the chain's mark beside the title) waits for @le-space/eigenbeleg to draw it again:
 	// its PDFs take no logo yet, so the request still accepts it and the documents come without.
+	// `req.chart`: the diagram above a statement's bookings, drawn unless the request switches it off.
 	const pdf = req.format !== 'csv' && wantBelege ? await eigenbelegPdf(doc) : null;
 	const statementPdfs = [];
-	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s) });
+	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s, { chart: req.chart }) });
 	const csv = req.format === 'pdf' ? null : eigenbelegCsv(doc);
 	return { summary, pdf, statements: statementPdfs, csv };
 }

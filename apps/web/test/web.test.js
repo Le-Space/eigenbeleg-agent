@@ -34,6 +34,9 @@ test('the form becomes the request the pipeline checks, as the API would', () =>
 	assert.equal(req.document, 'beide');
 	assert.deepEqual(req.addresses, ['wolkenfabrik.testnet', 'lager.testnet']);
 	assert.equal(req.number, 'EB-2026-007');
+	// The statement's diagram: on unless the form's box is unticked.
+	assert.equal(req.chart, true);
+	assert.equal(parseRequest(requestBody({ ...form, chart: false }), { today: '2026-11-06' }).chart, false);
 	assert.equal(fileName('EB-2026/007 ä'), 'EB-2026_007__');
 });
 

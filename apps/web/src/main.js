@@ -66,6 +66,7 @@ function values() {
 		statementNumber: s('statementNumber'),
 		includeKinds: fd.getAll('includeKinds').map(String),
 		logo: fd.get('logo') === 'on',
+		chart: fd.get('chart') === 'on',
 		document: /** @type {'eigenbelege' | 'kontoauszug' | 'beide'} */ (s('document') || 'eigenbelege')
 	};
 }

@@ -7,7 +7,7 @@ When a company pays on a blockchain, often nobody sends it an invoice. Network f
 This repository writes two documents from public blockchain data, both laid out the way a bank lays them out:
 
 - an **Eigenbeleg per transaction**: one receipt with its own number for each payment to the network, with the full hash, who paid whom (full addresses), every movement of the transaction and its explorer link as a QR code;
-- a **Kontoauszug** (account statement) per own account and period: opening balance, every booking with debit, credit and running balance, closing balance – **checked against the balance the chain reports** – and the sums a bookkeeper needs, for every chain supported (NEAR, Akash, Filecoin).
+- a **Kontoauszug** (account statement) per own account and period: opening balance, every booking with debit, credit and running balance, closing balance – **checked against the balance the chain reports** – and the sums a bookkeeper needs, for every chain supported (NEAR, Akash, Filecoin). Above the bookings a small diagram: the balance over the period, or, on a Verbrauchsauszug (Aleph credits, Filecoin Pay), what was consumed per day and resource.
 
 It consists of:
 
@@ -221,11 +221,12 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
   "number": "EB-2026-007",
   "statementNumber": "KA-2026-11",
   "includeKinds": ["fee", "storage"],
-  "logo": false
+  "logo": false,
+  "chart": true
 }
 ```
 
-`document` says what you get, and you get only that: `eigenbelege` (the default; one page per transaction), `kontoauszug` (one per address), or `beide` when you ask for both. `format`: `pdf` gives one document as the file (a Kontoauszug as PDF for one address); `json` gives what `document` names – the Eigenbelege as `pdf` (base64), the statements as `kontoauszuegePdf` – plus the CSV and a summary (Eigenbeleg numbers, totals, each statement's balances and whether they reconciled); `csv` gives the CSV. `period` is `{ month }` or `{ from, to }`, at most 92 days, finished days only (a period reaching today ends yesterday). `logo` is accepted (`true` or `false`) but has no effect for now: the chain's mark beside the title waits for `@le-space/eigenbeleg` to draw it again. The request is checked **before** a price is named: a wrong chain, address or period gets a `400`, not a `402`.
+`chart` (`true` unless given) draws the diagram above a statement's bookings; `false` leaves it out. `document` says what you get, and you get only that: `eigenbelege` (the default; one page per transaction), `kontoauszug` (one per address), or `beide` when you ask for both. `format`: `pdf` gives one document as the file (a Kontoauszug as PDF for one address); `json` gives what `document` names – the Eigenbelege as `pdf` (base64), the statements as `kontoauszuegePdf` – plus the CSV and a summary (Eigenbeleg numbers, totals, each statement's balances and whether they reconciled); `csv` gives the CSV. `period` is `{ month }` or `{ from, to }`, at most 92 days, finished days only (a period reaching today ends yesterday). `logo` is accepted (`true` or `false`) but has no effect for now: the chain's mark beside the title waits for `@le-space/eigenbeleg` to draw it again. The request is checked **before** a price is named: a wrong chain, address or period gets a `400`, not a `402`.
 
 **By mail.** With `email` in the body the files also go as attachments to that address once the payment is settled (stable names and subject, for a document management system's inbox); the address is used for that one mail. `language` (`en`, the default, or `de`) is the language of that mail and of the subscription's mails; the documents are German either way. Only where the instance has `SMTP_URL`.
 

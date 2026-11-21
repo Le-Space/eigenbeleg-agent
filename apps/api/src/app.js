@@ -147,7 +147,7 @@ export function createApp({
 						request: 'the body of POST /eigenbeleg with email, without period (document: kontoauszug by default; eigenbelege or beide too)',
 						price: /** @type {any} */ (paywall.info).subscription ?? null,
 						cancel: 'the link in every mail deletes the subscription; no refund of the remaining months',
-						privacy: 'chain, addresses, payer, e-mail address and options are kept encrypted until the last statement or the cancellation, then deleted'
+						privacy: 'chain, addresses, payer (with the logo, if one was sent), e-mail address and options are kept encrypted until the last statement or the cancellation, then deleted'
 					}
 				: 'not offered by this instance',
 			testnet: testnet
@@ -221,7 +221,7 @@ The same for tools: GET ${base}/openapi.json (OpenAPI 3.1); every 402 of POST /e
 
 ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is paid with) and the gas, read through this server's Alchemy key; the whole history of the address is read, so a busy address takes a while.\n" : ''}- filecoin-pay (the balance in the Filecoin Pay contract of Filecoin Onchain Cloud, by the payer's address, 0x… or f410f…): one finished month (\`period.month\`), \`document\` kontoauszug only – a Verbrauchsauszug (VA-…) with the balance before and after, what was paid in and taken out, and each settlement of a rail to its storage provider, valued at the day's USDC rate. No Eigenbeleg: a settlement is no single payment. Only USDFC; a settlement pays up to the moment it names, so a month's settlements need not cover exactly that month. The paying in itself is on the payer's \`filecoin\` Kontoauszug.
 - aleph (Aleph Cloud credits, by the Ethereum address): one finished month (\`period.month\`). \`document\` kontoauszug (the default) is a Verbrauchsauszug (VA-…), usage per day and resource, valued at the USD price per credit and the ECB rate of the day; eigenbelege gives one Eigenbeleg per purchase of credits (kind swap: a token for credits, in USD at the ECB rate, with the paying transaction's hash on Ethereum or Base). Usage itself gets no Eigenbeleg: it is no single payment.
-- issuerLogo: the logo of the person or company the documents are for, drawn top right in the head of every document, fitted into 120 × 40 pt. The file's bytes as plain base64 (no \`data:\` prefix), PNG or JPEG (no SVG, GIF or CMYK), at most 512 kB and 2048 pixels a side, at most 6 times as wide as high and twice as high as wide; a transparent PNG is laid on white, a JPEG loses its EXIF. A picture outside these limits is a 400 that says why, before anything is paid. Used for this response only, never stored or logged; the free preview and the subscription take none. It is the user's own file: ask for it, never fetch a logo from the web yourself. \`logo\` is something else: the chain's mark.
+- issuerLogo: the logo of the person or company the documents are for, drawn top right in the head of every document, fitted into 120 × 40 pt. The file's bytes as plain base64 (no \`data:\` prefix), PNG or JPEG (no SVG, GIF or CMYK), at most 512 kB and 2048 pixels a side, at most 6 times as wide as high and twice as high as wide; a transparent PNG is laid on white, a JPEG loses its EXIF. A picture outside these limits is a 400 that says why, before anything is paid. Never logged, and used for this response only – except in a subscription, which keeps the picture encrypted with its other details until the last statement or the cancellation. The free preview takes it too and checks it (it draws nothing), so send the same body there first. It is the user's own file: ask for it, never fetch a logo from the web yourself. \`logo\` is something else: the chain's mark.
 - The documents are in German. An Eigenbeleg counts only once the payer signs it; whether a tax adviser accepts it is theirs to decide.
 - email: the files go as attachments (stable names: EB-….pdf, KA-….pdf, EB-….csv; subject "Eigenbeleg EB-… · chain network · period"), so a document management system's inbox can sort them. The answer says \`mail: queued\` (format json) or carries X-Eigenbeleg-Mail: queued. The address is used for that one mail only.
 - As a skill (Agent Skills format, agentskills.io): ${source}/tree/main/plugin/skills/eigenbeleg-api – these steps for Claude Code and other agents that read SKILL.md. Without paying, on the user's own machine (nothing sent here): ${source}/tree/main/plugin/skills/eigenbeleg-local, i.e. \`npm run local\` in a checkout.
@@ -276,7 +276,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 			else next(e);
 		}
 	};
-	app.post(['/eigenbeleg/subscribe', '/eigenbeleg/subscribe/:months'], express.json({ limit: '32kb' }), validateSubscription, (req, res, next) => (paywall.middleware ?? ((_r, _s, n) => n()))(req, res, next), (req, res) => {
+	app.post(['/eigenbeleg/subscribe', '/eigenbeleg/subscribe/:months'], express.json({ limit: BODY_WITH_LOGO }), validateSubscription, (req, res, next) => (paywall.middleware ?? ((_r, _s, n) => n()))(req, res, next), (req, res) => {
 		const s = newSubscription(res.locals.subJob, { now: deps.now?.() ?? new Date(), origin: origin(req, publicUrl), months: res.locals.months });
 		res.on('finish', () => {
 			if (res.statusCode >= 400 || !subs) return;
@@ -322,7 +322,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 	// The free preview: same checks and the same reading as the paid route,
 	// but no payer, no files, and a few per minute per IP (it costs the data
 	// sources as much as a paid run).
-	app.post('/eigenbeleg/preview', express.json({ limit: '32kb' }), perIp(previewLimit, 'too many previews; try again in a minute'), async (req, res) => {
+	app.post('/eigenbeleg/preview', express.json({ limit: BODY_WITH_LOGO }), perIp(previewLimit, 'too many previews; try again in a minute'), async (req, res) => {
 		let job;
 		try {
 			job = parseRequest(req.body, { preview: true, blocks });
@@ -452,8 +452,9 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 }
 
 /**
- * The body of a request that may carry the issuer's logo: a file of at most 512 kB as base64
- * (about 683 kB of text) beside the 32 kB every other route takes.
+ * The body of a request that may carry the issuer's logo (the paid route, the test route, the
+ * preview and the subscription): a file of at most 512 kB as base64, about 683 kB of text. Every
+ * other body stays within 32 kB.
  */
 const BODY_WITH_LOGO = '720kb';
 

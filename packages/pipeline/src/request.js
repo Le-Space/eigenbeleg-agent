@@ -147,9 +147,8 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	const chart = body.chart ?? true;
 	if (typeof chart !== 'boolean') throw new RequestError('chart: true or false');
 	// The issuer's own logo, top right in the head of every document: a PNG or JPEG file. Used for
-	// this one answer and dropped, like the payer's name and address; the preview draws nothing
-	// and takes none.
-	if (preview && body.issuerLogo !== undefined) throw new RequestError('the preview takes no issuerLogo: the picture goes only to the paid POST /eigenbeleg');
+	// this one answer and dropped, like the payer's name and address. The preview draws nothing,
+	// but checks the picture, so one that would be refused is known before anything is paid.
 	const issuerLogo = issuerLogoBytes(body.issuerLogo);
 	// The files also by mail (for a document management system's inbox): one address, used for that
 	// one mail. The preview sends nothing, so it takes none.

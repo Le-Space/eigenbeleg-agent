@@ -210,12 +210,16 @@ test('the issuer’s own logo: on the documents of that answer, refused with the
 		assert.equal((await post(base, { ...job, issuerLogo: 'A'.repeat(1_000_000) })).status, 413, 'beyond the route\'s body limit');
 		assert.match((await (await post(base, { ...job, issuerLogo: 'A'.repeat(700_000) })).json()).error, /^issuerLogo: the file has more than 512 kB/);
 
-		// The preview draws nothing: it takes no picture, and its body limit stays small.
+		// The preview draws nothing, and checks the picture: the same summary with a good one, the reason for a bad one.
 		const { payer: _payer, ...body } = job;
 		const p = await preview(base, { ...body, issuerLogo: text(samplePng()) });
-		assert.equal(p.status, 400);
-		assert.match((await p.json()).error, /the preview takes no issuerLogo/);
-		assert.equal((await preview(base, { ...body, issuerLogo: text(new Uint8Array(100_000)) })).status, 413);
+		assert.equal(p.status, 200);
+		const summary = await p.json();
+		assert.deepEqual(summary, await (await preview(base, body)).json());
+		assert.doesNotMatch(JSON.stringify(summary), /issuerLogo|iVBOR/);
+		const badPreview = await preview(base, { ...body, issuerLogo: text(new Uint8Array(100_000)) });
+		assert.equal(badPreview.status, 400);
+		assert.deepEqual(await badPreview.json(), { error: 'issuerLogo: the picture must be a PNG or a JPEG file' });
 
 		// Nothing of the picture in the log.
 		assert.ok(lines.every((l) => l.length < 400 && !l.includes(text(samplePng()).slice(0, 24))), 'no body in a log line');
@@ -448,7 +452,7 @@ test('GET /llms.txt tells agents what is sold, the price and the x402 steps', as
 		assert.match(text, /- aleph \(Aleph Cloud credits/);
 		// The issuer's own logo: the field, its limits, and that it is the user's own file.
 		assert.match(text, /"issuerLogo": "iVBORw0KGgo…"/);
-		assert.match(text, /- issuerLogo: the logo of the person or company the documents are for[^\n]*PNG or JPEG[^\n]*at most 512 kB[^\n]*never stored or logged[^\n]*never fetch a logo from the web yourself/);
+		assert.match(text, /- issuerLogo: the logo of the person or company the documents are for[^\n]*PNG or JPEG[^\n]*at most 512 kB[^\n]*Never logged[^\n]*a subscription, which keeps the picture encrypted[^\n]*The free preview takes it too[^\n]*never fetch a logo from the web yourself/);
 		assert.equal((await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json()).agents, '/llms.txt');
 	} finally {
 		close();

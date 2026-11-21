@@ -98,9 +98,10 @@ test('the issuer’s own logo: a PNG or JPEG file as base64 or as bytes, checked
 	// Too large is said before the text is unpacked, and for bytes as well.
 	assert.match(why('A'.repeat(Math.ceil(ISSUER_LOGO_MAX_BYTES / 3) * 4 + 4)), /^issuerLogo: the file has more than 512 kB/);
 	assert.match(why(new Uint8Array(ISSUER_LOGO_MAX_BYTES + 1)), /^issuerLogo: the file has 513 kB; at most 512 kB/);
-	// The preview draws nothing and takes no picture.
+	// The preview draws nothing, and checks the picture all the same: a bad one is known before the payment.
 	const preview = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: ok.period };
-	assert.throws(() => parseRequest({ ...preview, issuerLogo: base64(samplePng()) }, { preview: true }), /the preview takes no issuerLogo/);
+	assert.deepEqual(parseRequest({ ...preview, issuerLogo: base64(samplePng()) }, { preview: true }).issuerLogo, samplePng());
+	assert.throws(() => parseRequest({ ...preview, issuerLogo: base64(samplePng().subarray(0, 60)) }, { preview: true }), /issuerLogo: the PNG file/);
 	// What the page shows and keeps: the picture as the documents carry it.
 	const shown = issuerLogoImage(sampleJpeg());
 	assert.deepEqual([shown.type, shown.width, shown.height], ['jpeg', 240, 80]);

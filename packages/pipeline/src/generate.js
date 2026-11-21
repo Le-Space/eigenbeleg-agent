@@ -94,12 +94,12 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	};
 	if (preview) return { summary, pdf: null, statements: [], csv: null };
 	onProgress?.({ step: 'draw' });
-	// `req.logo` (the chain's mark beside the title) waits for @le-space/eigenbeleg to draw it again:
-	// its PDFs take no logo yet, so the request still accepts it and the documents come without.
+	// `req.logo`: the chain's mark, small, beside the title, when asked for (@le-space/pdf's LOGOS;
+	// a chain without a mark gets none).
 	// `req.chart`: the diagram above a statement's bookings, drawn unless the request switches it off.
-	const pdf = req.format !== 'csv' && wantBelege ? await eigenbelegPdf(doc) : null;
+	const pdf = req.format !== 'csv' && wantBelege ? await eigenbelegPdf(doc, { logo: req.logo }) : null;
 	const statementPdfs = [];
-	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s, { chart: req.chart }) });
+	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s, { logo: req.logo, chart: req.chart }) });
 	const csv = req.format === 'pdf' ? null : eigenbelegCsv(doc);
 	return { summary, pdf, statements: statementPdfs, csv };
 }

@@ -118,6 +118,22 @@ test('the statement carries its diagram unless the request switches it off (bele
 	assert.deepEqual(pdfaStructure(drawn).pdfaid, { part: '2', conformance: 'B' });
 });
 
+test('the chain’s mark is on the Eigenbeleg and the statement when the request asks for it, and only then', async () => {
+	const body = { chain: 'aleph', addresses: [ACCOUNT], period: { month: '2026-08' }, format: 'json', document: 'beide', payer };
+	const run = async (/** @type {object} */ more) => {
+		const out = await generate(parseRequest({ ...body, ...more }, { today: '2026-11-06' }), { fetch, now: () => new Date('2026-11-06T12:00:00Z') });
+		return [/** @type {Uint8Array} */ (out.pdf), out.statements[0].pdf];
+	};
+	const [plain, marked, again] = [await run({}), await run({ logo: true }), await run({ logo: true })];
+	assert.deepEqual(marked, again, 'the same bytes every time');
+	for (const [i, name] of ['Eigenbeleg', 'Verbrauchsauszug'].entries()) {
+		assert.deepEqual(pdfaStructure(plain[i]).images, [], `${name}: no picture unless asked for`);
+		// One opaque RGB picture, no transparency: the document stays PDF/A-2b.
+		assert.deepEqual(pdfaStructure(marked[i]).images, [{ width: 192, height: 192, colorSpace: 'DeviceRGB', softMask: false }], name);
+		assert.deepEqual(pdfaStructure(marked[i]).pdfaid, { part: '2', conformance: 'B' });
+	}
+});
+
 test('Aleph: an Eigenbeleg per purchase of credits, the ALEPH paid at the token’s rate of the day, with the paying transaction (#23)', async () => {
 	const req = parseRequest({ chain: 'aleph', addresses: [ACCOUNT], period: { month: '2026-08' }, format: 'json', document: 'beide', payer }, { today: '2026-11-06' });
 	assert.deepEqual(req.includeKinds, ['swap'], 'the purchase is on the Eigenbeleg by default');

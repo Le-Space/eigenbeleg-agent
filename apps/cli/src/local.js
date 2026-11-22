@@ -18,6 +18,7 @@ import { blocksFor, generate, parseRequest } from '@eigenbeleg/pipeline';
  * @property {string} [alchemyKey] the user's own Alchemy key: offers Ethereum and Base, goes to their reads only
  * @property {string} [nearblocksKey] the user's own NearBlocks key, for a month with many transactions
  * @property {string} [akashIndexer] an Akash Console indexer URL instead of the default
+ * @property {string} [esplora] an Esplora API URL instead of mempool.space for Bitcoin (an own node's, http on this machine allowed)
  * @property {typeof fetch} [fetch] tests: a recorded chain
  * @property {import('@le-space/eigenbeleg').Rates} [rates] tests: fixed rates
  * @property {() => Date} [now] tests: a fixed clock
@@ -29,12 +30,39 @@ import { blocksFor, generate, parseRequest } from '@eigenbeleg/pipeline';
 const safe = (n) => n.replace(/[^A-Za-z0-9._-]/g, '_');
 
 /**
+ * The --esplora URL, or null. The person names their own node, on this machine or at home
+ * (http://127.0.0.1:3002, http://umbrel.local:3006), so a private address is fine here; what
+ * it may not carry is a password, a query or a fragment, which would end up in requests.
+ *
+ * @param {string} value
+ */
+export function esploraUrl(value) {
+	let url;
+	try {
+		url = new URL(String(value).trim());
+	} catch {
+		return null;
+	}
+	if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password || url.search || url.hash) return null;
+	return url.toString().replace(/\/+$/, '');
+}
+
+/**
  * @param {LocalOptions} o
  * @returns {Promise<{ summary: any, files: string[] }>} the summary (as the API's `summary`) and the files written
  */
-export async function runLocal({ body, outDir, preview = false, alchemyKey, nearblocksKey, akashIndexer, fetch, rates, now, today, say = (l) => process.stderr.write(l + '\n') }) {
+export async function runLocal({ body, outDir, preview = false, alchemyKey, nearblocksKey, akashIndexer, esplora, fetch, rates, now, today, say = (l) => process.stderr.write(l + '\n') }) {
 	const blocks = blocksFor({ alchemyKey });
-	const req = parseRequest({ format: 'json', ...body }, { preview, today, blocks });
+	// A wallet's extended key is read here, on this machine (keys).
+	const req = parseRequest({ format: 'json', ...body }, { preview, today, blocks, keys: true });
+	/** @type {Record<string, Record<string, string>>} */
+	const endpoints = {};
+	if (akashIndexer) endpoints.akash = { indexer: akashIndexer };
+	if (esplora) {
+		const api = esploraUrl(esplora);
+		if (!api) throw new Error('--esplora: an http:// or https:// URL of an Esplora API, without user, password, query or #');
+		endpoints.bitcoin = { api };
+	}
 	const deps = {
 		blocks,
 		fetch,
@@ -42,7 +70,7 @@ export async function runLocal({ body, outDir, preview = false, alchemyKey, near
 		now,
 		alchemyKey,
 		nearblocksKey,
-		...(akashIndexer ? { endpoints: { akash: { indexer: akashIndexer } } } : {})
+		...(Object.keys(endpoints).length ? { endpoints } : {})
 	};
 	const out = await generate(req, deps, {
 		preview,

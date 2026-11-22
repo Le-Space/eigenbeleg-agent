@@ -40,17 +40,21 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	if (!block) throw new Error(`no building block for chain ${req.chain} here`);
 	const wantBelege = req.document !== 'kontoauszug';
 	const wantStatement = req.document !== 'eigenbelege';
-	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey, endpoints: deps.endpoints?.[req.chain], own: req.addresses, ...(deps.connect ? { connect: deps.connect } : {}), ...(block.needs === 'alchemyKey' ? { alchemyKey: deps.alchemyKey } : {}) };
+	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey, endpoints: deps.endpoints?.[req.chain], own: req.addresses, ...(req.addressType ? { type: req.addressType } : {}), ...(deps.connect ? { connect: deps.connect } : {}), ...(block.needs === 'alchemyKey' ? { alchemyKey: deps.alchemyKey } : {}) };
+	// What the documents name an account by: a wallet read from its key carries the key's fingerprint, never the key.
+	const accountOf = block.accountOf ?? ((/** @type {string} */ a) => a);
+	const payer = { ...req.payer, addresses: req.payer.addresses.map(accountOf) };
+	const dataSource = deps.endpoints?.[req.chain] ? block.dataSource?.(deps.endpoints[req.chain]) : undefined;
 	/** @type {import('@le-space/ledger').LedgerEntry[]} */
 	const entries = [];
 	/** @type {{ account: string, opening: Record<string, string>, closing: Record<string, string>, method: 'archive' | 'derived', at: any }[]} */
 	const balances = [];
 	for (const [index, account] of req.addresses.entries()) {
-		onProgress?.({ step: 'read', account, index, count: req.addresses.length });
+		onProgress?.({ step: 'read', account: accountOf(account), index, count: req.addresses.length });
 		if (wantStatement && block.statement) {
 			const st = await block.statement({ ...read, account });
 			entries.push(...st.entries);
-			balances.push({ account, opening: st.opening, closing: st.closing, method: st.method, at: st.at });
+			balances.push({ account: accountOf(account), opening: st.opening, closing: st.closing, method: st.method, at: st.at });
 		} else entries.push(...(await block.read({ ...read, account })));
 	}
 	onProgress?.({ step: 'rates' });
@@ -63,11 +67,12 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	const rates = block.referenceAssets?.length ? referenceRates(priced, Object.fromEntries(block.referenceAssets.map((a) => [a, req.reference?.[a] ?? []])), currency) : priced;
 	const valued = await valueEntries(sortEntries(entries), rates, { currency });
 	const issuedAt = (deps.now?.() ?? new Date()).toISOString();
-	const doc = buildDocument({ payer: req.payer, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single', currency });
+	const doc = buildDocument({ payer, dataSource, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single', currency });
 	const belege = new Map(doc.transactions.map((t) => [t.hash, t.number]));
 	const statements = balances.map((b, i) =>
 		buildStatement({
-			payer: req.payer,
+			payer,
+			dataSource,
 			account: b.account,
 			chain: req.chain,
 			network: req.network,

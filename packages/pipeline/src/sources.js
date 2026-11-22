@@ -36,6 +36,7 @@ export function dataSources({ akashIndexer = 'https://console-api.akash.network'
 		{ origin: 'https://api2.aleph.im', chain: 'aleph', learns: 'addresses', what: 'Aleph Cloud credit history and balance (Aleph API)' },
 		// Doichain is read over WebSocket; the first server that answers on the valid chain is asked.
 		...DOICHAIN.endpoints.electrum.map((url) => ({ origin: new URL(url).origin, chain: 'doichain', learns: /** @type {const} */ ('addresses'), what: 'Doichain transactions and balance (a public ElectrumX server)' })),
+		{ origin: 'https://mempool.space', chain: 'bitcoin', learns: 'addresses', what: 'Bitcoin transactions and balance (the Esplora API at mempool.space)' },
 		{ origin: 'https://api.kraken.com', chain: 'rates', learns: 'assets', what: 'EUR rates where CoinGecko has none (Kraken, the day\'s open)' },
 		{ origin: 'https://api.coingecko.com', chain: 'rates', learns: 'assets', what: 'EUR rates (CoinGecko, the price at 00:00 UTC)' },
 		{ origin: 'https://data-api.ecb.europa.eu', chain: 'rates', learns: 'assets', what: 'EUR per USD, for Aleph credits, and the euro in the documents\' currency when it is not EUR (ECB reference rate)' },

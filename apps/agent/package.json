@@ -8,7 +8,7 @@
   "dependencies": {
     "@eigenbeleg/onchain-pay": "0.1.0",
     "@eigenbeleg/pipeline": "0.1.0",
-    "@le-space/chains": "0.6.0",
+    "@le-space/chains": "0.7.0",
     "@le-space/eigenbeleg": "0.6.1",
     "@le-space/ledger": "0.3.0",
     "@x402/core": "^2.30.0",

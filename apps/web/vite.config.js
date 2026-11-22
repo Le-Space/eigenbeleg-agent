@@ -42,6 +42,10 @@ export default defineConfig(({ mode }) => {
 	const fill = (text) => (env.VITE_PUBLIC_URL ? text.replaceAll('__PUBLIC_URL__', env.VITE_PUBLIC_URL.replace(/\/+$/, '')) : text);
 	return {
 		base: './',
+		// @le-space/pdf brings its fonts, sRGB profile and marks as `?url` imports, which the dev server's
+		// pre-bundling cannot load; served as it is, Vite resolves them like the build does. Its CommonJS
+		// dependencies still need pre-bundling, so they are named here (only `vite dev` uses this).
+		optimizeDeps: { exclude: ['@le-space/pdf'], include: ['@le-space/pdf > pdf-lib', '@le-space/pdf > @pdf-lib/fontkit', '@le-space/pdf > @pdf-lib/upng', '@le-space/pdf > pako', '@le-space/pdf > @noble/hashes/sha2.js', '@le-space/pdf > @noble/hashes/utils.js'] },
 		build: { outDir: 'dist', emptyOutDir: true, target: 'es2022', chunkSizeWarningLimit: 2000, assetsInlineLimit: 0 },
 		plugins: [
 			{

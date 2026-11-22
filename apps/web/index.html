@@ -83,9 +83,9 @@
 					<!-- An asset no price source quotes (DOI): the issuer's own value, shown only for such a chain. -->
 					<fieldset id="reference" hidden>
 						<legend data-i18n="reference">Ihr Referenzwert für DOI</legend>
-						<label><span data-i18n="referenceEur">Euro je DOI</span> <input name="referenceEur" id="referenceEur" inputmode="decimal" autocomplete="off" placeholder="0,05" /></label>
+						<label><span data-i18n="referenceEur">Euro je DOI</span> <input name="referenceEur" id="referenceEur" inputmode="decimal" autocomplete="off" placeholder="0,04" /></label>
 						<label><span data-i18n="referenceFrom">gilt ab</span> <input type="date" name="referenceFrom" id="referenceFrom" /></label>
-						<p class="note" data-i18n="referenceNote">DOI hat keinen veröffentlichten Kurs. Für Eigenbelege tragen Sie Ihren eigenen Wert ein; er steht als „Referenzwert, kein Börsenkurs“ mit Ihrem Namen auf den Dokumenten, in einer anderen Währung mal dem Euro-Kurs dieser Währung vom Tag. Ohne Wert gibt es nur den Kontoauszug in DOI.</p>
+						<p class="note" data-i18n="referenceNote">DOI hat keinen veröffentlichten Kurs. Tragen Sie Ihren eigenen Wert ein, steht er als „Referenzwert, kein Börsenkurs“ mit Ihrem Namen auf den Dokumenten. Bleibt das Feld leer, gilt der Standardwert von 0,04 Euro je DOI für den ganzen Zeitraum, als solcher benannt. In einer anderen Währung mal dem Euro-Kurs dieser Währung vom Tag.</p>
 					</fieldset>
 					<!-- Ethereum and Base (#25): read through Alchemy with the person's own key, which goes from this
 					     browser to Alchemy only; it is never part of the request body (src/request.js). -->

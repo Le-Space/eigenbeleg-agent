@@ -36,7 +36,9 @@ export const CHAINS_VERSION = '0.7.0';
  * @property {'month'} [period] reads whole finished months only
  * @property {string} [statementPrefix] the statement's number prefix, when not KA (VA: a Verbrauchsauszug, `isUsageStatement`)
  * @property {string[]} [referenceAssets] assets no price source quotes (DOI): valued only by a reference value the request hands in
- *   (`reference`), never by a price feed; without one their amounts stay without a euro value
+ *   (`reference`), never by a price feed; without one, the block's `referenceDefault`, else no euro value
+ * @property {Record<string, string>} [referenceDefault] EUR per unit where the request gives no reference value (DOI: 0.04),
+ *   printed as the project's default, never as an exchange rate
  * @property {'alchemyKey'} [needs] a key only the server has (keyed.js); such a block is never in BLOCKS
  */
 
@@ -90,8 +92,10 @@ export const BLOCKS = {
 		assets: ['DOI'],
 		// The miner fee of an own payment and what was sent or received; a name operation is a payment with a note.
 		kinds: ['fee', 'transfer'],
-		// DOI is quoted nowhere that may be used: its euro value is the issuer's own reference value, or none.
+		// DOI is quoted nowhere that may be used: its euro value is the issuer's own reference value, or else
+		// this default, named as such on the documents (never as an exchange rate).
 		referenceAssets: ['DOI'],
+		referenceDefault: { DOI: '0.04' },
 		source: 'public ElectrumX servers of the Doichain network (doi.works), no key; only a server on the valid chain (block 431,018) is read',
 		version: CHAINS_VERSION,
 		read: doichain.readDoichain,

@@ -210,12 +210,13 @@ person; it is also in every mail.
   and the ECB rate of the day. `document: "eigenbelege"` gives one Eigenbeleg per
   purchase of credits. Usage itself gets no Eigenbeleg: it is no single payment.
 - **Doichain** (`chain: "doichain"`, by the own DOI address) has no published
-  rate, and no price feed is asked for it. For Eigenbelege, ask the person for
-  their own euro value per DOI and the day it holds from and send it as
+  rate, and no price feed is asked for it. Without `reference` the documents
+  use the default of 0.04 EUR per DOI for the whole period, named as the
+  default ("Referenzwert von eigenbeleg-agent (Standardwert)"), not as an
+  exchange rate. Where the person has their own euro value per DOI, send it as
   `"reference": { "DOI": { "eur": "0.05", "from": "2026-01-01" } }`; the
-  documents name it as their reference value, not an exchange rate. Never make
-  one up or take it from a price site. Without it, only
-  `document: "kontoauszug"`, in DOI alone.
+  documents then name it as their reference value. Never make one up or take it
+  from a price site.
 - **Bitcoin** (`chain: "bitcoin"`) is read by the own address (1…, 3… or bc1…),
   never by an xpub, and only confirmed transactions count. A payment is the amount
   sent plus the miner fee as its own entry.

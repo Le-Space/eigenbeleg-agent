@@ -2,14 +2,14 @@
 // Doichain as a building block: Eigenbelege and a Kontoauszug for an own DOI
 // address, read from an ElectrumX server in memory. DOI is quoted nowhere that
 // may be used, so its euro value is the request's own reference value, or
-// none. Addresses, transactions and amounts are made up.
+// the block's default (0.04 EUR per DOI), named as such. Addresses, transactions and amounts are made up.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import * as doichain from '@le-space/chains/doichain';
 import { coinbase, fakeDoichain, fakeDoichainAddress, payment } from '@le-space/chains/testing/doichain';
 
-import { BLOCKS, RequestError, dataSources, describeBlocks, generate, parseRequest } from '../src/index.js';
+import { BLOCKS, REFERENCE_DEFAULT_BY, RequestError, dataSources, describeBlocks, generate, parseRequest } from '../src/index.js';
 
 const own = fakeDoichainAddress('own');
 const shop = fakeDoichainAddress('a shop');
@@ -37,7 +37,7 @@ const body = {
 
 test('the block: DOI on mainnet, fee and transfer, read from ElectrumX, its servers among the data sources', () => {
 	const [b] = describeBlocks({ doichain: BLOCKS.doichain });
-	assert.deepEqual([b.chain, b.networks, b.assets, b.kinds, b.referenceAssets], ['doichain', ['mainnet'], ['DOI'], ['fee', 'transfer'], ['DOI']]);
+	assert.deepEqual([b.chain, b.networks, b.assets, b.kinds, b.referenceAssets, b.referenceDefault], ['doichain', ['mainnet'], ['DOI'], ['fee', 'transfer'], ['DOI'], { DOI: '0.04' }]);
 	assert.ok(BLOCKS.doichain.isAddress(own) && !BLOCKS.doichain.isAddress('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4'));
 	const servers = dataSources().filter((s) => s.chain === 'doichain');
 	assert.equal(servers.length, 4);
@@ -58,16 +58,28 @@ test('with the issuer\'s reference value: Eigenbelege and a Kontoauszug in DOI a
 	assert.ok(out.pdf && out.statements[0].pdf);
 });
 
-test('without a reference value: the Kontoauszug in DOI alone, no Eigenbeleg, and no price feed is asked', async () => {
-	// an Eigenbeleg is a euro amount: without a value there is none to write
-	assert.throws(() => parseRequest(body, { blocks, today: '2026-11-06' }), (e) => e instanceof RequestError && /DOI has no published rate, and an Eigenbeleg needs a euro value.*"document": "kontoauszug"/.test(e.message));
-	const out = await generate(parseRequest({ ...body, document: 'kontoauszug' }, { blocks, today: '2026-11-06' }), deps);
+test('without a reference value: the default 0.04 EUR per DOI, named as the default, and no price feed is asked', async () => {
+	const job = parseRequest(body, { blocks, today: '2026-11-06' });
+	assert.deepEqual(job.reference, { DOI: [{ from: '2026-05-01', eur: '0.04', by: REFERENCE_DEFAULT_BY }] });
+	const out = await generate(job, deps);
+	assert.equal(out.summary.positions, 2);
+	assert.match(out.csv, /Referenzwert von eigenbeleg-agent \(Standardwert\), Stand 2026-05-01 \(kein Börsenkurs\)/);
+	assert.ok(!/CoinGecko|Kraken/.test(out.csv));
+	assert.ok(out.pdf && out.statements[0].pdf);
+	const doi = out.summary.kontoauszuege[0].assets.find((/** @type {any} */ a) => a.asset === 'DOI');
+	assert.equal(doi.closing, '7.99');
+	// the issuer's own value wins over the default
+	assert.equal(parseRequest({ ...body, reference: { DOI: { eur: '0.05', from: '2026-01-01' } } }, { blocks, today: '2026-11-06' }).reference.DOI[0].eur, '0.05');
+});
+
+test('a block with no default and no value: the Kontoauszug in DOI alone, no Eigenbeleg', async () => {
+	const bare = { doichain: { ...blocks.doichain, referenceDefault: undefined } };
+	assert.throws(() => parseRequest(body, { blocks: bare, today: '2026-11-06' }), (e) => e instanceof RequestError && /DOI has no published rate, and an Eigenbeleg needs a euro value.*"document": "kontoauszug"/.test(e.message));
+	const out = await generate(parseRequest({ ...body, document: 'kontoauszug' }, { blocks: bare, today: '2026-11-06' }), { ...deps, blocks: bare });
 	assert.equal(out.summary.positions, 0);
 	assert.ok(out.statements[0].pdf);
 	assert.ok(!out.csv.includes('Referenzwert'));
 	assert.ok(!/CoinGecko|Kraken/.test(out.csv));
-	const doi = out.summary.kontoauszuege[0].assets.find((/** @type {any} */ a) => a.asset === 'DOI');
-	assert.equal(doi.closing, '7.99');
 });
 
 test('a reference value is the issuer\'s figure for DOI, and nothing else', () => {

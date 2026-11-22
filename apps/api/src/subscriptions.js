@@ -148,8 +148,9 @@ export function subscriptionJob(body, { today, blocks, months = MONTHS }) {
 	if (!probe.email) throw new RequestError('email: needed for a subscription; the statements go by mail, like belege@example.org');
 	// The issuer's own logo is kept with the subscription, under the limits of every request, and
 	// as the documents carry it: the picture alone (a PNG laid on white, a JPEG without its EXIF),
-	// not the file that was sent.
-	const issuerLogo = probe.issuerLogo ? Buffer.from(issuerLogoImage(probe.issuerLogo).bytes).toString('base64') : null;
+	// not the file that was sent. Only the Eigenbelege carry it (@le-space/eigenbeleg 0.6.0): a subscription
+	// of statements alone would keep a picture for a year that no document draws, so it keeps none.
+	const issuerLogo = probe.issuerLogo && probe.document !== 'kontoauszug' ? Buffer.from(issuerLogoImage(probe.issuerLogo).bytes).toString('base64') : null;
 	return { chain: probe.chain, network: probe.network, addresses: probe.addresses, payer: { name: probe.payer.name, address: probe.payer.address }, email: probe.email, includeKinds: probe.includeKinds, logo: probe.logo, chart: probe.chart, ...(probe.currency !== 'EUR' ? { currency: probe.currency } : {}), document: probe.document, language: probe.language, ...(issuerLogo ? { issuerLogo } : {}) };
 }
 

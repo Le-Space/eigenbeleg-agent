@@ -455,7 +455,7 @@ test('GET /llms.txt tells agents what is sold, the price and the x402 steps', as
 		assert.match(text, /- aleph \(Aleph Cloud credits/);
 		// The issuer's own logo: the field, its limits, and that it is the user's own file.
 		assert.match(text, /"issuerLogo": "iVBORw0KGgo…"/);
-		assert.match(text, /- issuerLogo: the logo of the person or company the documents are for[^\n]*PNG or JPEG[^\n]*at most 512 kB[^\n]*Never logged[^\n]*a subscription, which keeps the picture encrypted[^\n]*The free preview takes it too[^\n]*never fetch a logo from the web yourself/);
+		assert.match(text, /- issuerLogo: the logo of the person or company the documents are for[^\n]*PNG or JPEG[^\n]*at most 512 kB[^\n]*Never logged[^\n]*a subscription with Eigenbelege[^\n]*which keeps the picture encrypted[^\n]*statements alone keeps none[^\n]*The free preview takes it too[^\n]*never fetch a logo from the web yourself/);
 		assert.equal((await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json()).agents, '/llms.txt');
 	} finally {
 		close();

@@ -12,12 +12,12 @@ import '@fontsource-variable/sora';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 // Only the request check, the list of chains and the data sources load with the page.
-import { RequestError, parseRequest } from '@eigenbeleg/pipeline/request';
+import { CURRENCIES, ISSUER_LOGO_MAX_BYTES, RequestError, issuerLogoImage, parseRequest } from '@eigenbeleg/pipeline/request';
 import { BLOCKS, describeBlocks } from '@eigenbeleg/pipeline/blocks';
 import { KEYED_BLOCKS, blocksFor, isAlchemyKey, keyedSources } from '@eigenbeleg/pipeline/keyed';
 import { dataSources } from '@eigenbeleg/pipeline/sources';
 import { detectLang, lang, locale, setLang, t } from './i18n.js';
-import { fileName, isNearblocksKey, rememberAccounts, rememberKey, rememberNearblocksKey, rememberPayer, rememberedAccounts, rememberedKey, rememberedNearblocksKey, rememberedPayer, requestBody } from './request.js';
+import { fileName, isNearblocksKey, rememberAccounts, rememberKey, rememberNearblocksKey, rememberPayer, rememberedAccounts, rememberedKey, rememberedNearblocksKey, rememberedPayer, requestBody, referenceEur } from './request.js';
 import { AKASH_INDEXER } from './config.js';
 import { registerServiceWorker } from './pwa.js';
 import { SOURCE_URL, localStamp, parseBuild, utcStamp } from './build.js';
@@ -32,6 +32,50 @@ const keyInput = /** @type {HTMLInputElement} */ ($('alchemy-key'));
 const rememberKeyBox = /** @type {HTMLInputElement} */ ($('remember-key'));
 const nbInput = /** @type {HTMLInputElement} */ ($('nearblocks-key'));
 const rememberNbBox = /** @type {HTMLInputElement} */ ($('remember-nb-key'));
+const logoInput = /** @type {HTMLInputElement} */ ($('issuer-logo'));
+const currencySel = /** @type {HTMLSelectElement} */ ($('currency'));
+
+/**
+ * The issuer's own logo, as the documents will carry it (checked, a PNG laid on white, a JPEG
+ * without its EXIF), or null. It goes to the drawing in this browser and nowhere else.
+ * @type {{ bytes: Uint8Array, type: 'png' | 'jpeg', width: number, height: number } | null}
+ */
+let issuerLogo = null;
+/** The blob: address of the picture shown beside the field. */
+let logoUrl = '';
+
+/** Shows the chosen logo beside its field, or nothing. */
+function showLogo() {
+	if (logoUrl) URL.revokeObjectURL(logoUrl);
+	logoUrl = issuerLogo ? URL.createObjectURL(new Blob([/** @type {BlobPart} */ (issuerLogo.bytes)], { type: `image/${issuerLogo.type}` })) : '';
+	const img = /** @type {HTMLImageElement} */ ($('logo-preview'));
+	if (logoUrl) img.src = logoUrl;
+	else img.removeAttribute('src');
+	img.alt = issuerLogo ? t('logoAlt') : '';
+	$('logo-info').textContent = issuerLogo ? t('logoInfo', { width: issuerLogo.width, height: issuerLogo.height }) : '';
+	$('logo-chosen').hidden = !issuerLogo;
+}
+
+/**
+ * A file as the logo: checked like the request checks it; what cannot be a logo is said so and not used.
+ * @param {Uint8Array | null} bytes null: no logo
+ * @param {string} [refused] why the file was not even read
+ */
+function takeLogo(bytes, refused = '') {
+	let why = refused;
+	issuerLogo = null;
+	if (bytes && !why) {
+		try {
+			issuerLogo = issuerLogoImage(bytes);
+		} catch (err) {
+			if (!(err instanceof RequestError)) throw err;
+			why = err.message.replace(/^issuerLogo: /, '');
+		}
+	}
+	$('logo-error').textContent = why ? t('badLogo', { error: why }) : '';
+	if (!issuerLogo) logoInput.value = '';
+	showLogo();
+}
 
 // Every block, for the form; the ones that need a key are offered only with one (syncKey).
 const blocks = describeBlocks({ ...BLOCKS, ...KEYED_BLOCKS });
@@ -67,7 +111,13 @@ function values() {
 		includeKinds: fd.getAll('includeKinds').map(String),
 		logo: fd.get('logo') === 'on',
 		chart: fd.get('chart') === 'on',
-		document: /** @type {'eigenbelege' | 'kontoauszug' | 'beide'} */ (s('document') || 'eigenbelege')
+		issuerLogo: issuerLogo?.bytes ?? null,
+		document: /** @type {'eigenbelege' | 'kontoauszug' | 'beide'} */ (s('document') || 'eigenbelege'),
+		currency: s('currency') || 'EUR',
+		referenceEur: s('referenceEur'),
+		referenceFrom: s('referenceFrom'),
+		// only for a chain whose asset no price source quotes (Doichain)
+		referenceAsset: blocks.find((b) => b.chain === s('chain'))?.referenceAssets?.[0] ?? ''
 	};
 }
 
@@ -84,7 +134,30 @@ function lastMonth() {
 }
 
 /** How the chains are written for people; the value stays the block's id. */
-const CHAIN_NAMES = /** @type {Record<string, string>} */ ({ near: 'NEAR', akash: 'Akash (AKT)', filecoin: 'Filecoin (FIL, USDFC)', 'filecoin-pay': 'Filecoin Pay (USDFC)', aleph: 'Aleph Cloud (Credits)', ethereum: 'Ethereum (ETH, USDC, ALEPH)', base: 'Base (ETH, USDC, ALEPH)' });
+const CHAIN_NAMES = /** @type {Record<string, string>} */ ({ near: 'NEAR', akash: 'Akash (AKT)', filecoin: 'Filecoin (FIL, USDFC)', doichain: 'Doichain (DOI)', bitcoin: 'Bitcoin (BTC)', 'filecoin-pay': 'Filecoin Pay (USDFC)', aleph: 'Aleph Cloud (Credits)', ethereum: 'Ethereum (ETH, USDC, ALEPH)', base: 'Base (ETH, USDC, ALEPH)' });
+
+/** The currencies a document can be in, EUR first; the choice is kept when the options are drawn again. */
+function fillCurrencies() {
+	const chosen = currencySel.value || 'EUR';
+	currencySel.replaceChildren(...CURRENCIES.map((c) => new Option(c, c)));
+	currencySel.value = chosen;
+	labelCurrencies();
+}
+
+/** Each currency as its code and its name in the chosen language (the browser's own names, Intl.DisplayNames). */
+function labelCurrencies() {
+	/** @type {Intl.DisplayNames | null} */
+	let names = null;
+	try {
+		names = new Intl.DisplayNames([locale()], { type: 'currency' });
+	} catch {
+		// an old browser: the codes alone
+	}
+	for (const o of currencySel.options) {
+		const name = names?.of(o.value);
+		o.textContent = name && name !== o.value ? `${o.value} – ${name}` : o.value;
+	}
+}
 
 function fillChains() {
 	chainSel.replaceChildren(...blocks.map((b) => new Option('', b.chain)));
@@ -137,6 +210,7 @@ function syncChain() {
 	$('chain-note').dataset.i18n = noteKey;
 	$('chain-note').textContent = t(noteKey);
 	$('nb-keys').hidden = chainSel.value !== 'near';
+	$('reference').hidden = !b?.referenceAssets?.length;
 	// A swap is a credit purchase on Aleph, a swap at a DEX elsewhere.
 	const swapKey = chainSel.value === 'aleph' ? 'kindSwap' : 'kindSwapDex';
 	$('kind-swap').dataset.i18n = swapKey;
@@ -179,8 +253,13 @@ async function onCreate(e) {
 	clearResult();
 	const f = values();
 	if (f.includeKinds.length === 0 && (blocks.find((x) => x.chain === f.chain)?.kinds ?? []).length > 0) return say('form-error', t('pickKind'));
+	if (f.referenceAsset) {
+		const given = f.referenceEur.trim();
+		if (given ? !referenceEur(given) || !f.referenceFrom : f.document !== 'kontoauszug') return say('form-error', t(given ? 'badReference' : 'needReference'));
+	}
 	if (f.name.trim().length < 2 || f.postal.trim().length < 5) return say('form-error', t('needPayer'));
-	rememberPayer(remember.checked ? { name: f.name.trim(), postal: f.postal.trim() } : null);
+	const kept = rememberPayer(remember.checked ? { name: f.name.trim(), postal: f.postal.trim(), logo: issuerLogo?.bytes ?? null } : null);
+	if (!kept) say('logo-error', t('logoNotKept'));
 	rememberAccounts(rememberAcc.checked ? { chain: f.chain, network: f.network, addresses: f.addresses.trim() } : null);
 	const key = alchemyKey();
 	rememberKey(rememberKeyBox.checked ? key ?? null : null);
@@ -223,10 +302,11 @@ async function onCreate(e) {
 	}
 }
 
-/** @param {unknown} v */
-const eur = (v) => {
+/** An amount in the documents' currency (EUR unless another was chosen). @param {unknown} v @param {string} [currency] */
+const money = (v, currency = 'EUR') => {
 	const n = Number(v);
-	return Number.isFinite(n) ? n.toLocaleString(locale(), { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 4 }) : String(v);
+	const places = currency === 'ISK' ? 0 : 2;
+	return Number.isFinite(n) ? n.toLocaleString(locale(), { style: 'currency', currency, minimumFractionDigits: places, maximumFractionDigits: Math.max(places, 4) }) : String(v);
 };
 
 /** @type {string[]} */
@@ -254,7 +334,7 @@ function showResult() {
 		[t('sumPeriod'), t('sumPeriodValue', { from: s.period.from, to: s.period.to })],
 		[t('sumPositions'), String(s.positions)],
 		[t('sumNotOnIt'), String(s.notOnIt)],
-		[t('sumTotal'), eur(s.totalEur)],
+		[t('sumTotal'), money(s.totalEur, s.currency)],
 		...Object.entries(s.quantities ?? {}).map(([asset, q]) => [t('sumQuantity', { asset }), String(q)])
 	];
 	for (const k of s.kontoauszuege) {
@@ -332,7 +412,9 @@ function applyLang() {
 	for (const el of document.querySelectorAll('[data-lang]')) /** @type {HTMLElement} */ (el).hidden = /** @type {HTMLElement} */ (el).dataset.lang !== l;
 	/** @type {HTMLAnchorElement} */ ($('link-imprint')).href = l === 'de' ? 'https://le-space.de/#impressum' : 'https://le-space.de/#imprint';
 	/** @type {HTMLTextAreaElement} */ ($('postal')).placeholder = t('postalPlaceholder');
+	showLogo();
 	labelChains();
+	labelCurrencies();
 	syncKey();
 	syncNbKey();
 	showSources();
@@ -356,10 +438,19 @@ if (saved) {
 	/** @type {HTMLInputElement} */ ($('name')).value = saved.name;
 	/** @type {HTMLTextAreaElement} */ ($('postal')).value = saved.postal;
 	remember.checked = true;
+	// A kept logo is checked again like a new one: what the storage holds is not trusted either.
+	if (saved.logo) takeLogo(saved.logo);
 }
 remember.addEventListener('change', () => {
 	if (!remember.checked) rememberPayer(null);
 });
+logoInput.addEventListener('change', async () => {
+	const file = logoInput.files?.[0];
+	// The size is asked before the file is read: a video chosen by mistake is not loaded.
+	if (file && file.size > ISSUER_LOGO_MAX_BYTES) takeLogo(null, `the file has ${Math.ceil(file.size / 1024)} kB; at most ${Math.floor(ISSUER_LOGO_MAX_BYTES / 1024)} kB`);
+	else takeLogo(file ? new Uint8Array(await file.arrayBuffer()) : null);
+});
+$('logo-remove').addEventListener('click', () => takeLogo(null));
 // The prompt and the curl lines: a button copies the block next to it.
 for (const btn of document.querySelectorAll('button[data-copy]')) {
 	btn.addEventListener('click', async () => {
@@ -448,6 +539,7 @@ if (savedNbKey) {
 }
 nbInput.addEventListener('input', syncNbKey);
 rememberNbBox.addEventListener('change', () => rememberNearblocksKey(rememberNbBox.checked ? nearblocksKey() ?? null : null));
+fillCurrencies();
 fillChains();
 chainSel.addEventListener('change', fillNetworks);
 const savedAccounts = rememberedAccounts();

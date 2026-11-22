@@ -33,7 +33,8 @@ services:
     networks: [edge]
     volumes:
       # Subscriptions (#20): one encrypted file each, only with SUBSCRIPTION_KEY in .env. The only
-      # thing the API keeps beyond a request; without the key the volume stays empty.
+      # thing the API keeps beyond a request; without the key the volume stays empty. In logos/: a
+      # preview's logo, encrypted, for 24 hours (LOGO_DIR).
       - subscriptions:/var/lib/eigenbeleg
       # Optional, instead of RELAYER_SECRET_KEY: the relayer's near-cli key file,
       # read only. Set NEAR_CREDENTIALS_DIR=/run/near-credentials then.

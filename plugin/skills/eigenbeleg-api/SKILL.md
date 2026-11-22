@@ -119,15 +119,19 @@ the body.
   budget, and keeps a receipt: `npm run agent -- --help` in a checkout of
   https://github.com/Le-Space/eigenbeleg-agent (settings from `.env`:
   `API_URL`, `AGENT_ACCOUNT_ID` and `AGENT_SECRET_KEY` or `AGENT_EVM_KEY`,
-  `AGENT_BUDGET`).
+  `AGENT_BUDGET`). In DOI: `--pay doi` (the agent's DOI key, from `AGENT_DOI_KEY`,
+  `AGENT_DOI_KEY_FILE` or `AGENT_DOI_KEYCHAIN`, budget `AGENT_BUDGET_DOI`) or
+  `--pay qr` (a person pays from a wallet); it waits for the block and can be
+  continued with `--resume <txid>`.
 
 ## Choices to settle with the person
 
 The request has choices that change what the person gets. Take each from what the person said. Where they said nothing, tell them the default you will use – or ask, when the answer is not obvious – before anything is bought: once, in one message, not question by question. Never make up the payer's name or address.
 
 - **Which document** (`document`): `eigenbelege` (the default: one Eigenbeleg per payment, for payments without a receipt from the other side), `kontoauszug` (the account's statement: opening balance, every booking, closing balance) or `beide`. "Receipts for my fees" means eigenbelege; "a statement", "the balance" or "what did the account do" means kontoauszug; "everything for my bookkeeping" means beide. For `aleph` and `filecoin-pay` the statement is a Verbrauchsauszug.
-- **Currency: EUR, and only EUR.** Every value is in euro at the rate of the payment's day; the documents are for German bookkeeping. No other base currency can be chosen yet (USD, CHF …): if the person asks for one, say so, and do not convert the figures yourself.
-- **The chain's logo** (`logo`, off by default): the network's mark, small, beside the title, to tell the documents of several chains apart. There is one for NEAR, Akash, Filecoin and Aleph Cloud; the other chains get none, without an error. It is the chain's mark, not the person's company logo: a logo of their own cannot be put on the documents yet. Switch it on when the person asks for a logo or for documents that are easy to tell apart; otherwise mention it only if they ask what can be changed.
+- **Currency** (`currency`, EUR by default): the currency the books are kept in, as an ISO 4217 code: EUR, USD, CHF, GBP, SEK, NOK, DKK, PLN, CZK, HUF, RON, ISK, TRY or RUB. A value in another currency than EUR is the euro rate of the payment's day times that currency's official rate of the day (the ECB's euro reference rate, USD too; for RUB the Bank of Russia's; only the crypto leg is CoinGecko's or Kraken's), and every position names both. One currency per document, no second EUR column. Ask only when the person's books are not in EUR (a company in Switzerland, say); never convert the figures yourself. Doichain's reference value stays in EUR per DOI; in another currency it is taken times the euro in that currency on the day, and both are named.
+- **The chain's logo** (`logo`, off by default): the network's mark, small, beside the title, to tell the documents of several chains apart. There is one for NEAR, Akash, Filecoin and Aleph Cloud; the other chains get none, without an error. It is the chain's mark, not the person's company logo: that is the next choice. Switch it on when the person asks for a logo or for documents that are easy to tell apart; otherwise mention it only if they ask what can be changed.
+- **Their own logo** (`issuerLogo`, none by default): the logo of the person's company, top right in the head of every Eigenbeleg, beside or without the chain's mark; a Kontoauszug or Verbrauchsauszug carries none. Only a file the person gives you (PNG or JPEG, at most 512 kB; no SVG): never take one from the web or make one up. Ask for it once when the person wants their own documents to look like theirs or asks for "our logo"; otherwise mention it only if they ask what can be changed. Tell them before buying that a subscription with Eigenbelege keeps the picture until it ends (one of statements alone keeps none, as no statement draws it), and a preview keeps it for 24 hours.
 - **The diagram** (`chart`, on by default): above a statement's bookings, the balance over the period or the consumption per day. Only on statements, and none for a period of one day or without bookings. Switch it off when the person wants a plain statement, tables only, or the fewest pages.
 - **What goes on an Eigenbeleg** (`includeKinds`): network fees and, on NEAR, storage deposits by default. Transfers and contract calls are payments to someone who may have sent a receipt; include them only when the person says those payments have none.
 - **Language:** the documents are German whatever is asked for.
@@ -170,6 +174,20 @@ After the preview, say what you are about to buy – document, period, these cho
 - `logo`: optional, the chain's mark beside the title.
 - `chart`: optional, `true` by default: the diagram above a statement's bookings
   (the balance over the period, or the consumption per day); `false` leaves it out.
+- `issuerLogo`: optional, the user's own logo (their company's), drawn top right
+  in the head of every Eigenbeleg (a Kontoauszug carries none). A PNG or JPEG file as plain base64 text (no
+  `data:` prefix): at most 512 kB and 2048 pixels a side, at most 6 times as wide
+  as high and twice as high as wide; no SVG, GIF or CMYK. Never logged, and
+  used for that one answer; the preview takes it too and checks it. Where the
+  preview answers with `issuerLogoId`, the server keeps that picture for 24
+  hours (encrypted, then deleted): send `"issuerLogoId": "…"` instead of
+  `issuerLogo` with the paid request, and tell the user it is kept for a day. A
+  subscription keeps it with its other details until its end: say so to the
+  user before buying one with a logo. Only a file the user gives you: read it from the
+  path they name and encode it (`base64 -w0 logo.png`, on macOS `base64 -i
+  logo.png`); never take a logo from the web or guess one. A picture outside the
+  limits is a 400 that says why, before anything is paid: tell the user what to
+  change.
 - `email`: optional, the files also by mail, once the payment is settled; only
   where `llms.txt` says the instance offers it.
 - `language`: optional, `en` (the default) or `de`: the language of that mail
@@ -191,6 +209,13 @@ person; it is also in every mail.
   Verbrauchsauszug: usage per day and resource, valued at the USD price per credit
   and the ECB rate of the day. `document: "eigenbelege"` gives one Eigenbeleg per
   purchase of credits. Usage itself gets no Eigenbeleg: it is no single payment.
+- **Doichain** (`chain: "doichain"`, by the own DOI address) has no published
+  rate, and no price feed is asked for it. For Eigenbelege, ask the person for
+  their own euro value per DOI and the day it holds from and send it as
+  `"reference": { "DOI": { "eur": "0.05", "from": "2026-01-01" } }`; the
+  documents name it as their reference value, not an exchange rate. Never make
+  one up or take it from a price site. Without it, only
+  `document: "kontoauszug"`, in DOI alone.
 - **Ethereum and Base** read the address's whole history, so a busy address takes
   a while; they are offered only where the instance has an Alchemy key.
 - **Many transactions** in a period: the preview shows the count first. A CSV

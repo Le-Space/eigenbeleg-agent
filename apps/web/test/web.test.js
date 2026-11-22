@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import { parseRequest } from '@eigenbeleg/pipeline';
-import { fileName, isNearblocksKey, rememberAccounts, rememberKey, rememberNearblocksKey, rememberedAccounts, rememberedKey, rememberedNearblocksKey, requestBody, splitAddresses } from '../src/request.js';
+import { samplePng } from '@le-space/pdf/testing/sample-images';
+import { fileName, isNearblocksKey, rememberAccounts, rememberKey, rememberNearblocksKey, rememberedAccounts, rememberedKey, rememberedNearblocksKey, rememberedPayer, rememberPayer, requestBody, splitAddresses, bytesToText, textToBytes } from '../src/request.js';
 
 /** @type {import('../src/request.js').FormValues} */
 const form = {
@@ -37,7 +38,39 @@ test('the form becomes the request the pipeline checks, as the API would', () =>
 	// The statement's diagram: on unless the form's box is unticked.
 	assert.equal(req.chart, true);
 	assert.equal(parseRequest(requestBody({ ...form, chart: false }), { today: '2026-11-06' }).chart, false);
+	// The documents' currency: EUR unless the dropdown says another; EUR is not even written into the body.
+	assert.equal(req.currency, 'EUR');
+	assert.ok(!('currency' in requestBody({ ...form, currency: 'EUR' })));
+	assert.equal(parseRequest(requestBody({ ...form, currency: 'CHF' }), { today: '2026-11-06' }).currency, 'CHF');
 	assert.equal(fileName('EB-2026/007 ä'), 'EB-2026_007__');
+});
+
+test('the issuer’s own logo goes into the request as its bytes, and is kept only with the payer', () => {
+	assert.ok(!('issuerLogo' in requestBody(form)));
+	const req = parseRequest(requestBody({ ...form, issuerLogo: samplePng() }), { today: '2026-11-06' });
+	assert.deepEqual(req.issuerLogo, samplePng());
+	assert.deepEqual(textToBytes(bytesToText(samplePng())), samplePng());
+	const large = Uint8Array.from({ length: 200_000 }, (_, i) => i % 251);
+	assert.deepEqual(textToBytes(bytesToText(large)), large);
+	assert.equal(textToBytes('not base64!'), null);
+
+	const store = new Map();
+	globalThis.localStorage = /** @type {any} */ ({ getItem: (/** @type {string} */ k) => store.get(k) ?? null, setItem: (/** @type {string} */ k, /** @type {string} */ v) => store.set(k, v), removeItem: (/** @type {string} */ k) => store.delete(k) });
+	try {
+		const payer = { name: 'Wolkenfabrik Hosting GmbH', postal: 'Musterstraße 1\n12345 Beispielstadt' };
+		assert.equal(rememberPayer(payer), true);
+		assert.deepEqual(rememberedPayer(), { ...payer, logo: null });
+		rememberPayer({ ...payer, logo: samplePng() });
+		assert.deepEqual(rememberedPayer(), { ...payer, logo: samplePng() });
+		assert.deepEqual([...store.keys()], ['payer'], 'one entry: the logo is forgotten with the payer');
+		rememberPayer(null);
+		assert.equal(store.size, 0);
+		// A full or blocked storage keeps nothing, and says so.
+		globalThis.localStorage = /** @type {any} */ ({ setItem: () => { throw new Error('quota'); } });
+		assert.equal(rememberPayer({ ...payer, logo: samplePng() }), false);
+	} finally {
+		delete (/** @type {any} */ (globalThis).localStorage);
+	}
 });
 
 test('chain, network and addresses are kept only while their "remember" is ticked', () => {
@@ -312,4 +345,14 @@ test('each language has its own address: head, alternates and markup in that lan
 	assert.equal(urlLang('?lang=de'), 'de');
 	assert.equal(urlLang('?lang=fr'), null);
 	assert.equal(urlLang(''), null);
+});
+
+test('a chain without a published rate (Doichain): the form\'s own reference value goes into the request', async () => {
+	const { requestBody, referenceEur } = await import('../src/request.js');
+	assert.deepEqual([referenceEur('0,05'), referenceEur(' 0.05 '), referenceEur('0'), referenceEur('fünf'), referenceEur('-1')], ['0.05', '0.05', null, null, null]);
+	const f = { chain: 'doichain', network: 'mainnet', addresses: 'dc1qexample', periodMode: /** @type {const} */ ('month'), month: '2026-10', from: '', to: '', name: 'Wolkenfabrik Hosting GmbH', postal: 'Musterstraße 1, 12345 Beispielstadt', number: '', statementNumber: '', includeKinds: ['fee'], logo: false, chart: true, document: /** @type {const} */ ('eigenbelege') };
+	assert.deepEqual(requestBody({ ...f, referenceAsset: 'DOI', referenceEur: '0,05', referenceFrom: '2026-01-01' }).reference, { DOI: { eur: '0.05', from: '2026-01-01' } });
+	assert.equal('reference' in requestBody({ ...f, referenceAsset: 'DOI', referenceEur: '', referenceFrom: '' }), false);
+	// another chain never carries one, whatever is left in the fields
+	assert.equal('reference' in requestBody({ ...f, chain: 'near', referenceAsset: '', referenceEur: '0,05', referenceFrom: '2026-01-01' }), false);
 });

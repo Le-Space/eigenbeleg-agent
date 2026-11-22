@@ -4,7 +4,9 @@ import assert from 'node:assert/strict';
 
 import { moduleAddress } from '@le-space/chains/bech32';
 
-import { RequestError, parseRequest } from '../src/request.js';
+import { sampleJpeg, samplePng } from '@le-space/pdf/testing/sample-images';
+
+import { ISSUER_LOGO_MAX_BYTES, RequestError, issuerLogoImage, parseRequest } from '../src/request.js';
 
 const ok = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-10-01', to: '2026-10-31' }, payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' } };
 const refused = (over) => assert.throws(() => parseRequest({ ...ok, ...over }), RequestError);
@@ -67,4 +69,41 @@ test('email: one mailbox, optional, never in the preview', () => {
 	refused({ email: 'belege@localhost' });
 	refused({ email: ['belege@example.org'] });
 	assert.throws(() => parseRequest({ ...ok, payer: undefined, email: 'belege@example.org' }, { preview: true }), /preview takes no email/);
+});
+
+test('the issuer’s own logo: a PNG or JPEG file as base64 or as bytes, checked before anything is paid', () => {
+	const base64 = (/** @type {Uint8Array} */ b) => Buffer.from(b).toString('base64');
+	assert.equal(parseRequest(ok).issuerLogo, null);
+	assert.equal(parseRequest({ ...ok, issuerLogo: null }).issuerLogo, null);
+	for (const file of [samplePng(), sampleJpeg()]) {
+		// The API's JSON carries base64; the page and the command line hand the bytes in.
+		assert.deepEqual(parseRequest({ ...ok, issuerLogo: base64(file) }).issuerLogo, file);
+		assert.deepEqual(parseRequest({ ...ok, issuerLogo: file }).issuerLogo, file);
+	}
+	const why = (/** @type {unknown} */ issuerLogo) => {
+		try {
+			parseRequest({ ...ok, issuerLogo });
+		} catch (e) {
+			assert.ok(e instanceof RequestError, String(e));
+			return e.message;
+		}
+		return assert.fail('not refused');
+	};
+	assert.match(why(true), /^issuerLogo: a PNG or JPEG file as base64 text/);
+	assert.match(why(''), /^issuerLogo: a PNG or JPEG file as base64 text/);
+	assert.match(why(`data:image/png;base64,${base64(samplePng())}`), /^issuerLogo: plain base64 text/);
+	assert.match(why(`${base64(samplePng())}\n`), /^issuerLogo: plain base64 text/);
+	assert.match(why(base64(new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>'))), /^issuerLogo: the picture must be a PNG or a JPEG file/);
+	assert.match(why(base64(samplePng().subarray(0, 60))), /^issuerLogo: the PNG file/);
+	// Too large is said before the text is unpacked, and for bytes as well.
+	assert.match(why('A'.repeat(Math.ceil(ISSUER_LOGO_MAX_BYTES / 3) * 4 + 4)), /^issuerLogo: the file has more than 512 kB/);
+	assert.match(why(new Uint8Array(ISSUER_LOGO_MAX_BYTES + 1)), /^issuerLogo: the file has 513 kB; at most 512 kB/);
+	// The preview draws nothing, and checks the picture all the same: a bad one is known before the payment.
+	const preview = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: ok.period };
+	assert.deepEqual(parseRequest({ ...preview, issuerLogo: base64(samplePng()) }, { preview: true }).issuerLogo, samplePng());
+	assert.throws(() => parseRequest({ ...preview, issuerLogo: base64(samplePng().subarray(0, 60)) }, { preview: true }), /issuerLogo: the PNG file/);
+	// What the page shows and keeps: the picture as the documents carry it.
+	const shown = issuerLogoImage(sampleJpeg());
+	assert.deepEqual([shown.type, shown.width, shown.height], ['jpeg', 240, 80]);
+	assert.throws(() => issuerLogoImage(new Uint8Array(40)), RequestError);
 });

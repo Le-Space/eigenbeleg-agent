@@ -5,7 +5,9 @@ import { readFile } from 'node:fs/promises';
 import { paymentMiddleware, x402ResourceServer } from '@x402/express';
 import { ExactNearScheme } from '@x402/near/exact/server';
 import { fixedRates } from '@le-space/eigenbeleg';
+import { sampleJpeg, samplePng } from '@le-space/pdf/testing/sample-images';
 
+import { CURRENCIES } from '@eigenbeleg/pipeline';
 import { createApp } from '../src/app.js';
 import { recordedNear } from '../../agent/src/recorded.js';
 
@@ -180,6 +182,52 @@ test('GET / names the licence and where the running source is (AGPL section 13)'
 
 const preview = (base, body, path = '/eigenbeleg/preview') =>
 	globalThis.fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
+test('the issuer’s own logo: on the documents of that answer, refused with the reason, never in the log; not for the preview', async () => {
+	const lines = [];
+	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: (l) => lines.push(l), web: null }));
+	const text = (/** @type {Uint8Array} */ b) => Buffer.from(b).toString('base64');
+	try {
+		const plain = Buffer.from(await (await post(base, job)).arrayBuffer());
+		for (const file of [samplePng(), sampleJpeg()]) {
+			const r = await post(base, { ...job, issuerLogo: text(file) });
+			assert.equal(r.status, 200);
+			const pdf = Buffer.from(await r.arrayBuffer());
+			assert.equal(pdf.subarray(0, 8).toString(), '%PDF-1.7');
+			assert.ok(pdf.length > plain.length + 200, `${pdf.length} > ${plain.length}`);
+			assert.match(pdf.toString('latin1'), /\/Subtype\s*\/Image/);
+		}
+		assert.doesNotMatch(plain.toString('latin1'), /\/Subtype\s*\/Image/);
+		// The statement carries none (@le-space/eigenbeleg 0.6.0): it shows what the account did, it is not the issuer's receipt.
+		const ka = await (await post(base, { ...job, format: 'json', document: 'kontoauszug', issuerLogo: text(samplePng()) })).json();
+		assert.doesNotMatch(Buffer.from(ka.kontoauszuegePdf[0].pdf, 'base64').toString('latin1'), /\/Subtype\s*\/Image/);
+
+		// A body with a picture is larger than the 32 kB of every other route: it is read, and judged as a picture.
+		const noPicture = await post(base, { ...job, issuerLogo: text(new Uint8Array(100_000)) });
+		assert.equal(noPicture.status, 400);
+		assert.deepEqual(await noPicture.json(), { error: 'issuerLogo: the picture must be a PNG or a JPEG file' });
+		const svg = await post(base, { ...job, issuerLogo: text(new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>')) });
+		assert.match((await svg.json()).error, /^issuerLogo: the picture must be a PNG or a JPEG file/);
+		assert.equal((await post(base, { ...job, issuerLogo: 'A'.repeat(1_000_000) })).status, 413, 'beyond the route\'s body limit');
+		assert.match((await (await post(base, { ...job, issuerLogo: 'A'.repeat(700_000) })).json()).error, /^issuerLogo: the file has more than 512 kB/);
+
+		// The preview draws nothing, and checks the picture: the same summary with a good one, the reason for a bad one.
+		const { payer: _payer, ...body } = job;
+		const p = await preview(base, { ...body, issuerLogo: text(samplePng()) });
+		assert.equal(p.status, 200);
+		const summary = await p.json();
+		assert.deepEqual(summary, await (await preview(base, body)).json());
+		assert.doesNotMatch(JSON.stringify(summary), /issuerLogo|iVBOR/);
+		const badPreview = await preview(base, { ...body, issuerLogo: text(new Uint8Array(100_000)) });
+		assert.equal(badPreview.status, 400);
+		assert.deepEqual(await badPreview.json(), { error: 'issuerLogo: the picture must be a PNG or a JPEG file' });
+
+		// Nothing of the picture in the log.
+		assert.ok(lines.every((l) => l.length < 400 && !l.includes(text(samplePng()).slice(0, 24))), 'no body in a log line');
+	} finally {
+		close();
+	}
+});
 
 test('the free preview: the summary without the payer, the same checks, a limit per IP', async () => {
 	const lines = [];
@@ -399,12 +447,15 @@ test('GET /llms.txt tells agents what is sold, the price and the x402 steps', as
 		assert.match(text, /^# Eigenbeleg API/);
 		assert.match(text, /POST https:\/\/eigenbeleg\.example\.org\/eigenbeleg: USDC on NEAR testnet \(near:testnet\): \$0\.10 to eigenbeleg-api\.testnet; Base \(eip155:8453\): \$0\.10 to 0x1111/);
 		assert.match(text, /transferWithAuthorization/);
-		// The choices an agent settles with the person: which document, the currency (EUR only), the chain's logo, the diagram.
-		assert.match(text, /## Choices to settle with the person[\s\S]*tell them the default you will use[\s\S]*Currency: EUR, and only EUR[\s\S]*`logo`, off by default[\s\S]*not the person's company logo[\s\S]*`chart`, on by default/);
+		// The choices an agent settles with the person: which document, the currency (EUR by default), the chain's logo, the diagram.
+		assert.match(text, /## Choices to settle with the person[\s\S]*tell them the default you will use[\s\S]*Currency\*\* \(`currency`, EUR by default\)[\s\S]*Bank of Russia[\s\S]*`logo`, off by default[\s\S]*not the person's company logo[\s\S]*`chart`, on by default/);
 		assert.match(text, /PAYMENT-REQUIRED[\s\S]*PAYMENT-SIGNATURE[\s\S]*PAYMENT-RESPONSE/);
 		assert.match(text, /web UI at https:\/\/eigenbeleg\.example\.org\/ui\/ instead: it does everything in their browser/);
-		assert.match(text, /"chain": "near" \| "akash" \| "filecoin" \| "filecoin-pay" \| "aleph"/);
+		assert.match(text, /"chain": "near" \| "akash" \| "filecoin" \| "doichain" \| "bitcoin" \| "filecoin-pay" \| "aleph"/);
 		assert.match(text, /- aleph \(Aleph Cloud credits/);
+		// The issuer's own logo: the field, its limits, and that it is the user's own file.
+		assert.match(text, /"issuerLogo": "iVBORw0KGgo…"/);
+		assert.match(text, /- issuerLogo: the logo of the person or company the documents are for[^\n]*PNG or JPEG[^\n]*at most 512 kB[^\n]*Never logged[^\n]*a subscription with Eigenbelege[^\n]*which keeps the picture encrypted[^\n]*statements alone keeps none[^\n]*The free preview takes it too[^\n]*never fetch a logo from the web yourself/);
 		assert.equal((await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json()).agents, '/llms.txt');
 	} finally {
 		close();
@@ -491,6 +542,10 @@ test('the files by mail: queued once the answer is out, stable subject and file 
 		assert.match(m.html, /href="https:\/\/eigenbeleg\.example\.org\/ui\/"/);
 		// English is the default; the language is checked like every field.
 		assert.equal((await post(base, { ...job, language: 'fr' })).status, 400);
+		// The documents' currency is checked like every field, and the 400 lists the codes.
+		const badCurrency = await post(base, { ...job, currency: 'JPY' });
+		assert.equal(badCurrency.status, 400);
+		assert.match((await badCurrency.json()).error, /^currency: one of EUR, USD, CHF, GBP, SEK, NOK, DKK, PLN, CZK, HUF, RON, ISK, TRY, RUB/);
 		const { composeMail } = await import('../src/mail.js');
 		const summary = { eigenbelege: ['EB-2026-042'], number: 'EB-2026-042', period: { from: '2026-11-01', to: '2026-11-30' }, chain: 'near', network: 'mainnet', transactions: 1, positions: 1, totalEur: '0.01', kontoauszuege: [{ number: 'KA-2026-11-01', account: 'relay.aurora', assets: [{ asset: 'NEAR', opening: '1', closing: '1', reconciled: true }] }] };
 		const en = composeMail({ ...job, email: 'belege@example.org', language: 'en', document: 'kontoauszug' }, { summary, pdf: null, csv: null, statements: [] });
@@ -618,6 +673,7 @@ test('the test route: testnet data only, its own testnet 402, TEST- files, limit
 		assert.match(await (await globalThis.fetch(base + '/llms.txt')).text(), /## Test \(testnet\)\n\n- POST http:\/\/127\.0\.0\.1:\d+\/testnet\/eigenbeleg: the same documents for testnet addresses only/);
 
 		assert.ok((await (await globalThis.fetch(base + '/testnet/blocks')).json()).blocks.length, 'the API base /testnet has the blocks too');
+		assert.deepEqual((await (await globalThis.fetch(base + '/blocks')).json()).currencies, CURRENCIES, 'and the currencies a document can be in');
 		// 8: the per-IP limit counts the 402s too (8 above, so the 9th is too many).
 		const limited = await tpost(tjob);
 		assert.equal(limited.status, 429);

@@ -1,6 +1,6 @@
 {
   "name": "@eigenbeleg/api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -8,7 +8,7 @@
   "dependencies": {
     "@eigenbeleg/onchain-pay": "0.1.0",
     "@eigenbeleg/pipeline": "0.1.0",
-    "@le-space/eigenbeleg": "0.3.0",
+    "@le-space/eigenbeleg": "0.6.1",
     "@pingpay/agentpay-middleware": "^0.2.0",
     "@x402/core": "^2.30.0",
     "@x402/evm": "^2.30.0",
@@ -18,5 +18,8 @@
     "express": "^5.3.0",
     "nodemailer": "^10.4.0",
     "viem": "^2.57.17"
+  },
+  "devDependencies": {
+    "@le-space/pdf": "0.2.0"
   }
 }

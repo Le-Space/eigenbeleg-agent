@@ -8,13 +8,16 @@
 //      drafts the missing block as a pull request with tests (propose.js) and
 //      stops – a person reviews and merges it;
 //   3. otherwise it pays the API through x402 – never above its budget – and
-//      gets the Eigenbeleg as PDF and CSV;
+//      gets the Eigenbeleg as PDF and CSV (in DOI the payment needs a block
+//      first: doi-payer.js waits for it);
 //   4. checks what it got (a PDF/A, a CSV whose positions match the summary)
 //      and writes a receipt: what was bought, from whom, at what price, the
 //      payment's transaction, and whether the work passed the check.
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+
+import { DOICHAIN } from '@eigenbeleg/onchain-pay/networks';
 
 import { proposeBlock } from './propose.js';
 
@@ -128,12 +131,12 @@ export async function runJob({ job, api, fetch, paidFetch, outDir, say = console
 		checks,
 		passed,
 		files,
-		summary: { eigenbelege: body.eigenbelege, positions: body.positions, notOnIt: body.notOnIt, totalEur: body.totalEur, quantities: body.quantities, kontoauszuege: body.kontoauszuege },
+		summary: { eigenbelege: body.eigenbelege, positions: body.positions, notOnIt: body.notOnIt, totalEur: body.totalEur, currency: body.currency ?? 'EUR', quantities: body.quantities, kontoauszuege: body.kontoauszuege },
 		at: new Date().toISOString()
 	};
 	await writeFile(join(outDir, `${base}.receipt.json`), JSON.stringify(receipt, null, 2) + '\n');
 	const ka = (body.kontoauszuege ?? []).map((/** @type {any} */ k) => `${k.number} (${k.assets.map((/** @type {any} */ a) => `${a.asset} ${a.opening} → ${a.closing}${a.reconciled ? ', reconciled' : a.reconciled === false ? ', NOT reconciled' : ''}`).join('; ')})`);
-	if (pdf) say(`Got ${(body.eigenbelege ?? []).length} Eigenbeleg(e) ${body.number}: ${body.positions} payments, ${body.totalEur} EUR.`);
+	if (pdf) say(`Got ${(body.eigenbelege ?? []).length} Eigenbeleg(e) ${body.number}: ${body.positions} payments, ${body.totalEur} ${body.currency ?? 'EUR'}.`);
 	if (ka.length) say(`Got Kontoauszug ${ka.join('; ')}.`);
 	say(`Check ${passed ? 'passed' : 'FAILED'}.`);
 	if (receipt.transaction) say(`Paid: ${receipt.explorer ?? receipt.transaction}`);
@@ -202,5 +205,6 @@ function decodeHeader(h) {
 function explorerUrl(network, tx) {
 	if (network === 'near:testnet') return `https://testnet.nearblocks.io/txns/${tx}`;
 	if (network === 'near:mainnet') return `https://nearblocks.io/txns/${tx}`;
+	if (network === DOICHAIN.caip2) return DOICHAIN.explorer.tx.replace('{tx}', encodeURIComponent(tx));
 	return null;
 }

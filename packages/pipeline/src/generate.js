@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// One request, start to end: read the chain, value in EUR, build the
+// One request, start to end: read the chain, value in EUR (or the
+// request's currency), build the
 // Eigenbelege (one per transaction) and the Kontoauszug per account, draw
 // the files. Nothing is kept afterwards. Runs in Node (the API) and in a
 // browser (the web UI) alike.
 
 import { sortEntries } from '@le-space/ledger';
 import { buildDocument, buildStatement, eigenbelegCsv, eigenbelegPdf, statementPdf, valueEntries } from '@le-space/eigenbeleg';
-import { dayRates } from './rates.js';
+import { dayRates, referenceRates } from './rates.js';
 import { BLOCKS } from './blocks.js';
 
 /**
@@ -25,7 +26,8 @@ export const reconciled = (difference) => (difference === null ? null : /^-?0(\.
 
 /**
  * @param {ReturnType<typeof import('./request.js').parseRequest>} req
- * @param {{ fetch?: typeof fetch, rates?: import('@le-space/eigenbeleg').Rates, nearblocksKey?: string, alchemyKey?: string, blocks?: Record<string, import('./blocks.js').Block>, now?: () => Date, probeDay?: string, endpoints?: Record<string, Record<string, string>> }} [deps]
+ * @param {{ fetch?: typeof fetch, rates?: import('@le-space/eigenbeleg').Rates, nearblocksKey?: string, alchemyKey?: string, blocks?: Record<string, import('./blocks.js').Block>, now?: () => Date, probeDay?: string, endpoints?: Record<string, Record<string, string>>, connect?: (url: string) => Promise<any> }} [deps]
+ *   connect: instead of a WebSocket to an ElectrumX server (Doichain), for tests
  *   blocks: what this side serves (BLOCKS when not given; the API with an Alchemy key: `blocksFor(deps)`, keyed.js)
  *   alchemyKey: the server's, for the EVM blocks; it goes to their reads only
  *   endpoints: per chain, endpoints to use instead of the reader's own, e.g. `{ akash: { indexer: 'https://…' } }` for a CORS proxy
@@ -38,7 +40,7 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	if (!block) throw new Error(`no building block for chain ${req.chain} here`);
 	const wantBelege = req.document !== 'kontoauszug';
 	const wantStatement = req.document !== 'eigenbelege';
-	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey, endpoints: deps.endpoints?.[req.chain], ...(block.needs === 'alchemyKey' ? { alchemyKey: deps.alchemyKey } : {}) };
+	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey, endpoints: deps.endpoints?.[req.chain], own: req.addresses, ...(deps.connect ? { connect: deps.connect } : {}), ...(block.needs === 'alchemyKey' ? { alchemyKey: deps.alchemyKey } : {}) };
 	/** @type {import('@le-space/ledger').LedgerEntry[]} */
 	const entries = [];
 	/** @type {{ account: string, opening: Record<string, string>, closing: Record<string, string>, method: 'archive' | 'derived', at: any }[]} */
@@ -52,10 +54,16 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 		} else entries.push(...(await block.read({ ...read, account })));
 	}
 	onProgress?.({ step: 'rates' });
-	const rates = deps.rates ?? dayRates({ fetch: deps.fetch });
-	const valued = await valueEntries(sortEntries(entries), rates);
+	// An asset no price source quotes (DOI) is valued by the request's reference value and by nothing else: with
+	// no value handed in its table is empty, so it gets no euro value and never reaches a price feed. In another
+	// currency the reference value (EUR) is taken times the euro in it on the day.
+	// The request's currency (EUR unless another): the rates come in it, and the documents are in it.
+	const currency = req.currency ?? 'EUR';
+	const priced = deps.rates ?? dayRates({ fetch: deps.fetch, currency });
+	const rates = block.referenceAssets?.length ? referenceRates(priced, Object.fromEntries(block.referenceAssets.map((a) => [a, req.reference?.[a] ?? []])), currency) : priced;
+	const valued = await valueEntries(sortEntries(entries), rates, { currency });
 	const issuedAt = (deps.now?.() ?? new Date()).toISOString();
-	const doc = buildDocument({ payer: req.payer, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single' });
+	const doc = buildDocument({ payer: req.payer, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single', currency });
 	const belege = new Map(doc.transactions.map((t) => [t.hash, t.number]));
 	const statements = balances.map((b, i) =>
 		buildStatement({
@@ -71,7 +79,8 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 			at: b.at,
 			belege,
 			number: balances.length > 1 ? `${req.statementNumber}-${i + 1}` : req.statementNumber,
-			issuedAt
+			issuedAt,
+			currency
 		})
 	);
 	const summary = {
@@ -83,7 +92,9 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 		positions: doc.positions.length,
 		transactions: doc.transactions.length,
 		notOnIt: doc.excluded.length,
+		// `totalEur` keeps its name and holds the total in `currency`.
 		totalEur: doc.totals.eur,
+		currency,
 		quantities: doc.totals.quantities,
 		kontoauszuege: statements.map((s) => ({
 			number: s.number,
@@ -97,7 +108,8 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	// `req.logo`: the chain's mark, small, beside the title, when asked for (@le-space/pdf's LOGOS;
 	// a chain without a mark gets none).
 	// `req.chart`: the diagram above a statement's bookings, drawn unless the request switches it off.
-	const pdf = req.format !== 'csv' && wantBelege ? await eigenbelegPdf(doc, { logo: req.logo }) : null;
+	// `req.issuerLogo`: the issuer's own logo (a PNG or JPEG file's bytes), top right in the head of an Eigenbeleg; a statement carries none.
+	const pdf = req.format !== 'csv' && wantBelege ? await eigenbelegPdf(doc, { logo: req.logo, issuerLogo: req.issuerLogo }) : null;
 	const statementPdfs = [];
 	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s, { logo: req.logo, chart: req.chart }) });
 	const csv = req.format === 'pdf' ? null : eigenbelegCsv(doc);

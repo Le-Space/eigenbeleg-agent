@@ -14,6 +14,8 @@
 // third party sees a payment – so these hints do not put it into such a
 // catalogue by themselves; they are what any reader of the 402 gets.
 
+import { CURRENCIES } from '@eigenbeleg/pipeline/request';
+
 /** The body of POST /eigenbeleg; `chain` is one of GET /blocks. */
 export const REQUEST_SCHEMA = /** @type {const} */ ({
 	type: 'object',
@@ -38,8 +40,12 @@ export const REQUEST_SCHEMA = /** @type {const} */ ({
 		statementNumber: { type: 'string', maxLength: 40, description: 'Optional: the number of the Kontoauszug.' },
 		includeKinds: { type: 'array', items: { type: 'string', enum: ['fee', 'storage', 'transfer', 'call', 'swap'] }, description: 'Optional: the kinds of payment to write receipts for, of those the chain has (GET /blocks).' },
 		logo: { type: 'boolean', description: 'Optional: the chain\'s mark, small, beside the title.' },
+		reference: { type: 'object', description: 'Only for a chain whose asset has no published rate (doichain: DOI): the payer\'s own euro value per unit, e.g. { "DOI": { "eur": "0.05", "from": "2026-01-01" } }. Printed as the payer\'s reference value, not an exchange rate. Needed for Eigenbelege there; without it only the statement.' },
 		chart: { type: 'boolean', description: 'Optional, default true: the diagram above a statement\'s bookings (the balance over the period, or the consumption per day). false leaves it out.' },
+		issuerLogo: { type: 'string', contentEncoding: 'base64', maxLength: 699052, description: 'Optional: the payer\'s own logo, drawn top right in the head of every Eigenbeleg (a Kontoauszug carries none). A PNG or JPEG file as plain base64 text: at most 512 kB and 2048 pixels a side, at most 6 times as wide as high and twice as high as wide. Never logged; used for this response only, except by a subscription with Eigenbelege, which keeps it encrypted with its other details until its end (one of statements alone keeps none). The preview checks it and draws nothing.' },
+		issuerLogoId: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'Optional, instead of issuerLogo, where the instance keeps a preview\'s picture: the id POST /eigenbeleg/preview answered with for a picture sent there. Valid for 24 hours; then the picture is deleted.' },
 		email: { type: 'string', maxLength: 254, description: 'Optional, where the instance offers mail: the files also to this address, used for that one mail.' },
+		currency: { type: 'string', enum: [...CURRENCIES], description: 'Optional, default EUR: the currency of the documents (ISO 4217; GET /blocks lists them as currencies). Another than EUR is the euro rate of the payment\'s day times that currency\'s official rate of the day (ECB euro reference rate, USD too; RUB: Bank of Russia; a reference value in EUR, DOI, times the same leg), both named on every position. The value fields keep their names (eur, totalEur) and hold the value in this currency.' },
 		language: { type: 'string', enum: ['de', 'en'], description: 'Optional, default en: the language of the mail. The documents are German.' }
 	},
 	required: ['chain', 'addresses', 'period', 'payer']
@@ -149,7 +155,7 @@ export function openapi({ base, payment, chains, terms, source, subscriptions = 
 						}
 					}
 				: {}),
-			'/blocks': { get: { operationId: 'blocks', summary: 'The chains this instance serves, with their networks, assets and kinds.', responses: { 200: { description: 'The building blocks.', content: { 'application/json': { schema: { type: 'object' } } } } } } },
+			'/blocks': { get: { operationId: 'blocks', summary: 'The chains this instance serves, with their networks, assets and kinds, and the currencies a document can be in.', responses: { 200: { description: 'The building blocks.', content: { 'application/json': { schema: { type: 'object' } } } } } } },
 			'/llms.txt': { get: { operationId: 'llms', summary: 'The same, as plain text for agents.', responses: { 200: { description: 'Plain text.', content: { 'text/plain': { schema: { type: 'string' } } } } } } }
 		},
 		components: {

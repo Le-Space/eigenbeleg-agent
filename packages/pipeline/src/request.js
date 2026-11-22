@@ -4,7 +4,8 @@
 // and dropped; it is never logged or stored.
 
 import { monthPeriod } from '@le-space/ledger';
-import { DEFAULT_KINDS } from '@le-space/eigenbeleg/document';
+import { DEFAULT_KINDS, DOCUMENT_CURRENCIES } from '@le-space/eigenbeleg/document';
+import { IMAGE_LIMITS, ImageError, pdfImage } from '@le-space/pdf/image';
 import { BLOCKS } from './blocks.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -13,8 +14,14 @@ const FORMATS = new Set(['pdf', 'csv', 'json']);
 const DOCUMENTS = new Set(['eigenbelege', 'kontoauszug', 'beide']);
 const KINDS = new Set(['fee', 'storage', 'transfer', 'call', 'swap']);
 const MAX_DAYS = 92;
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+/** The longest base64 text a file within the picture's limit can have. */
+const MAX_LOGO_TEXT = Math.ceil(IMAGE_LIMITS.bytes / 3) * 4;
 
 export class RequestError extends Error {}
+
+/** The currencies a document can be in (ISO 4217): EUR, the default, and those with an official rate against it (@le-space/eigenbeleg). */
+export const CURRENCIES = Object.freeze(Object.keys(DOCUMENT_CURRENCIES));
 
 /** One mailbox: local part, @, a host with a dot; no spaces, brackets or display names. */
 const EMAIL = /^[^\s@<>,;"()[\]]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
@@ -27,11 +34,56 @@ function isDate(d) {
 }
 
 /**
+ * The issuer's own logo of a request: a PNG or JPEG file, as base64 text (the API's JSON) or as
+ * its bytes (a caller in the same process: the page, the command line). Checked here, before
+ * anything is paid or read: the same check the drawing runs, so a picture that passes is drawn.
+ *
+ * @param {unknown} given
+ * @returns {Uint8Array | null} the file's bytes
+ */
+function issuerLogoBytes(given) {
+	if (given === undefined || given === null) return null;
+	const kb = Math.floor(IMAGE_LIMITS.bytes / 1024);
+	let bytes;
+	if (given instanceof Uint8Array) bytes = given;
+	else {
+		if (typeof given !== 'string' || !given.length) throw new RequestError(`issuerLogo: a PNG or JPEG file as base64 text, at most ${kb} kB`);
+		if (given.length > MAX_LOGO_TEXT) throw new RequestError(`issuerLogo: the file has more than ${kb} kB; at most ${kb} kB`);
+		if (given.length % 4 !== 0 || !BASE64.test(given)) throw new RequestError('issuerLogo: plain base64 text of the file (no data: prefix, no line breaks)');
+		const text = atob(given);
+		bytes = new Uint8Array(text.length);
+		for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i);
+	}
+	issuerLogoImage(bytes);
+	return bytes;
+}
+
+/** The largest file an issuer's logo may be, in bytes. */
+export const ISSUER_LOGO_MAX_BYTES = IMAGE_LIMITS.bytes;
+
+/**
+ * A file someone chose as their logo, checked and reduced to its picture (a PNG laid on white,
+ * a JPEG without its EXIF): what the documents will carry, with its size in pixels. A file
+ * that cannot be a logo is a RequestError that says why.
+ *
+ * @param {Uint8Array} bytes the file
+ * @returns {import('@le-space/pdf/image').PdfImage}
+ */
+export function issuerLogoImage(bytes) {
+	try {
+		return pdfImage(bytes);
+	} catch (e) {
+		if (e instanceof ImageError) throw new RequestError(`issuerLogo: ${e.message}`);
+		throw e;
+	}
+}
+
+/**
  * @param {any} body
  * @param {{ preview?: boolean, today?: string, blocks?: Record<string, import('./blocks.js').Block> }} [opts] today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
  *   must not get the payer's name and address (a body with `payer` is refused) and has no format; blocks: what this side serves
  *   (the API with an Alchemy key: `blocksFor(deps)`, keyed.js), the keyless BLOCKS when not given
- * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean, chart: boolean, email: string | null, language: 'de' | 'en' }}
+ * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean, chart: boolean, issuerLogo: Uint8Array | null, email: string | null, language: 'de' | 'en', currency: string, reference: Record<string, { from: string, eur: string, by: string }[]> }}
  */
 export function parseRequest(body, { preview = false, today, blocks = BLOCKS } = {}) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
@@ -97,6 +149,12 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	// The diagram above a statement's bookings (the balance, or the consumption per day): on unless switched off.
 	const chart = body.chart ?? true;
 	if (typeof chart !== 'boolean') throw new RequestError('chart: true or false');
+	// The issuer's own logo, top right in the head of every Eigenbeleg (a statement carries none): a PNG or JPEG file. Used for
+	// this one answer and dropped, like the payer's name and address. The preview draws nothing,
+	// but checks the picture, so one that would be refused is known before anything is paid.
+	// The id of a picture a preview kept is the API's to resolve; here, on the page and on the command line there is no such store.
+	if (body.issuerLogoId !== undefined && body.issuerLogoId !== null) throw new RequestError('issuerLogoId: nothing is kept here; send the file as issuerLogo');
+	const issuerLogo = issuerLogoBytes(body.issuerLogo);
 	// The files also by mail (for a document management system's inbox): one address, used for that
 	// one mail. The preview sends nothing, so it takes none.
 	if (preview && body.email !== undefined) throw new RequestError('the preview takes no email: the files go only with the paid POST /eigenbeleg');
@@ -105,6 +163,10 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	// The language of the mail (and of what else is said to the person); the documents are German either way.
 	const language = body.language ?? 'en';
 	if (language !== 'de' && language !== 'en') throw new RequestError('language: "de" or "en" (the language of the mail; the documents are German)');
+	// The currency the documents are in (ISO 4217): EUR unless another is asked for. A value in another
+	// currency is the euro rate of the day times that currency's official rate of the day, both named.
+	const currency = body.currency ?? 'EUR';
+	if (typeof currency !== 'string' || !CURRENCIES.includes(currency)) throw new RequestError(`currency: one of ${CURRENCIES.join(', ')} (ISO 4217, default EUR)`);
 	// Only the kinds the chain has (storage deposits are NEAR's); the default is what the chain has of fee
 	// and storage, or the block's own default (NEAR: its swaps too; Aleph: its credit purchases).
 	const kindsOffered = block.kinds ?? [...KINDS];
@@ -113,7 +175,34 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	const foreign = includeKinds.filter((k) => !kindsOffered.includes(k));
 	if (foreign.length) throw new RequestError(`includeKinds: ${chain} has ${kindsOffered.join(', ') || 'no kinds (a statement only)'}, not ${foreign.join(', ')}`);
 
+	// A reference value for an asset no price source quotes (Doichain's DOI): the issuer's own figure, in EUR
+	// per unit, from a day on. It is printed as such ("Referenzwert von …, Stand …, kein Börsenkurs").
+	/** @type {Record<string, { from: string, eur: string, by: string }[]>} */
+	const reference = {};
+	if (body.reference !== undefined) {
+		const assets = block.referenceAssets ?? [];
+		if (!body.reference || typeof body.reference !== 'object' || Array.isArray(body.reference)) throw new RequestError('reference: an object like { "DOI": { "eur": "0.05", "from": "2026-01-01" } }');
+		for (const [asset, given] of Object.entries(body.reference)) {
+			if (!assets.includes(asset)) throw new RequestError(`reference: ${chain} takes a reference value for ${assets.join(', ') || 'no asset'}, not for ${String(asset).slice(0, 20)}`);
+			const lines = Array.isArray(given) ? given : [given];
+			if (lines.length < 1 || lines.length > 12) throw new RequestError('reference: one to twelve values per asset');
+			reference[asset] = lines.map((line) => {
+				if (!line || typeof line !== 'object' || typeof line.eur !== 'string' || !/^\d{1,9}(\.\d{1,12})?$/.test(line.eur) || !(Number(line.eur) > 0)) throw new RequestError('reference: eur is a positive decimal string like "0.05" (EUR per unit)');
+				if (!isDate(line.from)) throw new RequestError('reference: from is the day the value holds from, YYYY-MM-DD');
+				// Who set it is the issuer; the preview names nobody.
+				return { from: line.from, eur: line.eur, by: preview ? '' : payer.name.trim() };
+			});
+		}
+	}
+
+	// A reference value is the issuer's figure in EUR; in another currency it is taken times the euro in it on the day (generate).
+	// An Eigenbeleg is a euro amount: for an asset nothing quotes it needs the issuer's value. The statement does not.
+	const unvalued = (block.referenceAssets ?? []).filter((a) => !reference[a]);
+	if (!preview && unvalued.length && document !== 'kontoauszug')
+		throw new RequestError(`reference: ${unvalued.join(', ')} has no published rate, and an Eigenbeleg needs a euro value. Hand in your own reference value, e.g. "reference": { "${unvalued[0]}": { "eur": "0.05", "from": "2026-01-01" } }, or ask for "document": "kontoauszug" (in ${unvalued.join(', ')} only)`);
+
 	return {
+		reference,
 		chain,
 		network,
 		addresses,
@@ -126,7 +215,9 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 		includeKinds,
 		logo,
 		chart,
+		issuerLogo,
 		email,
-		language
+		language,
+		currency
 	};
 }

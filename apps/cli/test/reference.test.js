@@ -18,7 +18,7 @@ const CLI = fileURLToPath(new URL('../src/cli.js', import.meta.url));
 test('one --reference is the job field { DOI: { eur, from } }', () => {
 	assert.deepEqual(parseReference(['DOI=0.05@2026-01-01']), { DOI: { eur: '0.05', from: '2026-01-01' } });
 	assert.deepEqual(parseReference(['doi=0.05@2026-01-01']), { DOI: { eur: '0.05', from: '2026-01-01' } }, 'the asset in capitals');
-	assert.equal(parseReference(undefined), undefined, 'no option, no reference: nothing is made up');
+	assert.equal(parseReference(undefined), undefined, 'no option, no field: the pipeline then takes its default');
 	assert.equal(parseReference([]), undefined);
 });
 
@@ -45,8 +45,8 @@ test('the pipeline takes the option’s field for Doichain Eigenbelege, as from 
 	const fromJob = parseRequest({ ...body, reference: { DOI: { eur: '0.05', from: '2026-01-01' } } }, { today: '2026-11-22' });
 	assert.deepEqual(fromOption.reference, fromJob.reference);
 	assert.deepEqual(fromOption.reference, { DOI: [{ from: '2026-01-01', eur: '0.05', by: 'Wolkenfabrik Hosting GmbH' }] });
-	// Without it, no Eigenbeleg: the rate is the person's, never made up.
-	assert.throws(() => parseRequest(body, { today: '2026-11-22' }), /DOI has no published rate/);
+	// Without it, the default 0.04 EUR per DOI, named as the default and not as the person's.
+	assert.deepEqual(parseRequest(body, { today: '2026-11-22' }).reference, { DOI: [{ from: '2026-10-01', eur: '0.04', by: 'eigenbeleg-agent (Standardwert)' }] });
 });
 
 test('the command line lists --reference and stops on a wrong one before reading anything', async () => {

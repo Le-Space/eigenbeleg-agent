@@ -2,7 +2,7 @@
 // --reference ASSET=EUR@YYYY-MM-DD: the person's own euro value per unit of an asset no price source
 // quotes (Doichain's DOI), from a day on. It becomes the request's `reference` field, exactly as
 // --job takes it; the pipeline checks it again (which assets the chain takes, at most twelve values).
-// Nothing here makes up a rate: no option, no reference.
+// No option, no field: the pipeline then takes the block's default (DOI: 0.04 EUR), printed as such.
 
 const FORM = /^([A-Za-z][A-Za-z0-9]{0,19})=(\d{1,9}(?:\.\d{1,12})?)@(\d{4}-\d{2}-\d{2})$/;
 const EXAMPLE = '--reference DOI=0.05@2026-01-01';

@@ -115,6 +115,8 @@ passed as a file with `--job job.json`.
   512 kB and 2048 pixels a side, at most 6 times as wide as high and twice as
   high as wide; no SVG. It stays on this machine. Only a file the user names;
   never download one.
+- `--reference DOI=EUR@YYYY-MM-DD`: Doichain only, the person's own euro value
+  per DOI and the day it holds from (see Edge cases). Repeatable.
 - `--nearblocks-key` (or `NEARBLOCKS_API_KEY`): for a NEAR month with many
   transactions, beyond NearBlocks' free limit per IP.
 - `--akash-indexer URL`: an Akash Console indexer other than the default, for
@@ -127,9 +129,10 @@ passed as a file with `--job job.json`.
   resource); `--document eigenbelege` gives one Eigenbeleg per purchase of
   credits. Usage itself gets no Eigenbeleg: it is no single payment.
 - **Doichain** has no published rate. For Eigenbelege the person gives their own
-  euro value per DOI and the day it holds from; it goes in through `--job` as
-  `"reference": { "DOI": { "eur": "0.05", "from": "2026-01-01" } }` (there is
-  no option for it yet). Never make one up. Without it, only `--document kontoauszug`,
+  euro value per DOI and the day it holds from: `--reference DOI=0.05@2026-01-01`
+  (repeat it for a value that changes, one per day it holds from), or through
+  `--job` as `"reference": { "DOI": { "eur": "0.05", "from": "2026-01-01" } }`.
+  Ask the person for it; never make one up. Without it, only `--document kontoauszug`,
   in DOI alone.
 - **Bitcoin** is read by the own address (1…, 3… or bc1…), never by an xpub;
   confirmed transactions only.

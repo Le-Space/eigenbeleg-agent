@@ -245,7 +245,7 @@ test('when due, the month before is made and mailed with the cancel link; the la
 	assert.ok(lines.some((l) => /last one; deleted/.test(l)));
 });
 
-test('a subscription with the payer’s logo: kept encrypted with it, on every month’s documents, gone with the subscription', async (t) => {
+test('a subscription with the payer’s logo: kept encrypted with it, on every month’s Eigenbelege (not the statement), gone with the subscription', async (t) => {
 	const dir = await mkdtemp(join(tmpdir(), 'eigenbeleg-subs-'));
 	t.after(() => rm(dir, { recursive: true, force: true }));
 	const store = createStore({ dir, key: KEY });
@@ -257,7 +257,7 @@ test('a subscription with the payer’s logo: kept encrypted with it, on every m
 	const issuerLogo = Buffer.from(samplePng()).toString('base64');
 	const { base, close } = await serve(createApp({ paywall: noPay, deps: depsAt(NOV), mailer, subscriptions: store, log: (l) => lines.push(l), web: null, publicUrl: 'https://eigenbeleg.example.org' }));
 	try {
-		const r = await subscribe(base, { ...body, issuerLogo }, {}, '/1');
+		const r = await subscribe(base, { ...body, document: 'beide', issuerLogo }, {}, '/1');
 		assert.equal(r.status, 200);
 		const { subscription: id } = await r.json();
 		await tick();
@@ -273,12 +273,13 @@ test('a subscription with the payer’s logo: kept encrypted with it, on every m
 		assert.match((await bad.json()).error, /^issuerLogo: the picture must be a PNG or a JPEG file/);
 		assert.equal((await store.list()).length, 1);
 
-		// The month's statement carries the picture; the same subscription without one carries none.
-		await store.put(newSubscription(subscriptionJob(body, { today: '2026-11-12', blocks: blocksFor({}) }), { now: NOV, origin: 'https://eigenbeleg.example.org', months: 1 }));
+		// The month's Eigenbelege carry the picture, its statement none (@le-space/eigenbeleg 0.6.0); the same subscription without one carries none.
+		await store.put(newSubscription(subscriptionJob({ ...body, document: 'beide' }, { today: '2026-11-12', blocks: blocksFor({}) }), { now: NOV, origin: 'https://eigenbeleg.example.org', months: 1 }));
 		await runDue({ store, deps: depsAt(DEC2), mailer, log: (l) => lines.push(l) });
 		assert.equal(sent.length, 2);
-		const pictures = sent.map((m) => (m.attachments.find((/** @type {any} */ a) => /^KA-.*\.pdf$/.test(a.filename)).content.toString('latin1').match(/\/Subtype\s*\/Image/g) ?? []).length);
-		assert.deepEqual(pictures.sort(), [0, 1]);
+		const pictures = (/** @type {RegExp} */ file) => sent.map((m) => (m.attachments.find((/** @type {any} */ a) => file.test(a.filename)).content.toString('latin1').match(/\/Subtype\s*\/Image/g) ?? []).length);
+		assert.deepEqual(pictures(/^EB-.*\.pdf$/).sort(), [0, 1]);
+		assert.deepEqual(pictures(/^KA-.*\.pdf$/), [0, 0]);
 		// The last month deleted both files, the picture with its subscription.
 		assert.deepEqual(await readdir(dir), []);
 		assert.equal(await store.get(id), null);

@@ -22,7 +22,7 @@ const payer = { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12
 const base = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: DAY, to: DAY }, format: 'json', document: 'beide', number: 'EB-2026-042', payer };
 
 /**
- * The rate hosts, made up: CoinGecko's NEAR snapshot (EUR and USD), the ECB's CHF of the Friday before
+ * The rate hosts, made up: CoinGecko's NEAR snapshot (EUR and USD), the ECB's CHF and USD of the Friday before
  * (1 November 2026 is a Sunday), no ECB rate for the ruble, and the Bank of Russia's file of the Saturday.
  * @param {string[]} asked
  */
@@ -34,6 +34,7 @@ const rateHosts = (asked) =>
 			if (u.startsWith('https://api.coingecko.com/api/v3/coins/near/history')) return Response.json({ market_data: { current_price: { eur: 2.5, usd: 2.9 } } });
 			if (u.startsWith('https://api.coingecko.com/') || u.startsWith('https://api.kraken.com/')) return new Response('{}', { status: 404 });
 			if (u.startsWith('https://data-api.ecb.europa.eu/service/data/EXR/D.CHF.EUR')) return Response.json({ dataSets: [{ series: { '0:0:0:0:0': { observations: { 0: [0.9312] } } } }], structure: { dimensions: { observation: [{ values: [{ id: '2026-10-30' }] }] } } });
+			if (u.startsWith('https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR')) return Response.json({ dataSets: [{ series: { '0:0:0:0:0': { observations: { 0: [1.16] } } } }], structure: { dimensions: { observation: [{ values: [{ id: '2026-10-30' }] }] } } });
 			if (u.startsWith('https://data-api.ecb.europa.eu/')) return new Response('', { status: 404 });
 			if (u.startsWith('https://www.cbr.ru/scripts/XML_daily.asp')) return new Response('<?xml version="1.0" encoding="windows-1251"?><ValCurs Date="31.10.2026" name="Foreign Currency Market"><Valute ID="R01239"><NumCode>978</NumCode><CharCode>EUR</CharCode><Nominal>1</Nominal><Name>Euro</Name><Value>98,7654</Value></Valute></ValCurs>');
 			return null;
@@ -67,12 +68,14 @@ test('currency: EUR by default, one of the documents’ currencies, anything els
 	assert.throws(() => parseRequest({ ...base, payer: undefined, currency: 'JPY' }, { preview: true, today: '2026-11-06' }), RequestError);
 });
 
-test('currency: a reference value is in EUR, so Doichain’s Eigenbelege stay in EUR; its statement may be in another', () => {
+test('currency: Doichain takes any currency, its reference value in EUR with it; without one, only the statement', () => {
 	const doi = { chain: 'doichain', network: 'mainnet', addresses: [fakeDoichainAddress('own')], period: { month: '2026-10' }, format: 'json', payer };
 	const reference = { DOI: { eur: '0.05', from: '2026-01-01' } };
 	assert.equal(parseRequest({ ...doi, reference }, { today: '2026-11-06' }).currency, 'EUR');
-	assert.throws(() => parseRequest({ ...doi, reference, currency: 'CHF' }, { today: '2026-11-06' }), /currency: a reference value is in EUR/);
-	assert.throws(() => parseRequest({ ...doi, currency: 'CHF' }, { today: '2026-11-06' }), /in EUR only/);
+	const chf = parseRequest({ ...doi, reference, currency: 'CHF' }, { today: '2026-11-06' });
+	assert.deepEqual([chf.currency, chf.reference.DOI[0].eur], ['CHF', '0.05']);
+	// No reference value: no Eigenbeleg, in any currency, as before.
+	assert.throws(() => parseRequest({ ...doi, currency: 'CHF' }, { today: '2026-11-06' }), /DOI has no published rate/);
 	assert.equal(parseRequest({ ...doi, document: 'kontoauszug', currency: 'CHF' }, { today: '2026-11-06' }).currency, 'CHF');
 });
 
@@ -81,8 +84,12 @@ test('the rate in the document’s currency names both legs; EUR is named as it 
 	assert.deepEqual(await rates('EUR').rateFor('NEAR', DAY), { rate: '2.5', source: `CoinGecko, Kurs ${DAY} 00:00 UTC`, date: DAY });
 	assert.deepEqual(await rates('CHF').rateFor('NEAR', DAY), { rate: '2.328', source: `CoinGecko, Kurs ${DAY} 00:00 UTC × EZB-Referenzkurs EUR/CHF vom 2026-10-30`, date: DAY, currency: 'CHF' });
 	assert.deepEqual(await rates('RUB').rateFor('NEAR', DAY), { rate: '246.9135', source: `CoinGecko, Kurs ${DAY} 00:00 UTC × amtlicher Kurs EUR/RUB der Bank von Russland vom 2026-10-31`, date: DAY, currency: 'RUB' });
-	// USD: CoinGecko's own USD price of the same snapshot, one leg.
-	assert.deepEqual(await rates('USD').rateFor('NEAR', DAY), { rate: '2.9', source: `CoinGecko, USD-Kurs ${DAY} 00:00 UTC`, date: DAY, currency: 'USD' });
+	// USD like every currency: the euro leg times the ECB's rate, not CoinGecko's own USD price (2.9 here, made up the same).
+	assert.deepEqual(await rates('USD').rateFor('NEAR', DAY), { rate: '2.9', source: `CoinGecko, Kurs ${DAY} 00:00 UTC × EZB-Referenzkurs EUR/USD vom 2026-10-30`, date: DAY, currency: 'USD' });
+	// The second leg alone, for a reference value in EUR.
+	assert.deepEqual(await rates('CHF').perEuro(DAY), { currency: 'CHF', perEur: '0.9312', source: 'ecb', at: '2026-10-30T00:00:00Z' });
+	assert.deepEqual(await rates('RUB').perEuro(DAY), { currency: 'RUB', perEur: '98.7654', source: 'cbr', at: '2026-10-31T00:00:00Z' });
+	assert.equal(await rates('GBP').perEuro(DAY), null);
 	// No rate into the currency: unvalued, as a day without a rate is.
 	assert.equal(await rates('GBP').rateFor('NEAR', DAY), null);
 	assert.equal(sourceText(DAY, { asset: 'USD', at: `${DAY}T00:00:00Z`, source: 'same', currency: 'USD' }), 'USD, 1:1');

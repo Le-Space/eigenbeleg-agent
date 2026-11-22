@@ -149,7 +149,7 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	// The diagram above a statement's bookings (the balance, or the consumption per day): on unless switched off.
 	const chart = body.chart ?? true;
 	if (typeof chart !== 'boolean') throw new RequestError('chart: true or false');
-	// The issuer's own logo, top right in the head of every document: a PNG or JPEG file. Used for
+	// The issuer's own logo, top right in the head of every Eigenbeleg (a statement carries none): a PNG or JPEG file. Used for
 	// this one answer and dropped, like the payer's name and address. The preview draws nothing,
 	// but checks the picture, so one that would be refused is known before anything is paid.
 	// The id of a picture a preview kept is the API's to resolve; here, on the page and on the command line there is no such store.
@@ -195,10 +195,7 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 		}
 	}
 
-	// A reference value is the issuer's figure in EUR; there is no second leg for it here, so its documents stay in EUR.
-	if (currency !== 'EUR' && Object.keys(reference).length) throw new RequestError(`currency: a reference value is in EUR, so a document valued by it is in EUR too; leave out currency or the reference`);
-	if (currency !== 'EUR' && (block.referenceAssets ?? []).length && document !== 'kontoauszug')
-		throw new RequestError(`currency: ${chain}'s Eigenbelege are valued by a reference value in EUR and are in EUR only; ask for "document": "kontoauszug" in ${currency}, or leave out currency`);
+	// A reference value is the issuer's figure in EUR; in another currency it is taken times the euro in it on the day (generate).
 	// An Eigenbeleg is a euro amount: for an asset nothing quotes it needs the issuer's value. The statement does not.
 	const unvalued = (block.referenceAssets ?? []).filter((a) => !reference[a]);
 	if (!preview && unvalued.length && document !== 'kontoauszug')

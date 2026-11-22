@@ -8,7 +8,7 @@
   "dependencies": {
     "@eigenbeleg/onchain-pay": "0.1.0",
     "@eigenbeleg/pipeline": "0.1.0",
-    "@le-space/eigenbeleg": "0.5.0",
+    "@le-space/eigenbeleg": "0.6.0",
     "@pingpay/agentpay-middleware": "^0.2.0",
     "@x402/core": "^2.30.0",
     "@x402/evm": "^2.30.0",

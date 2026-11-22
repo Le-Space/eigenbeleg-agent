@@ -135,7 +135,7 @@ test('the chain’s mark is on the Eigenbeleg and the statement when the request
 	}
 });
 
-test('the issuer’s own logo is on the Eigenbeleg and the statement when the request carries one, beside the chain’s mark or alone', async () => {
+test('the issuer’s own logo is on the Eigenbeleg when the request carries one, beside the chain’s mark or alone; the statement carries none', async () => {
 	const body = { chain: 'aleph', addresses: [ACCOUNT], period: { month: '2026-08' }, format: 'json', document: 'beide', payer };
 	const run = async (/** @type {object} */ more) => {
 		const out = await generate(parseRequest({ ...body, ...more }, { today: '2026-11-06' }), { fetch, now: () => new Date('2026-11-06T12:00:00Z') });
@@ -145,15 +145,16 @@ test('the issuer’s own logo is on the Eigenbeleg and the statement when the re
 	const [plain, own, again, both] = [await run({}), await run({ issuerLogo }), await run({ issuerLogo }), await run({ issuerLogo, logo: true })];
 	assert.deepEqual(own, again, 'the same bytes every time');
 	const sizes = (/** @type {Uint8Array} */ pdf) => pdfaStructure(pdf).images.map((i) => `${i.width}x${i.height} ${i.colorSpace}${i.softMask ? ' mask' : ''}`).sort();
-	for (const [i, name] of ['Eigenbeleg', 'Verbrauchsauszug'].entries()) {
-		assert.deepEqual(sizes(plain[i]), [], `${name}: no picture unless one is sent`);
-		// The made-up logo of the package's samples, 240 × 80, opaque: the document stays PDF/A-2b.
-		assert.equal(sizes(own[i]).length, 1, name);
-		assert.match(sizes(own[i])[0], /^240x80 (DeviceRGB|Indexed)/, name);
-		assert.equal(sizes(both[i]).length, 2, `${name}: the chain's mark as well`);
-		assert.ok(sizes(both[i]).includes('192x192 DeviceRGB'), name);
-		assert.deepEqual(pdfaStructure(own[i]).pdfaid, { part: '2', conformance: 'B' });
-	}
+	for (const [i, name] of ['Eigenbeleg', 'Verbrauchsauszug'].entries()) assert.deepEqual(sizes(plain[i]), [], `${name}: no picture unless one is sent`);
+	// The made-up logo of the package's samples, 240 × 80, opaque: the document stays PDF/A-2b.
+	assert.equal(sizes(own[0]).length, 1);
+	assert.match(sizes(own[0])[0], /^240x80 (DeviceRGB|Indexed)/);
+	assert.equal(sizes(both[0]).length, 2, 'the chain\'s mark as well');
+	assert.ok(sizes(both[0]).includes('192x192 DeviceRGB'));
+	assert.deepEqual(pdfaStructure(own[0]).pdfaid, { part: '2', conformance: 'B' });
+	// The Verbrauchsauszug shows what the account did; it is not the issuer's receipt (@le-space/eigenbeleg 0.6.0): no issuer's logo, the chain's mark alone.
+	assert.deepEqual(sizes(own[1]), []);
+	assert.deepEqual(sizes(both[1]), ['192x192 DeviceRGB']);
 });
 
 test('Aleph: an Eigenbeleg per purchase of credits, the ALEPH paid at the token’s rate of the day, with the paying transaction (#23)', async () => {

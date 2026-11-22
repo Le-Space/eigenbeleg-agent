@@ -88,3 +88,22 @@ test('a reference value is the issuer\'s figure for DOI, and nothing else', () =
 	const { payer: _payer, ...unpaid } = body;
 	assert.equal(parseRequest({ ...unpaid, reference: { DOI: { eur: '0.05', from: '2026-01-01' } } }, { preview: true, blocks, today: '2026-11-06' }).reference.DOI[0].by, '');
 });
+
+test('in another currency: the reference value in EUR times the euro in it on the day, both named; no price feed asked', async () => {
+	/** @type {string[]} */
+	const days = [];
+	// Made up: 0.9312 CHF per euro, the ECB's of the day before.
+	const perEuro = async (/** @type {string} */ date) => (days.push(date), { currency: 'CHF', perEur: '0.9312', source: 'ecb', at: '2026-05-27T00:00:00Z' });
+	const job = parseRequest({ ...body, currency: 'CHF', reference: { DOI: { eur: '0.05', from: '2026-01-01' } } }, { blocks, today: '2026-11-06' });
+	const out = await generate(job, { ...deps, rates: { ...feed, perEuro } });
+	// 2.01 DOI × 0.05 EUR × 0.9312 = 0.0935856 CHF
+	assert.deepEqual([out.summary.currency, out.summary.positions, out.summary.totalEur], ['CHF', 2, '0.09']);
+	assert.ok(days.includes('2026-05-30'), 'the leg of the payment\'s day');
+	const lines = out.csv.trimEnd().split('\r\n');
+	assert.match(lines[0], /;Kurs CHF;Wert CHF/);
+	assert.match(lines[1], /Referenzwert von Wolkenfabrik Hosting GmbH, Stand 2026-01-01 \(kein Börsenkurs\) × EZB-Referenzkurs EUR\/CHF vom 2026-05-27/);
+	assert.match(lines[1], /;0,04656;/);
+	// No leg into the currency on the day: no value, so no position, as on a day without a rate.
+	const none = await generate(job, { ...deps, rates: { ...feed, perEuro: async () => null } });
+	assert.deepEqual([none.summary.positions, none.summary.notOnIt > 0], [0, true]);
+});

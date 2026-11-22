@@ -39,7 +39,7 @@ export function dataSources({ akashIndexer = 'https://console-api.akash.network'
 		{ origin: 'https://api.kraken.com', chain: 'rates', learns: 'assets', what: 'EUR rates where CoinGecko has none (Kraken, the day\'s open)' },
 		{ origin: 'https://api.coingecko.com', chain: 'rates', learns: 'assets', what: 'EUR rates (CoinGecko, the price at 00:00 UTC)' },
 		{ origin: 'https://data-api.ecb.europa.eu', chain: 'rates', learns: 'assets', what: 'EUR per USD, for Aleph credits, and the euro in the documents\' currency when it is not EUR (ECB reference rate)' },
-		// Only for documents in RUB: the ruble's rate is the Bank of Russia's (the ECB has none since 2022-03-01).
+		// Only for documents in RUB: the ruble's rate is the Bank of Russia's, on every day.
 		{ origin: 'https://www.cbr.ru', chain: 'rates', learns: 'assets', what: 'the euro in rubles, for documents in RUB (Bank of Russia, official rate of the day)' }
 	];
 }

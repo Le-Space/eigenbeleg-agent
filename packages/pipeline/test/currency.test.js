@@ -113,10 +113,11 @@ test('a document in CHF: the values, the CSV’s heads and the source of every p
 	assert.deepEqual(pdfaStructure(out.statements[0].pdf).pdfaid, { part: '2', conformance: 'B' });
 });
 
-test('a document in RUB: the euro leg times the Bank of Russia’s rate, after the ECB has none', async () => {
+test('a document in RUB: the euro leg times the Bank of Russia’s rate, the ECB not asked', async () => {
 	const { out, asked } = await run({ currency: 'RUB' });
 	assert.equal(out.summary.currency, 'RUB');
 	assert.ok(asked.some((u) => u.startsWith('https://www.cbr.ru/scripts/XML_daily.asp')));
+	assert.ok(!asked.some((u) => u.includes('D.RUB.EUR')), 'the ruble is the Bank of Russia\'s, the ECB is not asked');
 	const lines = /** @type {string} */ (out.csv).trimEnd().split('\r\n');
 	assert.match(lines[0], /;Kurs RUB;Wert RUB/);
 	assert.match(lines[1], /× amtlicher Kurs EUR\/RUB der Bank von Russland vom 2026-10-31/);
@@ -137,4 +138,20 @@ test('EUR: the same files with currency EUR as without, no second leg asked, the
 	const lines = /** @type {string} */ (without.out.csv).trimEnd().split('\r\n');
 	assert.match(lines[0], /;Kurs EUR;Wert EUR/);
 	assert.match(lines[1], /;CoinGecko, Kurs 2026-11-01 00:00 UTC;/);
+});
+
+test('the ruble before 2022-03-01 too: the Bank of Russia, not the ECB (@le-space/rates 0.8.0)', async () => {
+	/** @type {string[]} */
+	const asked = [];
+	// Made up: the Bank of Russia's file of 1 June 2021, and an ECB that would answer for the ruble.
+	const fetch = /** @type {any} */ (async (/** @type {string} */ url) => {
+		const u = String(url);
+		asked.push(u);
+		if (u.startsWith('https://www.cbr.ru/scripts/XML_daily.asp')) return new Response('<?xml version="1.0" encoding="windows-1251"?><ValCurs Date="01.06.2021" name="Foreign Currency Market"><Valute ID="R01239"><NumCode>978</NumCode><CharCode>EUR</CharCode><Nominal>1</Nominal><Name>Euro</Name><Value>89,1234</Value></Valute></ValCurs>');
+		if (u.startsWith('https://data-api.ecb.europa.eu/service/data/EXR/D.RUB.EUR')) return Response.json({ dataSets: [{ series: { '0:0:0:0:0': { observations: { 0: [88.5] } } } }], structure: { dimensions: { observation: [{ values: [{ id: '2021-06-01' }] }] } } });
+		return new Response('{}', { status: 404 });
+	});
+	const leg = await dayRates({ fetch, now: () => new Date(NOW), currency: 'RUB' }).perEuro('2021-06-01');
+	assert.deepEqual(leg, { currency: 'RUB', perEur: '89.1234', source: 'cbr', at: '2021-06-01T00:00:00Z' });
+	assert.ok(!asked.some((u) => u.includes('ecb.europa.eu')));
 });

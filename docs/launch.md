@@ -46,6 +46,7 @@ Each needs its recipient and a relayer that pays the gas. Then, in `.env` on the
 - [ ] `TRUST_PROXY` set for Caddy (so the 402 names the `https://` URL); `PUBLIC_URL=https://eigenbeleg.le-space.de`
 - [ ] `SOURCE_URL` is the Le-Space repository
 - [ ] the data volume belongs to the API's user: `docker exec eigenbeleg ls -ld /var/lib/eigenbeleg` shows `node node`. A volume created by an image before this check (root) needs, once: `chown 1000:1000 /var/lib/docker/volumes/deploy_subscriptions/_data`. Otherwise subscriptions, logos and DOI orders fail with EACCES (a 500)
+- [ ] **Ethereum and Base (optional):** `ALCHEMY_KEY` (Nico types it; a key of its own for this server, with a spending cap at Alchemy). Then `/blocks` lists `ethereum` and `base`, `GET /blocks/ethereum/check` and `/blocks/base/check` answer 200, and the free `POST /eigenbeleg/preview` with a made-up address answers. The privacy text names Alchemy for the API's reads (#93)
 - [ ] `docker compose pull && docker compose up -d`, then `docker logs eigenbeleg` shows `production (mainnet payments only)` and the paywall with the mainnet networks. If it shows `eigenbeleg API not started: …`, the reason follows; fix `.env` and start again
 
 ### 3. Mail and subscriptions (Nico)

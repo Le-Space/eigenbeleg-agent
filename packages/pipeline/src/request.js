@@ -23,6 +23,9 @@ export class RequestError extends Error {}
 /** The currencies a document can be in (ISO 4217): EUR, the default, and those with an official rate against it (@le-space/eigenbeleg). */
 export const CURRENCIES = Object.freeze(Object.keys(DOCUMENT_CURRENCIES));
 
+/** Who a default reference value is by, as printed: "Referenzwert von eigenbeleg-agent (Standardwert), Stand …". */
+export const REFERENCE_DEFAULT_BY = 'eigenbeleg-agent (Standardwert)';
+
 /** One mailbox: local part, @, a host with a dot; no spaces, brackets or display names. */
 const EMAIL = /^[^\s@<>,;"()[\]]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
 
@@ -195,8 +198,11 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 		}
 	}
 
+	// No value given: the block's default (DOI: 0.04 EUR), for the whole period, printed as the default and by whom.
+	for (const a of block.referenceAssets ?? []) if (!reference[a] && block.referenceDefault?.[a]) reference[a] = [{ from: period.from, eur: block.referenceDefault[a], by: REFERENCE_DEFAULT_BY }];
+
 	// A reference value is the issuer's figure in EUR; in another currency it is taken times the euro in it on the day (generate).
-	// An Eigenbeleg is a euro amount: for an asset nothing quotes it needs the issuer's value. The statement does not.
+	// An Eigenbeleg is a euro amount: for an asset nothing quotes and no default it needs the issuer's value. The statement does not.
 	const unvalued = (block.referenceAssets ?? []).filter((a) => !reference[a]);
 	if (!preview && unvalued.length && document !== 'kontoauszug')
 		throw new RequestError(`reference: ${unvalued.join(', ')} has no published rate, and an Eigenbeleg needs a euro value. Hand in your own reference value, e.g. "reference": { "${unvalued[0]}": { "eur": "0.05", "from": "2026-01-01" } }, or ask for "document": "kontoauszug" (in ${unvalued.join(', ')} only)`);

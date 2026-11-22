@@ -68,14 +68,14 @@ test('currency: EUR by default, one of the documents’ currencies, anything els
 	assert.throws(() => parseRequest({ ...base, payer: undefined, currency: 'JPY' }, { preview: true, today: '2026-11-06' }), RequestError);
 });
 
-test('currency: Doichain takes any currency, its reference value in EUR with it; without one, only the statement', () => {
+test('currency: Doichain takes any currency, its reference value in EUR with it; without one, the default', () => {
 	const doi = { chain: 'doichain', network: 'mainnet', addresses: [fakeDoichainAddress('own')], period: { month: '2026-10' }, format: 'json', payer };
 	const reference = { DOI: { eur: '0.05', from: '2026-01-01' } };
 	assert.equal(parseRequest({ ...doi, reference }, { today: '2026-11-06' }).currency, 'EUR');
 	const chf = parseRequest({ ...doi, reference, currency: 'CHF' }, { today: '2026-11-06' });
 	assert.deepEqual([chf.currency, chf.reference.DOI[0].eur], ['CHF', '0.05']);
-	// No reference value: no Eigenbeleg, in any currency, as before.
-	assert.throws(() => parseRequest({ ...doi, currency: 'CHF' }, { today: '2026-11-06' }), /DOI has no published rate/);
+	// No reference value: the default 0.04 EUR per DOI, in any currency.
+	assert.equal(parseRequest({ ...doi, currency: 'CHF' }, { today: '2026-11-06' }).reference.DOI[0].eur, '0.04');
 	assert.equal(parseRequest({ ...doi, document: 'kontoauszug', currency: 'CHF' }, { today: '2026-11-06' }).currency, 'CHF');
 });
 

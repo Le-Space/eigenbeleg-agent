@@ -255,7 +255,8 @@ async function onCreate(e) {
 	if (f.includeKinds.length === 0 && (blocks.find((x) => x.chain === f.chain)?.kinds ?? []).length > 0) return say('form-error', t('pickKind'));
 	if (f.referenceAsset) {
 		const given = f.referenceEur.trim();
-		if (given ? !referenceEur(given) || !f.referenceFrom : f.document !== 'kontoauszug') return say('form-error', t(given ? 'badReference' : 'needReference'));
+		// Empty: the default value (0.04 EUR per DOI), named as such on the documents.
+		if (given && (!referenceEur(given) || !f.referenceFrom)) return say('form-error', t('badReference'));
 	}
 	if (f.name.trim().length < 2 || f.postal.trim().length < 5) return say('form-error', t('needPayer'));
 	const kept = rememberPayer(remember.checked ? { name: f.name.trim(), postal: f.postal.trim(), logo: issuerLogo?.bytes ?? null } : null);

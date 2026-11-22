@@ -56,6 +56,8 @@ no other host. A test holds the list against every URL in the packages.
 | api.goldsky.com | Filecoin Pay: settlements and balance (the makers' index) | the addresses |
 | filecoin.blockscout.com | Filecoin Pay: what was paid in and taken out | the addresses |
 | api2.aleph.im | Aleph Cloud credits | the addresses |
+| the ElectrumX servers at *.doi.works (WebSocket) | Doichain transactions and balances | the addresses |
+| mempool.space | Bitcoin transactions and balances (Esplora API) | the addresses |
 | eth-mainnet.g.alchemy.com, base-mainnet.g.alchemy.com | Ethereum and Base, only with the person's own Alchemy key ([#25](https://github.com/Le-Space/eigenbeleg-agent/issues/25)) | the addresses, and the key |
 | data-api.ecb.europa.eu | EUR per USD (Aleph credits); EUR in the documents' currency when it is not EUR | the currency only |
 | www.cbr.ru | EUR in RUB, for documents in RUB (Bank of Russia) | the currency only |

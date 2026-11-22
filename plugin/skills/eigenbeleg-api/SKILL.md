@@ -1,11 +1,11 @@
 ---
 name: eigenbeleg-api
-description: Buys Eigenbelege (self-issued German proofs of payment, never invoices) and Kontoauszüge for a person's own blockchain addresses from the Eigenbeleg API at eigenbeleg.le-space.de, paying per request with x402 in USDC. Use when someone asks for Eigenbelege, Belege, a Kontoauszug or Verbrauchsauszug, receipts for network fees, storage deposits or transfers on NEAR, Akash, Filecoin or Aleph Cloud, or for documents their German bookkeeping needs for crypto payments.
+description: Buys Eigenbelege (self-issued German proofs of payment, never invoices) and Kontoauszüge for a person's own blockchain addresses from the Eigenbeleg API at eigenbeleg.le-space.de, paying per request with x402 (USDC on NEAR, or DOI on Doichain; USDC on Base and Ethereum where offered). Use when someone asks for Eigenbelege, Belege, a Kontoauszug or Verbrauchsauszug, receipts for network fees, storage deposits or transfers on NEAR, Akash, Filecoin, Doichain, Bitcoin, Filecoin Pay or Aleph Cloud, or for documents their German bookkeeping needs for crypto payments.
 license: CC-BY-4.0 (this text); the scripts of the repository are AGPL-3.0-or-later
-compatibility: Needs network access to eigenbeleg.le-space.de and an x402 client with a USDC wallet (NEAR, Base or Ethereum) to pay. The free preview needs no wallet.
+compatibility: Needs network access to eigenbeleg.le-space.de and, to pay, an x402 client with a USDC wallet (NEAR; Base or Ethereum where offered), or a DOI key or a Doichain wallet that scans a QR code. The free preview needs no wallet.
 metadata:
   author: Le Space UG
-  version: "0.1"
+  version: "0.2"
   homepage: https://eigenbeleg.le-space.de
   source: https://github.com/Le-Space/eigenbeleg-agent
 ---
@@ -55,7 +55,7 @@ the payment days, as PDF/A-2b and CSV. It stores nothing beyond the request.
 1. **Read the current terms first:** `GET https://eigenbeleg.le-space.de/llms.txt`.
    It names the chains the running instance serves, the payment networks and the
    price per request, and whether mailing the files is offered. Payment is in real
-   USDC on mainnet networks; take the networks and prices from that file, not from here.
+   USDC or DOI on mainnet networks; take the networks and prices from that file, not from here.
 2. **Build the request body** (below). `GET https://eigenbeleg.le-space.de/blocks`
    lists the chains with their networks and the kinds of payment each knows.
 3. **Preview for free:** `POST https://eigenbeleg.le-space.de/eigenbeleg/preview`
@@ -157,7 +157,7 @@ After the preview, say what you are about to buy – document, period, these cho
 ```
 
 - `chain`: one of the chains `GET /blocks` lists (`near`, `akash`, `filecoin`,
-  `filecoin-pay`, `aleph`; `ethereum` and `base` where the instance has an Alchemy key).
+  `doichain`, `bitcoin`, `filecoin-pay`, `aleph`; `ethereum` and `base` where the instance has an Alchemy key).
 - `network`: where the payments were made, `mainnet` or `testnet` (NEAR only).
 - `addresses`: one to ten own addresses of that chain.
 - `period`: `{ "month": "YYYY-MM" }` or `{ "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }`,
@@ -216,6 +216,9 @@ person; it is also in every mail.
   documents name it as their reference value, not an exchange rate. Never make
   one up or take it from a price site. Without it, only
   `document: "kontoauszug"`, in DOI alone.
+- **Bitcoin** (`chain: "bitcoin"`) is read by the own address (1…, 3… or bc1…),
+  never by an xpub, and only confirmed transactions count. A payment is the amount
+  sent plus the miner fee as its own entry.
 - **Ethereum and Base** read the address's whole history, so a busy address takes
   a while; they are offered only where the instance has an Alchemy key.
 - **Many transactions** in a period: the preview shows the count first. A CSV

@@ -1,11 +1,11 @@
 ---
 name: eigenbeleg-local
-description: Builds Eigenbelege (self-issued German proofs of payment, never invoices), Kontoauszüge and a CSV for a person's own blockchain addresses on their own machine, for free, with the open-source Eigenbeleg pipeline; nothing is paid and nothing goes to a server of Le Space, the name and address stay local. Use when someone wants Eigenbelege, Belege, a Kontoauszug or Verbrauchsauszug for payments on NEAR, Akash, Filecoin or Aleph Cloud (Ethereum and Base with their own Alchemy key) and the work can run in a shell with Node.js, or when they prefer not to send their name and address anywhere.
+description: Builds Eigenbelege (self-issued German proofs of payment, never invoices), Kontoauszüge and a CSV for a person's own blockchain addresses on their own machine, for free, with the open-source Eigenbeleg pipeline; nothing is paid and nothing goes to a server of Le Space, the name and address stay local. Use when someone wants Eigenbelege, Belege, a Kontoauszug or Verbrauchsauszug for payments on NEAR, Akash, Filecoin, Doichain, Bitcoin, Filecoin Pay or Aleph Cloud (Ethereum and Base with their own Alchemy key) and the work can run in a shell with Node.js, or when they prefer not to send their name and address anywhere.
 license: CC-BY-4.0 (this text); the scripts of the repository are AGPL-3.0-or-later
-compatibility: Needs Node.js 20 or newer, git, a shell, and network access to the public data sources of the chain (NearBlocks, FastNEAR, PublicNode, Filfox, the Aleph API) and of the EUR rates (CoinGecko, Kraken, the ECB).
+compatibility: Needs Node.js 20 or newer, git, a shell, and network access to the public data sources of the chain (NearBlocks, FastNEAR, PublicNode, Filfox, the Aleph API, the Doichain ElectrumX servers at doi.works, mempool.space) and of the EUR rates (CoinGecko, Kraken, the ECB).
 metadata:
   author: Le Space UG
-  version: "0.1"
+  version: "0.2"
   homepage: https://eigenbeleg.le-space.de
   source: https://github.com/Le-Space/eigenbeleg-agent
 ---
@@ -95,7 +95,7 @@ passed as a file with `--job job.json`.
 
 ## Options
 
-- `--chain`: `near`, `akash`, `filecoin`, `filecoin-pay` (a payer's balance in
+- `--chain`: `near`, `akash`, `filecoin`, `doichain`, `bitcoin`, `filecoin-pay` (a payer's balance in
   the Filecoin Pay contract: one finished month, the statement only), `aleph`; `ethereum` and `base` only
   with `--alchemy-key` (or `ALCHEMY_KEY` in the environment), the person's own.
 - `--network`: `mainnet` (default) or `testnet` (NEAR only).
@@ -126,6 +126,13 @@ passed as a file with `--job job.json`.
   (`--month`). The default document is the Verbrauchsauszug (usage per day and
   resource); `--document eigenbelege` gives one Eigenbeleg per purchase of
   credits. Usage itself gets no Eigenbeleg: it is no single payment.
+- **Doichain** has no published rate. For Eigenbelege the person gives their own
+  euro value per DOI and the day it holds from; it goes in through `--job` as
+  `"reference": { "DOI": { "eur": "0.05", "from": "2026-01-01" } }` (there is
+  no option for it yet). Never make one up. Without it, only `--document kontoauszug`,
+  in DOI alone.
+- **Bitcoin** is read by the own address (1…, 3… or bc1…), never by an xpub;
+  confirmed transactions only.
 - **Ethereum and Base** read the address's whole history through Alchemy, so a
   busy address takes a while.
 - **Akash and Filecoin** derive the balances from today's balance less the

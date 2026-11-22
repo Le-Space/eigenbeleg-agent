@@ -7,12 +7,12 @@ When a company pays on a blockchain, often nobody sends it an invoice. Network f
 This repository writes two documents from public blockchain data, both laid out the way a bank lays them out:
 
 - an **Eigenbeleg per transaction**: one receipt with its own number for each payment to the network, with the full hash, who paid whom (full addresses), every movement of the transaction and its explorer link as a QR code;
-- a **Kontoauszug** (account statement) per own account and period: opening balance, every booking with debit, credit and running balance, closing balance – **checked against the balance the chain reports** – and the sums a bookkeeper needs, for every chain supported (NEAR, Akash, Filecoin). Above the bookings a small diagram: the balance over the period, or, on a Verbrauchsauszug (Aleph credits, Filecoin Pay), what was consumed per day and resource.
+- a **Kontoauszug** (account statement) per own account and period: opening balance, every booking with debit, credit and running balance, closing balance – **checked against the balance the chain reports** – and the sums a bookkeeper needs, for every chain supported (NEAR, Akash, Filecoin, Doichain, Bitcoin; Ethereum and Base with an Alchemy key). Above the bookings a small diagram: the balance over the period, or, on a Verbrauchsauszug (Aleph credits, Filecoin Pay), what was consumed per day and resource.
 
 It consists of:
 
 - open **building blocks** (AGPL-3.0-or-later): chain readers, a neutral booking format, EUR day rates, the documents as **PDF/A-2b** and **CSV**;
-- an **HTTP API** that sells them per request, paid with **x402 on NEAR** (USDC, gasless for the payer);
+- an **HTTP API** that sells them per request with **x402**: USDC on NEAR (gasless for the payer), DOI on Doichain, and USDC on Base and Ethereum where the instance offers them;
 - a minimal **agent** that takes a job, checks the building block is current, pays the API within its budget, checks the result and keeps a receipt of what it bought. For a chain it cannot serve, it drafts the missing building block as a pull request with tests instead of buying anything.
 
 An Eigenbeleg is **never an invoice**, and it is never written for someone else: the payer issues it for their own payments. Whether and up to what amount your tax adviser accepts Eigenbelege is their call.
@@ -46,12 +46,12 @@ The demo's EUR rate is fixed (1.92 €/NEAR); the API itself uses the day's rate
 
 ## Try the hosted API
 
-A public instance runs at **https://eigenbeleg.le-space.de** (mainnet payments in real USDC, open source, AGPL). The paid API is for **businesses only** (§ 14 BGB), under the terms of business at [`/ui/#agb`](https://eigenbeleg.le-space.de/ui/#agb); prices include 19% German VAT, an invoice comes on request. Private persons use the web UI, free. Prices: 0.10 USDC per request on NEAR and Base, 1.00 USDC on Ethereum; a year's subscription 12 × that ([`packages/pipeline/src/prices.js`](packages/pipeline/src/prices.js), the one list the API, `/llms.txt` and the page use).
+A public instance runs at **https://eigenbeleg.le-space.de** (mainnet payments only: USDC on NEAR and DOI on Doichain, `/llms.txt` says what it takes; open source, AGPL). The paid API is for **businesses only** (§ 14 BGB), under the terms of business at [`/ui/#agb`](https://eigenbeleg.le-space.de/ui/#agb); prices include 19% German VAT, an invoice comes on request. Private persons use the web UI, free. Prices: 0.10 USDC per request on NEAR (and Base), 1.00 USDC on Ethereum, 5 DOI on Doichain; a year's subscription 12 × that, in USDC ([`packages/pipeline/src/prices.js`](packages/pipeline/src/prices.js), the one list the API, `/llms.txt` and the page use).
 
 ```bash
 curl -s https://eigenbeleg.le-space.de/
 ```
-You should see the service, its prices per payment network with the recipients, the building blocks (`near`, `akash`, `filecoin`, `filecoin-pay`, `aleph`), the licence and the source link.
+You should see the service, its prices per payment network with the recipients, the building blocks (`near`, `akash`, `filecoin`, `doichain`, `bitcoin`, `filecoin-pay`, `aleph`; `ethereum` and `base` where it has an Alchemy key), the licence and the source link.
 
 ```bash
 curl -s https://eigenbeleg.le-space.de/blocks/near/check
@@ -115,6 +115,8 @@ A run like this on 6 Nov 2026: [`Aqxuj1QQ…ynUX`](https://testnet.nearblocks.io
 
 **Base and Ethereum.** With `eip155:8453` or `eip155:1` in `PAY_NETWORKS` the 402 also offers USDC on Base and on Ethereum (`@x402/evm`, scheme `exact`): the payer signs an EIP-3009 `transferWithAuthorization` to `PAY_TO_EVM`, and the API's EVM relayer (`EVM_RELAYER_KEY`, a little ETH on each network) submits it and pays the gas. On Ethereum that gas costs more than a cheap document, so `PRICE_EIP155_1` sets Ethereum's own price. The agent pays on these networks with `AGENT_EVM_KEY`.
 
+**DOI on Doichain.** With `DOI_XPUB` (or `DOI_PAY_TO`) the 402 of `POST /eigenbeleg` also offers 5 DOI (scheme `onchain`, [`apps/api/src/onchain.js`](apps/api/src/onchain.js)). The payer signs a plain Doichain transaction and sends it in `PAYMENT-SIGNATURE`; this server ties it to the request, broadcasts it and answers `202` until 1 confirmation (about 10 minutes), then the files. With `DOI_XPUB` the header `X-Eigenbeleg-Order: doichain` gives a request an address of its own, so a person can pay from a wallet by QR code (the agent: `--pay qr`). Single requests only, not the subscription. The server holds no key that spends DOI.
+
 **PingPay, for mainnet.** With `PAYWALL=ping` the same route sits behind [PingPay Agent Pay](https://pingpay.gitbook.io/docs/pingpay-api/agent-pay-facilitator) instead (`@pingpay/agentpay-middleware`): agents pay in USDC on Base or another origin chain, and NEAR Intents settles to the NEAR account set in the Ping dashboard. NEAR Intents has no testnet, so this mode is for mainnet only (minimum about 0.20 USDC).
 
 ## In the browser: the web UI
@@ -135,7 +137,7 @@ For people, free: the page does **everything in your browser**. It reads the cha
 3. Click **Lesen und erstellen**. The first time, the page loads its PDF code and fonts (about 1.6 MB, then cached). You see how many Eigenbelege it made and their numbers, the positions, the EUR total, the quantities and, per address, the Kontoauszug's opening and closing balance (✓ when reconciled with the chain).
 4. Download **Eigenbelege (PDF/A, n)**, **Kontoauszug <address> (PDF/A)** per address, and **Alle Bewegungen (CSV)**.
 
-Your browser asks NearBlocks and the FastNEAR archival RPC (NEAR), PublicNode and, through our [Akash CORS proxy](deploy/akash-proxy) when it is set up, the Akash Console indexer (Akash), Filfox (Filecoin), the Filecoin Pay index at Goldsky and Blockscout (Filecoin Pay), the Aleph API (Aleph Cloud), and Kraken, CoinGecko and the ECB (rates; for documents in RUB the Bank of Russia, www.cbr.ru). They see your IP address and, except the rate services, the addresses you enter. **Ethereum and Base** need your own Alchemy key (free at alchemy.com), entered under *Ethereum und Base* in the form: it goes from your browser to Alchemy only, never to us, and is kept on your device only if you tick its *merken* ([#25](https://github.com/Le-Space/eigenbeleg-agent/issues/25)). Very busy NEAR accounts can hit NearBlocks' free rate limit; the page then says so and you try a shorter period or later, or enter your own NearBlocks key under *NEAR: eigener NearBlocks-Schlüssel*, which goes to NearBlocks only.
+Your browser asks NearBlocks and the FastNEAR archival RPC (NEAR), PublicNode and, through our [Akash CORS proxy](deploy/akash-proxy) when it is set up, the Akash Console indexer (Akash), Filfox (Filecoin), the Filecoin Pay index at Goldsky and Blockscout (Filecoin Pay), the Aleph API (Aleph Cloud), public ElectrumX servers of the Doichain network at doi.works (Doichain), mempool.space (Bitcoin), and Kraken, CoinGecko and the ECB (rates; for documents in RUB the Bank of Russia, www.cbr.ru). They see your IP address and, except the rate services, the addresses you enter. **Ethereum and Base** need your own Alchemy key (free at alchemy.com), entered under *Ethereum und Base* in the form: it goes from your browser to Alchemy only, never to us, and is kept on your device only if you tick its *merken* ([#25](https://github.com/Le-Space/eigenbeleg-agent/issues/25)). Very busy NEAR accounts can hit NearBlocks' free rate limit; the page then says so and you try a shorter period or later, or enter your own NearBlocks key under *NEAR: eigener NearBlocks-Schlüssel*, which goes to NearBlocks only.
 
 For development, `npm run web:dev` serves the page with hot reload. Build settings: `VITE_AKASH_INDEXER` (the Akash proxy's URL), `VITE_PUBLIC_URL` (for the share cards on a static host).
 
@@ -304,7 +306,7 @@ eigenbeleg.example.com {
 }
 ```
 
-**Storage.** The API writes nothing to disk and keeps nothing beyond the request. It reads its fonts and colour profile from the image, and the relayer's key file if one is mounted. The only in-memory state is short-lived: the live check of a building block (10 min), the x402 duplicate-settlement guard (until a payment's block window has passed), and the day's EUR rates during one request.
+**Storage.** The API keeps nothing beyond the request, except what it was asked to keep: a subscription's details (encrypted), a preview's logo for 24 hours (encrypted), and of a payment in DOI its txid, amount, time and a hash of the request (`PAYMENTS_DIR`). It reads its fonts and colour profile from the image, and the relayer's key file if one is mounted. The only in-memory state is short-lived: the live check of a building block (10 min), the x402 duplicate-settlement guard (until a payment's block window has passed), and the day's EUR rates during one request.
 
 **Environment** (`.env.example` lists them all):
 
@@ -333,6 +335,9 @@ eigenbeleg.example.com {
 | `PING_FACILITATOR_URL`, `PING_AMOUNT_OUT` | PingPay facilitator, destination amount in USDC base units (≥ 200000) | no |
 | `NEARBLOCKS_API_KEY` | optional, for NearBlocks' higher rate limits | **yes** |
 | `ALCHEMY_KEY` | optional: with it the API also serves Ethereum and Base (ETH, USDC, ALEPH and the gas) through Alchemy; without it, it does not offer them. The key goes to Alchemy only, never into an answer, a document or a log. The web UI never gets this key: there, people enter their own | **yes** |
+| `DOI_XPUB` | optional: the extended public key (xpub… or zpub…, BIP84) of the account that receives payments in DOI; with it a request can ask for an address of its own (`X-Eigenbeleg-Order: doichain`), so a wallet pays from a QR code. Who knows it sees every payment of the account: it is in no answer or log | **yes** |
+| `DOI_PAY_TO` | optional, instead of `DOI_XPUB`: one Doichain address (dc1…) for every payment, signed transactions through this server only. Both empty: DOI is not offered | no |
+| `DOI_CONFIRMATIONS`, `DOI_ELECTRUM`, `PAYMENTS_DIR` | confirmations before the documents (default 1; a production build refuses 0), an ElectrumX server other than the public ones, where the payment records are kept (txid, amount, time, a hash of the request) | no |
 | `SOURCE_URL` | where users of this instance get its source (AGPL-3.0-or-later section 13); your fork if you changed it | no |
 | `PUBLIC_URL` | this instance's public origin, e.g. `https://eigenbeleg.le-space.de`, for the share cards (Open Graph, X) on `/ui/`; unset: taken from the request's Host and `X-Forwarded-Proto` | no |
 | `TRUST_PROXY` | behind a proxy: whose `X-Forwarded-*` to trust (Express syntax, e.g. `uniquelocal`), so the x402 resource URL is https | no |
@@ -360,6 +365,8 @@ This API is its own x402 facilitator on every network: the NEAR relayer submits 
 | `filfox.info` | Filecoin history and balance (`@le-space/chains/filecoin`) |
 | `api.goldsky.com`, `filecoin.blockscout.com` | Filecoin Pay: settlements and balance from the makers' index, what was paid in and taken out from the contract's events (`@le-space/chains/filecoin-pay`) |
 | `api2.aleph.im` | Aleph Cloud credit history and balance (`@le-space/chains/aleph`) |
+| the ElectrumX servers at `*.doi.works` (or `DOI_ELECTRUM`) | Doichain history and balance (`@le-space/chains/doichain`); for a payment in DOI also checking and broadcasting it |
+| `mempool.space` | Bitcoin history and balance, the Esplora API (`@le-space/chains/bitcoin-address`) |
 | `data-api.ecb.europa.eu` | EUR per USD, for Aleph credits; the euro in the document's currency when it is not EUR (`currency`) |
 | `www.cbr.ru` | only for documents in RUB: the Bank of Russia's official EUR/RUB rate of the day |
 | `eth-mainnet.g.alchemy.com`, `base-mainnet.g.alchemy.com` | only with `ALCHEMY_KEY`: Ethereum and Base history and balances (`@le-space/chains/evm`) |
@@ -385,7 +392,7 @@ The payer's name and address live only for the request. Nothing is stored, and l
 | Package | What |
 | --- | --- |
 | [`@le-space/ledger`](https://github.com/Le-Space/belege/tree/main/packages/ledger) (npm) | The booking format `le-space.ledger/1` (one entry per movement, from one own address), decimal arithmetic on strings, bytes without `Buffer`. Shared with Le Space Belege (#6) |
-| [`@le-space/chains`](https://github.com/Le-Space/belege/tree/main/packages/chains) (npm) | The readers: NEAR via NearBlocks API v3 and the FastNEAR archival RPC; Akash via the node's `tx_search` plus the Akash Console indexer; Filecoin via Filfox (FIL, USDFC); Aleph Cloud credits via the Aleph API; Ethereum and Base via Alchemy. Also Bitcoin and Nym for Belege |
+| [`@le-space/chains`](https://github.com/Le-Space/belege/tree/main/packages/chains) (npm) | The readers: NEAR via NearBlocks API v3 and the FastNEAR archival RPC; Akash via the node's `tx_search` plus the Akash Console indexer; Filecoin via Filfox (FIL, USDFC); Aleph Cloud credits via the Aleph API; Doichain via public ElectrumX servers; Bitcoin via the Esplora API at mempool.space; Ethereum and Base via Alchemy. Also Nym for Belege |
 | [`@le-space/rates`](https://github.com/Le-Space/belege/tree/main/packages/rates) (npm) | EUR per asset and UTC day: the price at 00:00 UTC (CoinGecko, else Kraken's daily open); the ECB reference rate for USD and the rule for Aleph credits (`aleph-credits`); with `currency`, the rate in another currency (× ECB reference rate, USD too; RUB: Bank of Russia), and `perEuro` alone for a reference value in EUR |
 | [`@le-space/eigenbeleg`](https://github.com/Le-Space/belege/tree/main/packages/eigenbeleg) (npm) | The Eigenbeleg and the Kontoauszug (Aleph credits as a Verbrauchsauszug): what they say, as PDF/A-2b and CSV; the euro valuation of entries. Shared with Le Space Belege (#6) |
 | [`@le-space/pdf`](https://github.com/Le-Space/belege/tree/main/packages/pdf) (npm) | PDF/A-2b on pdf-lib with text in any script (DejaVu, Noto Sans Arabic; DejaVu Sans Mono for hashes): the fonts and the sRGB profile read from files in Node, fetched in a browser (Vite copies them next to the page) |

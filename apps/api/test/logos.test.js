@@ -113,7 +113,7 @@ test('the preview keeps a picture for 24 hours; the paid request and the subscri
 	assert.ok(!('issuerLogoId' in (await again.json())));
 	assert.equal((await readdir(join(dir, 'logos'))).length, 1);
 	// The subscription takes the id and keeps the picture with its own details.
-	const sub = await post('/eigenbeleg/subscribe', { ...request, period: undefined, payer, email: 'belege@example.org', issuerLogoId: p.issuerLogoId });
+	const sub = await post('/eigenbeleg/subscribe', { ...request, period: undefined, document: 'beide', payer, email: 'belege@example.org', issuerLogoId: p.issuerLogoId });
 	assert.equal(sub.status, 200);
 	await new Promise((r) => setTimeout(r, 30));
 	const [kept] = await subscriptions.list();

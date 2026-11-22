@@ -68,9 +68,12 @@ test('the store: one encrypted file per subscription, nothing readable without t
 test('the request is checked like a paid one, without a period and with an e-mail address; months is the route\'s, twelve by default', () => {
 	const blocks = blocksFor({});
 	const job = subscriptionJob({ ...body, months: 12, logo: true, includeKinds: ['fee'] }, { today: '2026-11-12', blocks });
-	// The payer's own logo is kept with the job, checked like every request's, and only when one was sent.
+	// The payer's own logo is kept with the job, checked like every request's, and only when one was sent
+	// and a document draws it: the Eigenbelege do, a statement does not (@le-space/eigenbeleg 0.6.0).
 	assert.ok(!('issuerLogo' in job));
-	const withLogo = subscriptionJob({ ...body, issuerLogo: Buffer.from(sampleJpeg()).toString('base64') }, { today: '2026-11-12', blocks });
+	const jpeg = Buffer.from(sampleJpeg()).toString('base64');
+	assert.ok(!('issuerLogo' in subscriptionJob({ ...body, issuerLogo: jpeg }, { today: '2026-11-12', blocks })), 'statements alone: none kept');
+	const withLogo = subscriptionJob({ ...body, document: 'beide', issuerLogo: jpeg }, { today: '2026-11-12', blocks });
 	assert.equal(typeof withLogo.issuerLogo, 'string');
 	assert.deepEqual([...Buffer.from(withLogo.issuerLogo ?? '', 'base64').subarray(0, 2)], [0xff, 0xd8], 'a JPEG, as the documents carry it');
 	assert.throws(() => subscriptionJob({ ...body, issuerLogo: 'iVBORw0KGgo=' }, { today: '2026-11-12', blocks }), /issuerLogo: the PNG file is damaged/);

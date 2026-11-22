@@ -2,7 +2,7 @@
 
 Launch: **Saturday, 14 November 2026**, the last day of the NEAR hackathon, where the agent is
 registered. From then on the hosted API at https://eigenbeleg.le-space.de takes **mainnet
-payments only**, in real USDC. The web UI stays free and talks to no server of ours.
+payments only**, in real USDC and in DOI. The web UI stays free and talks to no server of ours.
 
 Who: **Nico** does everything that touches keys, funds, accounts, the host and legal sign-off.
 Code and docs come as pull requests. No key, secret or customer data goes into the repository,
@@ -46,8 +46,16 @@ Each needs its recipient and a relayer that pays the gas. Then, in `.env` on the
 - [ ] `TRUST_PROXY` set for Caddy (so the 402 names the `https://` URL); `PUBLIC_URL=https://eigenbeleg.le-space.de`
 - [ ] `SOURCE_URL` is the Le-Space repository
 - [ ] the data volume belongs to the API's user: `docker exec eigenbeleg ls -ld /var/lib/eigenbeleg` shows `node node`. A volume created by an image before this check (root) needs, once: `chown 1000:1000 /var/lib/docker/volumes/deploy_subscriptions/_data`. Otherwise subscriptions, logos and DOI orders fail with EACCES (a 500)
-- [ ] **Ethereum and Base (optional):** `ALCHEMY_KEY` (Nico types it; a key of its own for this server, with a spending cap at Alchemy). Then `/blocks` lists `ethereum` and `base`, `GET /blocks/ethereum/check` and `/blocks/base/check` answer 200, and the free `POST /eigenbeleg/preview` with a made-up address answers. The privacy text names Alchemy for the API's reads (#93)
+- [ ] **Ethereum and Base (optional):** `ALCHEMY_KEY` (Nico types it; a key of its own for this server, with a spending cap at Alchemy). Then `/blocks` lists `ethereum` and `base`, `GET /blocks/ethereum/check` and `/blocks/base/check` answer 200, and the free `POST /eigenbeleg/preview` with a made-up address answers. The privacy text names Alchemy for the API's reads (#94)
 - [ ] `docker compose pull && docker compose up -d`, then `docker logs eigenbeleg` shows `production (mainnet payments only)` and the paywall with the mainnet networks. If it shows `eigenbeleg API not started: …`, the reason follows; fix `.env` and start again
+
+### 2a. DOI on Doichain (Nico)
+
+Payment in DOI beside USDC, single requests only ([`apps/api/src/onchain.js`](../apps/api/src/onchain.js); `.env.example` has the details).
+
+- [ ] `DOI_XPUB` = the receiving account's extended public key (BIP84, as DoiWallet exports it), so a request can get an address of its own and a wallet can pay from a QR code; or `DOI_PAY_TO` = one dc1… address (signed transactions through the server only). Treat the xpub like a secret: who knows it sees every payment of the account
+- [ ] no `PRICE_DOI` and no `DOI_CONFIRMATIONS=0` (a production build refuses both); `PAYMENTS_DIR` on the volume
+- [ ] `curl -s https://eigenbeleg.le-space.de/ | jq .payment.coins`: one entry, `5 DOI`, `confirmations` 1, `wait` "about 10 minutes"; `/llms.txt` has "Paying in DOI (Doichain)"
 
 ### 3. Mail and subscriptions (Nico)
 
@@ -83,6 +91,7 @@ Each needs its recipient and a relayer that pays the gas. Then, in `.env` on the
 - [ ] `curl -s https://eigenbeleg.le-space.de/llms.txt`: `POST …/eigenbeleg` lists mainnet networks only, prices 0.10 / 1.00 USDC, the recipients you set (testnet appears only in the "Test (testnet)" section, once the test route is on)
 - [ ] `curl -si -X POST …/eigenbeleg` with a made-up payer: `402`, `PAYMENT-REQUIRED` lists only mainnet networks and the published amounts (`100000` = 0.10 USDC)
 - [ ] **Nico** pays once from his own mainnet account (agent: `npm run agent -- --api https://eigenbeleg.le-space.de …` with `AGENT_BUDGET=$0.10`, or a Claude Code session with the skill): the documents arrive, the transaction is on NearBlocks / Basescan, the USDC is at `PAY_TO`
+- [ ] **Nico** pays once in DOI from a wallet (`npm run agent -- --api https://eigenbeleg.le-space.de --pay qr …`): the QR code, the transaction in the explorer, `202` until the block, then the documents; the DOI is at the account
 - [ ] the subscription once (`/eigenbeleg/subscribe/1`, 0.10 USDC): the confirmation and the cancel link work; cancel it again
 - [ ] the web UI at `/ui/` still builds documents locally (no request to the API host; DevTools → Network)
 

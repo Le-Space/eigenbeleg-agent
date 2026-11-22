@@ -23,7 +23,7 @@ const HELP = `Eigenbelege and Kontoauszüge on your own machine: no payment, not
   npm run local -- --job job.json          the request body from a file (as the API takes it)
   npm run local -- … --preview             counts and totals only, no files
 
-Options: --chain near|akash|filecoin|filecoin-pay|aleph (ethereum, base with --alchemy-key), --network mainnet|testnet,
+Options: --chain near|akash|filecoin|doichain|bitcoin|filecoin-pay|aleph (ethereum, base with --alchemy-key), --network mainnet|testnet,
   --address (repeatable, up to ten), --month YYYY-MM or --from/--to YYYY-MM-DD (finished days, at most 92),
   --name and --postal (the issuer, printed on the documents; they stay on this machine),
   --document eigenbelege|kontoauszug|beide, --include fee,storage,transfer,call,swap, --number EB-2026-001,

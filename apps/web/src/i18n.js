@@ -5,7 +5,7 @@
 // The prices come from the API's own list (@eigenbeleg/pipeline/prices), so the page
 // shows what the 402 asks; web.test.js holds index.html's German fallback to it.
 
-import { USD_PER_EUR, VAT, eurGuide, priceFor, timesMonths, usdc } from '@eigenbeleg/pipeline/prices';
+import { USD_PER_EUR, VAT, coinPriceFor, eurGuide, priceFor, timesMonths, usdc } from '@eigenbeleg/pipeline/prices';
 
 /** "0,10 USDC (rund 0,09 €)": the price and its euro guide. */
 const priced = (/** @type {string} */ p, /** @type {'de' | 'en'} */ l) => `${usdc(p, l)} (${eurGuide(p, l)})`;
@@ -14,6 +14,7 @@ const [y, m, d] = USD_PER_EUR.date.split('-');
 const NEAR = priceFor('near:mainnet');
 const BASE = priceFor('eip155:8453');
 const ETH = priceFor('eip155:1');
+const DOI = `${coinPriceFor('doichain')} DOI`;
 
 /** @typedef {'de' | 'en'} Lang */
 
@@ -28,27 +29,29 @@ const de = {
 	lead2: 'keine Rechnung',
 	lead3: '. Ob Ihr Steuerberater ihn annimmt, entscheidet er.',
 	tagline: 'Kostenlos und quelloffen. Alles in Ihrem Browser, nichts auf unseren Servern.',
-	forWhom: 'Für alle, die auf NEAR, Akash oder Filecoin bezahlen, Speicher über Filecoin Pay oder Aleph Cloud mit Credits nutzen, für Hosting, Speicher oder Verträge, und dafür einen Beleg für die Buchhaltung brauchen.',
+	forWhom: 'Für alle, die auf NEAR, Akash, Filecoin, Doichain oder Bitcoin bezahlen (Ethereum und Base mit eigenem Alchemy-Schlüssel), Speicher über Filecoin Pay oder Aleph Cloud mit Credits nutzen, für Hosting, Speicher oder Verträge, und dafür einen Beleg für die Buchhaltung brauchen.',
 	sampleTitle: 'So sieht das Ergebnis aus',
 	sampleText: 'Je Transaktion ein Eigenbeleg mit Hash, Von/An, allen Bewegungen, QR-Code zum Explorer und Unterschriftszeile. Je Adresse ein Kontoauszug mit Anfangssaldo, Buchungen und Endsaldo, gegen die Chain geprüft. Beides als PDF/A, dazu eine CSV für die Tabelle.',
 	privacy: 'Die Seite liest die Chain, holt die Kurse und erstellt die PDFs in diesem Browser. Name und Anschrift verlassen das Gerät nie, und kein Server von uns sieht Ihre Adressen. Der Quellcode ist offen (AGPL-3.0), jeder kann prüfen, was die Seite tut.',
 	install: 'Die Seite lässt sich als App installieren (im Browser-Menü „Installieren“ oder „Zum Home-Bildschirm“) und startet dann auch ohne Netz.',
 	hAgents: 'Für Agenten: dieselben Dokumente per API, bezahlt per x402',
-	agentsText: 'Wer einen Agenten für sich arbeiten lässt, nutzt die API. Sie prüft die Anfrage, liest, bewertet und zeichnet mit demselben Code wie diese Seite. Der Agent zahlt je Anfrage in USDC per x402, ohne Gas, auf NEAR, Base oder Ethereum. Die Vorschau ist kostenlos, und abgebucht wird nur, wenn die Chain gelesen werden konnte. Auf Wunsch schickt die API die Dateien zusätzlich per E-Mail, etwa an das Postfach eines Dokumentenmanagementsystems.',
+	agentsText: 'Wer einen Agenten für sich arbeiten lässt, nutzt die API. Sie prüft die Anfrage, liest, bewertet und zeichnet mit demselben Code wie diese Seite. Der Agent zahlt je Anfrage per x402: in USDC auf NEAR, ohne Gas, oder in DOI auf Doichain (die Dokumente kommen dann nach dem Block, etwa 10 Minuten). USDC auf Base und Ethereum, wo die API es anbietet; was sie gerade nimmt, steht in /llms.txt. Die Vorschau ist kostenlos, und abgebucht wird nur, wenn die Chain gelesen werden konnte. Auf Wunsch schickt die API die Dateien zusätzlich per E-Mail, etwa an das Postfach eines Dokumentenmanagementsystems.',
 	hPay: 'Womit Agenten zahlen',
 	payNet: 'Netz',
 	payAsset: 'Asset',
 	payHow: 'Wie',
 	payPrice: 'Preis je Anfrage',
 	payNearHow: 'Eine signierte Delegate-Action; unser Relayer trägt das Gas',
-	payEvmHow: 'Eine signierte EIP-3009-Überweisung; unser Relayer trägt das Gas',
-	payEthHow: 'Wie Base; teurer, weil das Gas auf Ethereum ein Vielfaches kostet',
+	payEvmHow: 'Eine signierte EIP-3009-Überweisung; unser Relayer trägt das Gas; nur wo angeboten',
+	payDoiHow: 'Eine signierte Doichain-Transaktion oder per QR-Code aus der Wallet; die Dokumente nach 1 Bestätigung (rund 10 Minuten)',
+	payEthHow: 'Wie Base; teurer, weil das Gas auf Ethereum ein Vielfaches kostet; nur wo angeboten',
 	payNearPrice: priced(NEAR, 'de'),
 	payBasePrice: priced(BASE, 'de'),
 	payEthPrice: priced(ETH, 'de'),
-	payNote: `Die 402-Antwort bietet alle Netze an, der Agent wählt eins. Bezahlt wird nur auf dem Mainnet, mit echtem USDC; die laufende API nennt die Preise auch unter /llms.txt. Alle Preise inkl. ${VAT} % USt; 1 USDC ist an den US-Dollar gebunden, der Euro-Betrag ist ein Richtwert zum EZB-Kurs vom ${d}.${m}.${y}. Rechnung auf Anforderung.`,
+	payDoiPrice: DOI,
+	payNote: `Die 402-Antwort nennt alle Wege, die die laufende API gerade nimmt, der Agent wählt einen; dieselbe Liste steht in /llms.txt. Bezahlt wird nur auf dem Mainnet. Alle Preise inkl. ${VAT} % USt; 1 USDC ist an den US-Dollar gebunden, der Euro-Betrag ist ein Richtwert zum EZB-Kurs vom ${d}.${m}.${y}; für DOI gibt es keinen veröffentlichten Kurs. Rechnung auf Anforderung.`,
 	businessOnly: 'Die bezahlte API ist nur für Unternehmer (§ 14 BGB), zu unseren AGB. Privatpersonen erstellen dieselben Dokumente kostenlos auf dieser Seite.',
-	subscriptionNote: `Wer die Kontoauszüge jeden Monat braucht, abonniert sie: einmal zahlen, und ab dem 2. jedes Monats kommt der Auszug für den Vormonat per E-Mail, etwa ins Postfach des Dokumentenmanagementsystems. Ein Jahr auf einmal (${usdc(timesMonths(NEAR), 'de')}, auf Ethereum ${usdc(timesMonths(ETH), 'de')}), oder 1 bis 12 Monate im Voraus zum normalen Preis je Anfrage (POST /eigenbeleg/subscribe/<Monate>). Dafür hebt die API Chain, Adressen, Aussteller (mit Logo, wenn eines mitgeschickt wurde) und E-Mail-Adresse verschlüsselt auf, bis der letzte Auszug verschickt ist oder Sie über den Link in jeder Mail beenden; Restmonate werden nicht erstattet. Ob die laufende API das Abo anbietet, steht in /llms.txt.`,
+	subscriptionNote: `Wer die Kontoauszüge jeden Monat braucht, abonniert sie: einmal zahlen, und ab dem 2. jedes Monats kommt der Auszug für den Vormonat per E-Mail, etwa ins Postfach des Dokumentenmanagementsystems. Ein Jahr auf einmal (${usdc(timesMonths(NEAR), 'de')}, auf Ethereum, wo angeboten, ${usdc(timesMonths(ETH), 'de')}), oder 1 bis 12 Monate im Voraus zum normalen Preis je Anfrage (POST /eigenbeleg/subscribe/<Monate>). Dafür hebt die API Chain, Adressen, Aussteller (mit Logo, wenn eines mitgeschickt wurde) und E-Mail-Adresse verschlüsselt auf, bis der letzte Auszug verschickt ist oder Sie über den Link in jeder Mail beenden; Restmonate werden nicht erstattet. Das Abo wird in USDC bezahlt, nicht in DOI. Ob die laufende API das Abo anbietet, steht in /llms.txt.`,
 	agentsPrompt: 'So beauftragen Sie zum Beispiel Claude oder einen anderen Agenten, der x402 kann; Zeitraum, Adresse und Aussteller sind Beispiele, setzen Sie Ihre ein:',
 	copy: 'In die Zwischenablage',
 	copied: 'Kopiert',
@@ -194,27 +197,29 @@ const en = {
 	lead2: 'not an invoice',
 	lead3: '. Whether your tax adviser accepts it is their call. The documents are in German, as German bookkeeping needs them.',
 	tagline: 'Free and open source. All in your browser, nothing on our servers.',
-	forWhom: 'For everyone who pays on NEAR, Akash or Filecoin, or uses storage through Filecoin Pay or Aleph Cloud with credits, for hosting, storage or contracts, and needs a receipt for the books.',
+	forWhom: 'For everyone who pays on NEAR, Akash, Filecoin, Doichain or Bitcoin (Ethereum and Base with their own Alchemy key), or uses storage through Filecoin Pay or Aleph Cloud with credits, for hosting, storage or contracts, and needs a receipt for the books.',
 	sampleTitle: 'What you get',
 	sampleText: 'One Eigenbeleg per transaction, with the hash, from/to, every movement, a QR code to the explorer and a signature line. One account statement per address, with opening balance, bookings and closing balance, checked against the chain. Both as PDF/A, plus a CSV for the spreadsheet.',
 	privacy: 'The page reads the chain, fetches the rates and makes the PDFs in this browser. Name and address never leave the device, and no server of ours sees your addresses. The source code is open (AGPL-3.0), so anyone can check what the page does.',
 	install: 'The page installs as an app (browser menu: "Install" or "Add to Home Screen") and then starts without a network too.',
 	hAgents: 'For agents: the same documents through the API, paid with x402',
-	agentsText: 'Whoever has an agent work for them uses the API. It checks the request, reads, values and draws with the same code as this page. The agent pays per request in USDC with x402, without gas, on NEAR, Base or Ethereum. The preview is free, and nothing is charged unless the chain could be read. On request the API also mails the files, say to a document management system\'s inbox.',
+	agentsText: 'Whoever has an agent work for them uses the API. It checks the request, reads, values and draws with the same code as this page. The agent pays per request with x402: in USDC on NEAR, without gas, or in DOI on Doichain (the documents then come after the block, about 10 minutes). USDC on Base and Ethereum where the API offers it; what it takes right now is in /llms.txt. The preview is free, and nothing is charged unless the chain could be read. On request the API also mails the files, say to a document management system\'s inbox.',
 	hPay: 'What agents pay with',
 	payNet: 'Network',
 	payAsset: 'Asset',
 	payHow: 'How',
 	payPrice: 'Price per request',
 	payNearHow: 'One signed delegate action; our relayer pays the gas',
-	payEvmHow: 'One signed EIP-3009 transfer; our relayer pays the gas',
-	payEthHow: 'As on Base; dearer, because gas on Ethereum costs many times more',
+	payEvmHow: 'One signed EIP-3009 transfer; our relayer pays the gas; only where offered',
+	payDoiHow: 'A signed Doichain transaction, or from a wallet by QR code; the documents after 1 confirmation (about 10 minutes)',
+	payEthHow: 'As on Base; dearer, because gas on Ethereum costs many times more; only where offered',
 	payNearPrice: priced(NEAR, 'en'),
 	payBasePrice: priced(BASE, 'en'),
 	payEthPrice: priced(ETH, 'en'),
-	payNote: `The 402 offers every network and the agent picks one. Payment is on mainnet only, in real USDC; the running API also names the prices at /llms.txt. All prices include ${VAT}% German VAT; 1 USDC is pegged to the US dollar, and the euro amount is a guide at the ECB rate of ${Number(d)} ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][Number(m) - 1]} ${y}. Invoice on request.`,
+	payDoiPrice: DOI,
+	payNote: `The 402 names every way the running API takes right now, and the agent picks one; /llms.txt has the same list. Payment is on mainnet only. All prices include ${VAT}% German VAT; 1 USDC is pegged to the US dollar, and the euro amount is a guide at the ECB rate of ${Number(d)} ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][Number(m) - 1]} ${y}; DOI has no published rate. Invoice on request.`,
 	businessOnly: 'The paid API is for businesses only (§ 14 BGB, German Civil Code), under our terms of business. Private persons make the same documents for free on this page.',
-	subscriptionNote: `Whoever needs the statements every month subscribes: pay once, and from the 2nd of each month the statement for the month before arrives by e-mail, say in the document management system's inbox. A year at once (${usdc(timesMonths(NEAR), 'en')}, on Ethereum ${usdc(timesMonths(ETH), 'en')}), or 1 to 12 months in advance at the normal price per request (POST /eigenbeleg/subscribe/<months>). For that the API keeps chain, addresses, issuer (with the logo, if one was sent) and e-mail address encrypted until the last statement is sent or you cancel through the link in every mail; the remaining months are not refunded. Whether the running API offers the subscription, /llms.txt says.`,
+	subscriptionNote: `Whoever needs the statements every month subscribes: pay once, and from the 2nd of each month the statement for the month before arrives by e-mail, say in the document management system's inbox. A year at once (${usdc(timesMonths(NEAR), 'en')}, on Ethereum, where offered, ${usdc(timesMonths(ETH), 'en')}), or 1 to 12 months in advance at the normal price per request (POST /eigenbeleg/subscribe/<months>). For that the API keeps chain, addresses, issuer (with the logo, if one was sent) and e-mail address encrypted until the last statement is sent or you cancel through the link in every mail; the remaining months are not refunded. The subscription is paid in USDC, not in DOI. Whether the running API offers the subscription, /llms.txt says.`,
 	agentsPrompt: 'This is how you brief Claude, say, or another agent that speaks x402; period, address and issuer are examples, put in your own:',
 	copy: 'Copy to clipboard',
 	copied: 'Copied',

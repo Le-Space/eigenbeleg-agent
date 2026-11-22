@@ -200,6 +200,13 @@ export function createApp({
 				: p.mode === 'none'
 					? 'free (development mode)'
 					: `paid via ${p.mode}`;
+		// A coin beside USDC is named in the same line, so an agent that skims sees every way to pay.
+		const orCoins = coins.length ? `; or ${coins.map((c) => `${c.price} on ${c.name} (below, "Paying in ${c.asset}")`).join('; ')}` : '';
+		// How to sign, only for the networks this instance offers.
+		const near = accepts.some((a) => a.network.startsWith('near:'));
+		const evm = accepts.some((a) => a.network.startsWith('eip155:'));
+		const signs = [near ? 'On NEAR: one NEP-366 delegate action with one `ft_transfer` of USDC (the payer needs USDC and a USDC storage registration, no NEAR).' : '', evm ? 'On Base or Ethereum: one EIP-3009 `transferWithAuthorization` of USDC (the payer needs USDC, no ETH).' : ''].filter(Boolean).join(' ');
+		const clients = [near ? '@x402/near' : '', evm ? '@x402/evm' : ''].filter(Boolean).join(' or ') || '@x402/near or @x402/evm';
 		const base = origin(req, publicUrl);
 		const stamp = [build.version ? `version ${build.version}` : '', build.commit ? `commit ${build.commit.slice(0, 12)} of ${build.date.slice(0, 10)}` : ''].filter(Boolean).join(', ');
 		res.type('text/plain; charset=utf-8').send(`# Eigenbeleg API
@@ -213,11 +220,11 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
 ## Buy
 
 - POST ${base}/eigenbeleg/preview: free, the same body without \`payer\`; counts and totals, no files. Check here first.
-- POST ${base}/eigenbeleg: ${price}.${subs ? `\n- POST ${base}/eigenbeleg/subscribe: a subscription, ${MONTHS} monthly Kontoauszüge by mail, paid once: ${/** @type {any} */ (paywall.info).subscription?.price ?? 'see GET /'} (${MONTHS} × the price, unless set apart); POST ${base}/eigenbeleg/subscribe/<months> buys 1 to ${MONTHS} months in advance at months × the price of one request. The same body as POST /eigenbeleg with \`email\` and without \`period\`; \`document\` is kontoauszug by default. From the 2nd of each month the statement for the month before goes to that address; the answer and every mail carry the cancel link, which deletes everything (no refund of the remaining months). Chain, addresses, payer, e-mail address and options are kept encrypted until the last statement or the cancellation; everything else this API does stays unstored.` : ''}
+- POST ${base}/eigenbeleg: ${price}${orCoins}.${subs ? `\n- POST ${base}/eigenbeleg/subscribe: a subscription, ${MONTHS} monthly Kontoauszüge by mail, paid once: ${/** @type {any} */ (paywall.info).subscription?.price ?? 'see GET /'} (${MONTHS} × the price, unless set apart); POST ${base}/eigenbeleg/subscribe/<months> buys 1 to ${MONTHS} months in advance at months × the price of one request. The same body as POST /eigenbeleg with \`email\` and without \`period\`; \`document\` is kontoauszug by default. From the 2nd of each month the statement for the month before goes to that address; the answer and every mail carry the cancel link, which deletes everything (no refund of the remaining months). Chain, addresses, payer, e-mail address and options are kept encrypted until the last statement or the cancellation; everything else this API does stays unstored.` : ''}
   1. Send the body; the answer is 402 with a \`PAYMENT-REQUIRED\` header (base64 JSON, x402 v2, scheme \`exact\`).
-  2. Sign what it asks for and send the same request again with \`PAYMENT-SIGNATURE\`. On NEAR: one NEP-366 delegate action with one \`ft_transfer\` of USDC (the payer needs USDC and a USDC storage registration, no NEAR). On Base or Ethereum: one EIP-3009 \`transferWithAuthorization\` of USDC (the payer needs USDC, no ETH).
+  2. Sign what it asks for and send the same request again with \`PAYMENT-SIGNATURE\`.${signs ? ` ${signs}` : ''}
   3. The answer carries the files and \`PAYMENT-RESPONSE\` (the transaction). If reading the chain fails, nothing is charged.
-  Clients: @x402/fetch with @x402/near or @x402/evm (JavaScript), or this repository's agent: npm run agent -- --help.
+  Clients: @x402/fetch with ${clients} (JavaScript), or this repository's agent: npm run agent -- --help.
 ${coins.map((c) => `
 ### Paying in ${c.asset} (${c.name})
 

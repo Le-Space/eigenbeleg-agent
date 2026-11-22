@@ -101,6 +101,8 @@ test('the 402 offers DOI beside USDC: its own scheme, the amount in swartz, how 
 		assert.deepEqual([info.coins[0].asset, info.coins[0].price, info.coins[0].payTo, info.coins[0].wait], ['DOI', '2.5 DOI', t.payTo, 'about 10 minutes']);
 		const llms = await (await fetch(`${t.base}/llms.txt`)).text();
 		assert.match(llms, /### Paying in DOI \(Doichain\)/);
+		// The buy line names the coin beside USDC.
+		assert.match(llms, /POST [^\n]*\/eigenbeleg: USDC on [^\n]*; or 2\.5 DOI on Doichain \(below, "Paying in DOI"\)\./);
 		assert.match(llms, /Do not broadcast it\./);
 		assert.match(llms, /202 with the txid/);
 		const api = await (await fetch(`${t.base}/openapi.json`)).json();

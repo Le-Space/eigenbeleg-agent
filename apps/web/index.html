@@ -178,7 +178,7 @@
 
 			<section id="so-gehts" aria-labelledby="h-how">
 				<h2 id="h-how" data-i18n="hHow">So geht's</h2>
-				<p class="lead" data-i18n="forWhom">Für alle, die auf NEAR, Akash oder Filecoin bezahlen, für Hosting, Speicher oder Verträge, und dafür einen Beleg für die Buchhaltung brauchen.</p>
+				<p class="lead" data-i18n="forWhom">Für alle, die auf NEAR, Akash, Filecoin, Doichain oder Bitcoin bezahlen (Ethereum und Base mit eigenem Alchemy-Schlüssel), Speicher über Filecoin Pay oder Aleph Cloud mit Credits nutzen, für Hosting, Speicher oder Verträge, und dafür einen Beleg für die Buchhaltung brauchen.</p>
 				<figure class="sample">
 					<!-- Example data only: what one Eigenbeleg looks like, in the share card's style. -->
 					<div class="card" aria-hidden="true">
@@ -206,7 +206,7 @@
 
 			<section id="agents" aria-labelledby="h-agents">
 				<h2 id="h-agents" data-i18n="hAgents">Für Agenten: dieselben Dokumente per API, bezahlt per x402</h2>
-				<p data-i18n="agentsText">Wer einen Agenten für sich arbeiten lässt, nutzt die API. Sie prüft die Anfrage, liest, bewertet und zeichnet mit demselben Code wie diese Seite. Der Agent zahlt je Anfrage in USDC per x402, ohne Gas, auf NEAR, Base oder Ethereum. Die Vorschau ist kostenlos, und abgebucht wird nur, wenn die Chain gelesen werden konnte. Auf Wunsch schickt die API die Dateien zusätzlich per E-Mail, etwa an das Postfach eines Dokumentenmanagementsystems.</p>
+				<p data-i18n="agentsText">Wer einen Agenten für sich arbeiten lässt, nutzt die API. Sie prüft die Anfrage, liest, bewertet und zeichnet mit demselben Code wie diese Seite. Der Agent zahlt je Anfrage per x402: in USDC auf NEAR, ohne Gas, oder in DOI auf Doichain (die Dokumente kommen dann nach dem Block, etwa 10 Minuten). USDC auf Base und Ethereum, wo die API es anbietet; was sie gerade nimmt, steht in /llms.txt. Die Vorschau ist kostenlos, und abgebucht wird nur, wenn die Chain gelesen werden konnte. Auf Wunsch schickt die API die Dateien zusätzlich per E-Mail, etwa an das Postfach eines Dokumentenmanagementsystems.</p>
 				<h3 data-i18n="hPay">Womit Agenten zahlen</h3>
 				<table class="pay">
 					<thead>
@@ -214,13 +214,14 @@
 					</thead>
 					<tbody>
 						<tr><td>NEAR <code>near:mainnet</code></td><td>USDC (NEP-141)</td><td data-i18n="payNearHow">Eine signierte Delegate-Action; unser Relayer trägt das Gas</td><td data-i18n="payNearPrice">0,10 USDC (rund 0,09 €)</td></tr>
-						<tr><td>Base <code>eip155:8453</code></td><td>USDC</td><td data-i18n="payEvmHow">Eine signierte EIP-3009-Überweisung; unser Relayer trägt das Gas</td><td data-i18n="payBasePrice">0,10 USDC (rund 0,09 €)</td></tr>
-						<tr><td>Ethereum <code>eip155:1</code></td><td>USDC</td><td data-i18n="payEthHow">Wie Base; teurer, weil das Gas auf Ethereum ein Vielfaches kostet</td><td data-i18n="payEthPrice">1,00 USDC (rund 0,90 €)</td></tr>
+						<tr><td>Doichain <code>bip122:000006fd…</code></td><td>DOI</td><td data-i18n="payDoiHow">Eine signierte Doichain-Transaktion oder per QR-Code aus der Wallet; die Dokumente nach 1 Bestätigung (rund 10 Minuten)</td><td data-i18n="payDoiPrice">5 DOI</td></tr>
+						<tr><td>Base <code>eip155:8453</code></td><td>USDC</td><td data-i18n="payEvmHow">Eine signierte EIP-3009-Überweisung; unser Relayer trägt das Gas; nur wo angeboten</td><td data-i18n="payBasePrice">0,10 USDC (rund 0,09 €)</td></tr>
+						<tr><td>Ethereum <code>eip155:1</code></td><td>USDC</td><td data-i18n="payEthHow">Wie Base; teurer, weil das Gas auf Ethereum ein Vielfaches kostet; nur wo angeboten</td><td data-i18n="payEthPrice">1,00 USDC (rund 0,90 €)</td></tr>
 					</tbody>
 				</table>
-				<p class="note" data-i18n="payNote">Die 402-Antwort bietet alle Netze an, der Agent wählt eins. Bezahlt wird nur auf dem Mainnet, mit echtem USDC; die laufende API nennt die Preise auch unter /llms.txt. Alle Preise inkl. 19 % USt; 1 USDC ist an den US-Dollar gebunden, der Euro-Betrag ist ein Richtwert zum EZB-Kurs vom 13.11.2026. Rechnung auf Anforderung.</p>
+				<p class="note" data-i18n="payNote">Die 402-Antwort nennt alle Wege, die die laufende API gerade nimmt, der Agent wählt einen; dieselbe Liste steht in /llms.txt. Bezahlt wird nur auf dem Mainnet. Alle Preise inkl. 19 % USt; 1 USDC ist an den US-Dollar gebunden, der Euro-Betrag ist ein Richtwert zum EZB-Kurs vom 13.11.2026; für DOI gibt es keinen veröffentlichten Kurs. Rechnung auf Anforderung.</p>
 				<p class="note" data-i18n="businessOnly">Die bezahlte API ist nur für Unternehmer (§ 14 BGB), zu unseren AGB. Privatpersonen erstellen dieselben Dokumente kostenlos auf dieser Seite.</p>
-				<p class="note" data-i18n="subscriptionNote">Wer die Kontoauszüge jeden Monat braucht, abonniert sie: einmal zahlen, und ab dem 2. jedes Monats kommt der Auszug für den Vormonat per E-Mail, etwa ins Postfach des Dokumentenmanagementsystems. Ein Jahr auf einmal (1,20 USDC, auf Ethereum 12,00 USDC), oder 1 bis 12 Monate im Voraus zum normalen Preis je Anfrage (POST /eigenbeleg/subscribe/&lt;Monate&gt;). Dafür hebt die API Chain, Adressen, Aussteller (mit Logo, wenn eines mitgeschickt wurde) und E-Mail-Adresse verschlüsselt auf, bis der letzte Auszug verschickt ist oder Sie über den Link in jeder Mail beenden; Restmonate werden nicht erstattet. Ob die laufende API das Abo anbietet, steht in /llms.txt.</p>
+				<p class="note" data-i18n="subscriptionNote">Wer die Kontoauszüge jeden Monat braucht, abonniert sie: einmal zahlen, und ab dem 2. jedes Monats kommt der Auszug für den Vormonat per E-Mail, etwa ins Postfach des Dokumentenmanagementsystems. Ein Jahr auf einmal (1,20 USDC, auf Ethereum, wo angeboten, 12,00 USDC), oder 1 bis 12 Monate im Voraus zum normalen Preis je Anfrage (POST /eigenbeleg/subscribe/&lt;Monate&gt;). Dafür hebt die API Chain, Adressen, Aussteller (mit Logo, wenn eines mitgeschickt wurde) und E-Mail-Adresse verschlüsselt auf, bis der letzte Auszug verschickt ist oder Sie über den Link in jeder Mail beenden; Restmonate werden nicht erstattet. Das Abo wird in USDC bezahlt, nicht in DOI. Ob die laufende API das Abo anbietet, steht in /llms.txt.</p>
 				<p class="note" data-i18n="agentsPrompt">So beauftragen Sie zum Beispiel Claude oder einen anderen Agenten, der x402 kann; Zeitraum, Adresse und Aussteller sind Beispiele, setzen Sie Ihre ein:</p>
 				<div class="copy">
 					<pre data-i18n="prompt">Besorge mir die Eigenbelege und den Kontoauszug für Oktober 2026 für meine NEAR-Adresse wolkenfabrik.near von https://eigenbeleg.le-space.de. Lies zuerst https://eigenbeleg.le-space.de/llms.txt und zeig mir die kostenlose Vorschau, bevor du zahlst. Aussteller: Wolkenfabrik Hosting GmbH, Musterstraße 1, 12345 Beispielstadt. Zahle höchstens 0,10 USDC.</pre>

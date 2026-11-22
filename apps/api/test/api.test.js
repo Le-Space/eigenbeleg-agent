@@ -447,6 +447,8 @@ test('GET /llms.txt tells agents what is sold, the price and the x402 steps', as
 		assert.match(text, /^# Eigenbeleg API/);
 		assert.match(text, /POST https:\/\/eigenbeleg\.example\.org\/eigenbeleg: USDC on NEAR testnet \(near:testnet\): \$0\.10 to eigenbeleg-api\.testnet; Base \(eip155:8453\): \$0\.10 to 0x1111/);
 		assert.match(text, /transferWithAuthorization/);
+		assert.match(text, /On NEAR: one NEP-366 delegate action/);
+		assert.match(text, /@x402\/fetch with @x402\/near or @x402\/evm/);
 		// The choices an agent settles with the person: which document, the currency (EUR by default), the chain's logo, the diagram.
 		assert.match(text, /## Choices to settle with the person[\s\S]*tell them the default you will use[\s\S]*Currency\*\* \(`currency`, EUR by default\)[\s\S]*Bank of Russia[\s\S]*`logo`, off by default[\s\S]*not the person's company logo[\s\S]*`chart`, on by default/);
 		assert.match(text, /PAYMENT-REQUIRED[\s\S]*PAYMENT-SIGNATURE[\s\S]*PAYMENT-RESPONSE/);
@@ -731,6 +733,19 @@ test('/.well-known/security.txt (RFC 9116): the mail, an Expires within a year, 
 		const expires = Date.parse(/^Expires: (\S+)$/m.exec(text)?.[1] ?? '');
 		const now = deps.now().getTime();
 		assert.ok(expires > now && expires - now < 365 * 86_400_000, 'in the future, less than a year ahead');
+	} finally {
+		close();
+	}
+});
+
+test('llms.txt explains signing only for the networks offered', async () => {
+	const info = { mode: 'x402', scheme: 'exact', accepts: [{ network: 'near:mainnet', name: 'NEAR', asset: 'USDC (NEP-141)', price: '$0.10', payTo: 'example.near' }] };
+	const { base, close } = await serve(createApp({ paywall: { middleware: null, info }, deps, log: () => {}, web: null, publicUrl: 'https://eigenbeleg.example.org' }));
+	try {
+		const text = await (await globalThis.fetch(base + '/llms.txt')).text();
+		assert.match(text, /On NEAR: one NEP-366 delegate action/);
+		assert.doesNotMatch(text, /On Base or Ethereum|transferWithAuthorization|@x402\/evm/);
+		assert.match(text, /@x402\/fetch with @x402\/near \(JavaScript\)/);
 	} finally {
 		close();
 	}

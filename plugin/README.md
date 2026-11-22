@@ -5,10 +5,11 @@ agent that reads `SKILL.md`. An **Eigenbeleg** is a self-issued German proof of
 payment for a payment nobody sends an invoice for: a network fee, a storage
 deposit, a payment to a peer-to-peer network. The skills get them, with the
 **Kontoauszug** (account statement) per address and a CSV, for a person's own
-addresses on NEAR, Akash, Filecoin, Aleph Cloud, Ethereum and Base.
+addresses on NEAR, Akash, Filecoin, Doichain, Bitcoin, Filecoin Pay and Aleph Cloud
+(Ethereum and Base with an Alchemy key).
 
 - **eigenbeleg-api** buys the documents from the Eigenbeleg API at
-  https://eigenbeleg.le-space.de, paying per request with x402 in USDC. The
+  https://eigenbeleg.le-space.de, paying per request with x402 in USDC or DOI. The
   agent sends the chain, the addresses, the period and the payer's name and
   postal address to that API, nothing else; the API keeps nothing beyond the
   request. Needs an x402 client with a wallet; the free preview needs none.

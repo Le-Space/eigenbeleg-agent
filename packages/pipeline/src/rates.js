@@ -6,13 +6,15 @@
 // rate. A document in another currency (`currency`, DOCUMENT_CURRENCIES of
 // @le-space/eigenbeleg) gets that euro rate times the currency's units per
 // euro of the day: the ECB reference rate, for RUB the Bank of Russia's
-// official rate; for USD, where CoinGecko answered, its own USD price of the
-// same snapshot. The Eigenbeleg names both legs with source and day, so a
-// bookkeeper can look each up again.
+// official rate – USD too, like every currency: only the crypto leg is
+// CoinGecko's or Kraken's. A reference value set by hand in EUR (DOI) goes the
+// same way, times the euro in the currency of its day. The Eigenbeleg names
+// both legs with source and day, so a bookkeeper can look each up again.
 //
 // No storage: rates are cached in memory for one run.
 
-import { RateError, createRateService } from '@le-space/rates';
+import { RateError, createRateService, multiplyRates } from '@le-space/rates';
+import { withReferenceRates } from '@le-space/rates/reference-rate';
 
 /** How the euro leg's source is named on the document. @type {Record<string, (date: string, r: { asset: string, at: string }) => string>} */
 const SOURCE_TEXT = {
@@ -40,11 +42,13 @@ export function sourceText(date, r) {
 	// The asset is the document's currency itself (USD in a document in USD): one to one.
 	if (r.source === 'same') return `${currency}, 1:1`;
 	const leg = SOURCE_TEXT[r.source] ?? ((/** @type {string} */ d) => `${r.source}, Kurs ${d} 00:00 UTC`);
-	// CoinGecko's own USD price of the same snapshot: no second leg.
-	if (currency !== 'EUR' && !r.fx) return r.source === 'coingecko' ? `CoinGecko, ${currency}-Kurs ${date} 00:00 UTC` : leg(date, r);
-	if (!r.fx) return leg(date, r);
-	const fx = FX_TEXT[r.fx.source] ?? ((/** @type {{ currency: string, at: string }} */ f) => `${r.fx?.source} EUR/${f.currency} vom ${String(f.at).slice(0, 10)}`);
-	return `${leg(date, r)} × ${fx(r.fx)}`;
+	return r.fx ? `${leg(date, r)} × ${fxText(r.fx)}` : leg(date, r);
+}
+
+/** The leg from the euro into the document's currency, as named on it. @param {{ currency: string, source: string, at: string }} fx */
+export function fxText(fx) {
+	const text = FX_TEXT[fx.source] ?? ((/** @type {{ currency: string, at: string }} */ f) => `${fx.source} EUR/${f.currency} vom ${String(f.at).slice(0, 10)}`);
+	return text(fx);
 }
 
 /**
@@ -53,7 +57,7 @@ export function sourceText(date, r) {
  * @param {string} [o.coingeckoKey] a CoinGecko demo key, optional
  * @param {() => Date} [o.now] for tests
  * @param {string} [o.currency] the document's currency (DOCUMENT_CURRENCIES of @le-space/eigenbeleg), EUR when not given
- * @returns {import('@le-space/eigenbeleg').Rates}
+ * @returns {import('@le-space/eigenbeleg').Rates & { perEuro: (date: string) => Promise<{ currency: string, perEur: string, source: string, at: string } | null> }}
  */
 export function dayRates({ fetch = globalThis.fetch, coingeckoKey, now, currency = 'EUR' } = {}) {
 	const service = createRateService({ fetch, coingeckoKey: async () => coingeckoKey ?? null, ...(now ? { now } : {}) });
@@ -89,5 +93,49 @@ export function dayRates({ fetch = globalThis.fetch, coingeckoKey, now, currency
 		return /** @type {Promise<import('@le-space/eigenbeleg').Rate | null>} */ (cache.get(key));
 	}
 
-	return { rateFor };
+	/** @type {Map<string, Promise<{ currency: string, perEur: string, source: string, at: string } | null>>} */
+	const legs = new Map();
+	/**
+	 * The euro in the document's currency on a day (the second leg alone), or null where none is known.
+	 * @param {string} date YYYY-MM-DD (UTC)
+	 */
+	function perEuro(date) {
+		if (!legs.has(date)) {
+			legs.set(
+				date,
+				service.perEuro(currency, date).catch((e) => {
+					if (e instanceof RateError) return null;
+					throw e;
+				})
+			);
+		}
+		return /** @type {Promise<{ currency: string, perEur: string, source: string, at: string } | null>} */ (legs.get(date));
+	}
+
+	return { rateFor, perEuro };
+}
+
+/**
+ * The rates with the listed assets valued by their reference tables (in EUR) and by nothing else, as
+ * withReferenceRates; in another currency each reference value times the euro in it on the day, both named.
+ * A day without the second leg stays unvalued, as one without a rate.
+ *
+ * @param {import('@le-space/eigenbeleg').Rates & { perEuro?: ReturnType<typeof dayRates>['perEuro'] }} priced the request's rates, in its currency
+ * @param {Record<string, { from: string, eur: string, by?: string }[]>} tables by asset: `{ DOI: [...] }`
+ * @param {string} [currency] the document's currency, EUR when not given
+ * @returns {import('@le-space/eigenbeleg').Rates}
+ */
+export function referenceRates(priced, tables, currency = 'EUR') {
+	const inEur = withReferenceRates(priced, tables);
+	if (currency === 'EUR') return inEur;
+	return {
+		async rateFor(asset, date) {
+			if (!Object.hasOwn(tables, asset)) return priced.rateFor(asset, date);
+			const r = await inEur.rateFor(asset, date);
+			if (!r) return null;
+			const fx = (await priced.perEuro?.(date)) ?? null;
+			if (!fx) return null;
+			return { rate: multiplyRates(r.rate, fx.perEur), source: `${r.source} × ${fxText(fx)}`, date, currency };
+		}
+	};
 }

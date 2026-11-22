@@ -7,8 +7,7 @@
 
 import { sortEntries } from '@le-space/ledger';
 import { buildDocument, buildStatement, eigenbelegCsv, eigenbelegPdf, statementPdf, valueEntries } from '@le-space/eigenbeleg';
-import { withReferenceRates } from '@le-space/rates/reference-rate';
-import { dayRates } from './rates.js';
+import { dayRates, referenceRates } from './rates.js';
 import { BLOCKS } from './blocks.js';
 
 /**
@@ -56,11 +55,12 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	}
 	onProgress?.({ step: 'rates' });
 	// An asset no price source quotes (DOI) is valued by the request's reference value and by nothing else: with
-	// no value handed in its table is empty, so it gets no euro value and never reaches a price feed.
+	// no value handed in its table is empty, so it gets no euro value and never reaches a price feed. In another
+	// currency the reference value (EUR) is taken times the euro in it on the day.
 	// The request's currency (EUR unless another): the rates come in it, and the documents are in it.
 	const currency = req.currency ?? 'EUR';
 	const priced = deps.rates ?? dayRates({ fetch: deps.fetch, currency });
-	const rates = block.referenceAssets?.length ? withReferenceRates(priced, Object.fromEntries(block.referenceAssets.map((a) => [a, req.reference?.[a] ?? []]))) : priced;
+	const rates = block.referenceAssets?.length ? referenceRates(priced, Object.fromEntries(block.referenceAssets.map((a) => [a, req.reference?.[a] ?? []])), currency) : priced;
 	const valued = await valueEntries(sortEntries(entries), rates, { currency });
 	const issuedAt = (deps.now?.() ?? new Date()).toISOString();
 	const doc = buildDocument({ payer: req.payer, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single', currency });
@@ -108,10 +108,10 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	// `req.logo`: the chain's mark, small, beside the title, when asked for (@le-space/pdf's LOGOS;
 	// a chain without a mark gets none).
 	// `req.chart`: the diagram above a statement's bookings, drawn unless the request switches it off.
-	// `req.issuerLogo`: the issuer's own logo (a PNG or JPEG file's bytes), top right in the head.
+	// `req.issuerLogo`: the issuer's own logo (a PNG or JPEG file's bytes), top right in the head of an Eigenbeleg; a statement carries none.
 	const pdf = req.format !== 'csv' && wantBelege ? await eigenbelegPdf(doc, { logo: req.logo, issuerLogo: req.issuerLogo }) : null;
 	const statementPdfs = [];
-	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s, { logo: req.logo, chart: req.chart, issuerLogo: req.issuerLogo }) });
+	if (req.format !== 'csv') for (const s of statements) statementPdfs.push({ account: s.account, number: s.number, pdf: await statementPdf(s, { logo: req.logo, chart: req.chart }) });
 	const csv = req.format === 'pdf' ? null : eigenbelegCsv(doc);
 	return { summary, pdf, statements: statementPdfs, csv };
 }

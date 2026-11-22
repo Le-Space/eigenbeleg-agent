@@ -85,7 +85,7 @@
 						<legend data-i18n="reference">Ihr Referenzwert für DOI</legend>
 						<label><span data-i18n="referenceEur">Euro je DOI</span> <input name="referenceEur" id="referenceEur" inputmode="decimal" autocomplete="off" placeholder="0,05" /></label>
 						<label><span data-i18n="referenceFrom">gilt ab</span> <input type="date" name="referenceFrom" id="referenceFrom" /></label>
-						<p class="note" data-i18n="referenceNote">DOI hat keinen veröffentlichten Kurs. Für Eigenbelege tragen Sie Ihren eigenen Wert ein; er steht als „Referenzwert, kein Börsenkurs“ mit Ihrem Namen auf den Dokumenten. Ohne Wert gibt es nur den Kontoauszug in DOI.</p>
+						<p class="note" data-i18n="referenceNote">DOI hat keinen veröffentlichten Kurs. Für Eigenbelege tragen Sie Ihren eigenen Wert ein; er steht als „Referenzwert, kein Börsenkurs“ mit Ihrem Namen auf den Dokumenten, in einer anderen Währung mal dem Euro-Kurs dieser Währung vom Tag. Ohne Wert gibt es nur den Kontoauszug in DOI.</p>
 					</fieldset>
 					<!-- Ethereum and Base (#25): read through Alchemy with the person's own key, which goes from this
 					     browser to Alchemy only; it is never part of the request body (src/request.js). -->
@@ -130,7 +130,7 @@
 						<label class="inline"><input type="checkbox" name="chart" id="chart" checked /> <span data-i18n="chart">Diagramm auf dem Kontoauszug (Kontostand oder Verbrauch je Tag)</span></label>
 						<!-- The documents' currency (ISO 4217): the options come from the pipeline's CURRENCIES (main.js). -->
 						<label><span data-i18n="currency">Währung der Dokumente</span> <select name="currency" id="currency"><option value="EUR" selected>EUR</option></select></label>
-						<p class="note" data-i18n="currencyNote">EUR, wenn Sie nichts anderes wählen. In einer anderen Währung ist jeder Wert der Euro-Kurs des Tages mal dem amtlichen Kurs der Währung vom selben Tag (EZB-Referenzkurs, für RUB die Bank von Russland; USD direkt der USD-Kurs von CoinGecko, wo es ihn gibt); jede Position nennt beide. Die Dokumente bleiben deutsch.</p>
+						<p class="note" data-i18n="currencyNote">EUR, wenn Sie nichts anderes wählen. In einer anderen Währung ist jeder Wert der Euro-Kurs des Tages mal dem amtlichen Kurs der Währung vom selben Tag (EZB-Referenzkurs, auch für USD; für RUB die Bank von Russland); jede Position nennt beide. Die Dokumente bleiben deutsch.</p>
 					</fieldset>
 					<details class="more" data-step="2">
 						<summary data-i18n="moreSettings">Mehr Einstellungen: Belegnummern und was auf den Beleg kommt</summary>
@@ -154,7 +154,7 @@
 							><span data-i18n="postal">Anschrift</span>
 							<textarea name="postal" id="postal" rows="2" maxlength="500" autocomplete="street-address" placeholder="Musterstraße 1&#10;12345 Beispielstadt"></textarea>
 						</label>
-						<label><span data-i18n="issuerLogo">Eigenes Logo (optional; PNG oder JPEG, höchstens 512 kB) – steht oben rechts auf jedem Dokument</span> <input type="file" id="issuer-logo" accept="image/png,image/jpeg" /></label>
+						<label><span data-i18n="issuerLogo">Eigenes Logo (optional; PNG oder JPEG, höchstens 512 kB) – steht oben rechts auf jedem Eigenbeleg, nicht auf dem Kontoauszug</span> <input type="file" id="issuer-logo" accept="image/png,image/jpeg" /></label>
 						<p class="logo-chosen" id="logo-chosen" hidden>
 							<img id="logo-preview" alt="" />
 							<span id="logo-info"></span>

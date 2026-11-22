@@ -255,8 +255,6 @@ async function onCreate(e) {
 	if (f.includeKinds.length === 0 && (blocks.find((x) => x.chain === f.chain)?.kinds ?? []).length > 0) return say('form-error', t('pickKind'));
 	if (f.referenceAsset) {
 		const given = f.referenceEur.trim();
-		// The reference value is in euro: in another currency only the statement, without it.
-		if (f.currency !== 'EUR' && (given || f.document !== 'kontoauszug')) return say('form-error', t('referenceInEur'));
 		if (given ? !referenceEur(given) || !f.referenceFrom : f.document !== 'kontoauszug') return say('form-error', t(given ? 'badReference' : 'needReference'));
 	}
 	if (f.name.trim().length < 2 || f.postal.trim().length < 5) return say('form-error', t('needPayer'));

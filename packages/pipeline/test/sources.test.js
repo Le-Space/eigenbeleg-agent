@@ -15,6 +15,7 @@ import { dataSources } from '../src/sources.js';
 import { KEYED_BLOCKS, keyedSources } from '../src/keyed.js';
 import { NETWORKS } from '../../onchain-pay/src/networks.js';
 import { DOICHAIN as DOICHAIN_CHAIN } from '@le-space/chains/doichain-chain';
+import { BITCOIN } from '@le-space/chains/bitcoin-chain';
 
 /** Explorer links are printed on the documents, never fetched. */
 /**
@@ -34,6 +35,7 @@ test('dataSources names every host the readers and the rates ask, and only those
 	// (@le-space/rates asks the ECB for USD, for Aleph credits, and for a document's currency other than EUR; the
 	// Bank of Russia for documents in RUB; the other central banks never).
 	const expected = new Set([
+		...[
 		...originsIn(near.NETWORKS),
 		...originsIn(AKASH_CHAIN.endpoints),
 		...originsIn(FILECOIN.endpoints),
@@ -48,7 +50,10 @@ test('dataSources names every host the readers and the rates ask, and only those
 		'https://data-api.ecb.europa.eu',
 		// The Bank of Russia, only for documents in RUB
 		'https://www.cbr.ru'
-	].filter((o) => !PRINTED_ONLY.has(o)));
+	].filter((o) => !PRINTED_ONLY.has(o)),
+		// Bitcoin's Esplora API: mempool.space is asked, and printed as the explorer too
+		new URL(BITCOIN.endpoints.api).origin
+	]);
 	// And nothing in this repository's own packages asks anywhere else.
 	const root = new URL('../../', import.meta.url).pathname;
 	for (const pkg of await readdir(root)) {

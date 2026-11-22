@@ -10,11 +10,12 @@ import * as near from '@le-space/chains/near';
 import * as akash from '@le-space/chains/akash';
 import * as filecoin from '@le-space/chains/filecoin';
 import * as doichain from '@le-space/chains/doichain';
+import * as bitcoin from '@le-space/chains/bitcoin-address';
 import * as aleph from './readers/aleph.js';
 import * as filecoinPay from './readers/filecoin-pay.js';
 
 /** The version of @le-space/chains the blocks are built on (a test holds it against the installed package). */
-export const CHAINS_VERSION = '0.6.0';
+export const CHAINS_VERSION = '0.7.0';
 
 /**
  * @typedef {object} Block
@@ -97,6 +98,20 @@ export const BLOCKS = {
 		statement: doichain.statementDoichain,
 		probe: doichain.probe,
 		isAddress: doichain.isDoichainAddress
+	},
+	bitcoin: {
+		name: '@le-space/chains/bitcoin-address',
+		chain: 'bitcoin',
+		networks: ['mainnet'],
+		assets: ['BTC'],
+		// The miner fee of an own payment and what was sent or received; only confirmed transactions.
+		kinds: ['fee', 'transfer'],
+		source: 'Esplora API at mempool.space, by the address (1…, 3…, bc1…), no key; EUR at the day\'s BTC rate',
+		version: CHAINS_VERSION,
+		read: bitcoin.readBitcoin,
+		statement: bitcoin.statementBitcoin,
+		probe: bitcoin.probe,
+		isAddress: bitcoin.isBitcoinAddress
 	},
 	'filecoin-pay': {
 		name: '@le-space/chains/filecoin-pay',

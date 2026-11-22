@@ -134,7 +134,7 @@ function lastMonth() {
 }
 
 /** How the chains are written for people; the value stays the block's id. */
-const CHAIN_NAMES = /** @type {Record<string, string>} */ ({ near: 'NEAR', akash: 'Akash (AKT)', filecoin: 'Filecoin (FIL, USDFC)', doichain: 'Doichain (DOI)', 'filecoin-pay': 'Filecoin Pay (USDFC)', aleph: 'Aleph Cloud (Credits)', ethereum: 'Ethereum (ETH, USDC, ALEPH)', base: 'Base (ETH, USDC, ALEPH)' });
+const CHAIN_NAMES = /** @type {Record<string, string>} */ ({ near: 'NEAR', akash: 'Akash (AKT)', filecoin: 'Filecoin (FIL, USDFC)', doichain: 'Doichain (DOI)', bitcoin: 'Bitcoin (BTC)', 'filecoin-pay': 'Filecoin Pay (USDFC)', aleph: 'Aleph Cloud (Credits)', ethereum: 'Ethereum (ETH, USDC, ALEPH)', base: 'Base (ETH, USDC, ALEPH)' });
 
 /** The currencies a document can be in, EUR first; the choice is kept when the options are drawn again. */
 function fillCurrencies() {

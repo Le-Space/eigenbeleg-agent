@@ -11,6 +11,7 @@
     "@eigenbeleg/pipeline": "0.1.0"
   },
   "devDependencies": {
+    "@le-space/chains": "0.7.0",
     "@le-space/pdf": "0.2.0"
   }
 }

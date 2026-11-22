@@ -153,7 +153,7 @@ npm run local -- --chain near --network mainnet --address own-account.near --mon
 npm run local -- --chain near --network mainnet --address own-account.near --month 2026-10 --name "Wolkenfabrik Hosting GmbH" --postal "Musterstraße 1, 12345 Beispielstadt" --document beide --out ./out
 ```
 
-`--preview` prints counts, the EUR total and each Kontoauszug's balances; the full run writes `EB-….pdf`, `KA-….pdf`, `EB-….csv` and `EB-….summary.json` to `--out`. Ethereum and Base work with your own Alchemy key (`--alchemy-key` or `ALCHEMY_KEY`), which goes to Alchemy only. `npm run local -- --help` lists every option; `apps/cli` is the code, `plugin/skills/eigenbeleg-local` the skill that tells an agent how to run it.
+`--preview` prints counts, the EUR total and each Kontoauszug's balances; the full run writes `EB-….pdf`, `KA-….pdf`, `EB-….csv` and `EB-….summary.json` to `--out`. Ethereum and Base work with your own Alchemy key (`--alchemy-key` or `ALCHEMY_KEY`), which goes to Alchemy only. Doichain's DOI has no published rate: for Eigenbelege give your own euro value per DOI and the day it holds from with `--reference DOI=0.05@2026-01-01` (repeatable; the same as `"reference": { "DOI": { "eur": "0.05", "from": "2026-01-01" } }` in a `--job` file, which the option replaces); without it only `--document kontoauszug`. `npm run local -- --help` lists every option; `apps/cli` is the code, `plugin/skills/eigenbeleg-local` the skill that tells an agent how to run it.
 
 ## What an Eigenbeleg contains, and why
 

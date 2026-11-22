@@ -48,6 +48,12 @@ RUN npm ci --omit=dev --workspace=apps/api --include-workspace-root=false --igno
  && echo 'production build: mainnet payments only (apps/api/src/release.js)' > apps/api/production
 COPY --from=web /build/apps/web/dist ./apps/web/dist
 
+# The data directory (subscriptions, logos, DOI payments and orders), owned by the user the API
+# runs as: a new named volume mounted here takes this owner. Without it Docker creates the volume
+# as root and every write there fails with EACCES. A volume created before this needs one
+# `chown 1000:1000` of its directory on the host (docs/launch.md).
+RUN mkdir -p /var/lib/eigenbeleg && chown node:node /var/lib/eigenbeleg && chmod 700 /var/lib/eigenbeleg
+
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

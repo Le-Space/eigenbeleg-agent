@@ -45,6 +45,7 @@ Each needs its recipient and a relayer that pays the gas. Then, in `.env` on the
 - [ ] **Base / Ethereum:** `EVM_RELAYER_KEY` = the key of a separate hot account holding only gas ETH on each network used; `ALCHEMY_KEY` or `EVM_RPC_EIP155_*` for a reliable RPC
 - [ ] `TRUST_PROXY` set for Caddy (so the 402 names the `https://` URL); `PUBLIC_URL=https://eigenbeleg.le-space.de`
 - [ ] `SOURCE_URL` is the Le-Space repository
+- [ ] the data volume belongs to the API's user: `docker exec eigenbeleg ls -ld /var/lib/eigenbeleg` shows `node node`. A volume created by an image before this check (root) needs, once: `chown 1000:1000 /var/lib/docker/volumes/deploy_subscriptions/_data`. Otherwise subscriptions, logos and DOI orders fail with EACCES (a 500)
 - [ ] `docker compose pull && docker compose up -d`, then `docker logs eigenbeleg` shows `production (mainnet payments only)` and the paywall with the mainnet networks. If it shows `eigenbeleg API not started: …`, the reason follows; fix `.env` and start again
 
 ### 3. Mail and subscriptions (Nico)

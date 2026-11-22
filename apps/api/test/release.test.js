@@ -160,6 +160,21 @@ test('the image is a production build: its final stage writes the marker', () =>
 	assert.doesNotMatch(readFileSync(join(root, 'deploy/compose.yaml'), 'utf8'), /EIGENBELEG_DEV_TESTNET/);
 });
 
+test('the image gives the data directory to the user the API runs as, so a new volume is writable', () => {
+	const dockerfile = readFileSync(join(root, 'Dockerfile'), 'utf8');
+	const final = dockerfile.slice(dockerfile.lastIndexOf('\nFROM '));
+	const own = final.match(/RUN mkdir -p (\S+) && chown node:node \1/);
+	assert.ok(own, 'the final stage creates the data directory and gives it to node');
+	assert.equal(own[1], '/var/lib/eigenbeleg');
+	assert.ok(final.indexOf(own[0]) < final.indexOf('USER node'), 'as root, before USER node');
+	// The compose file mounts the volume there, and every store's default lies inside it.
+	assert.match(readFileSync(join(root, 'deploy/compose.yaml'), 'utf8'), /- subscriptions:\/var\/lib\/eigenbeleg\n/);
+	const server = readFileSync(join(root, 'apps/api/src/server.js'), 'utf8');
+	const defaults = [...server.matchAll(/\?\? '(\/var\/lib\/[^']+)'/g)].map((m) => m[1]);
+	assert.ok(defaults.length >= 2);
+	for (const dir of defaults) assert.ok(dir === own[1] || dir.startsWith(`${own[1]}/`), `${dir} lies in the data directory`);
+});
+
 test('a production build charges the published prices only', async () => {
 	const { PRICES, priceFor, timesMonths } = await import('@eigenbeleg/pipeline/prices');
 	const { MONTHS } = await import('../src/subscriptions.js');

@@ -45,6 +45,8 @@ export const CHAINS_VERSION = '0.8.0';
  *   (`reference`), never by a price feed; without one, the block's `referenceDefault`, else no euro value
  * @property {Record<string, string>} [referenceDefault] EUR per unit where the request gives no reference value (DOI: 0.04),
  *   printed as the project's default, never as an exchange rate
+ * @property {true} [tokens] takes a request's `tokens`: contracts of tokens not in the chain's list to put on the
+ *   statement although only received (EVM, #93); a token the address sent on is on it anyway
  * @property {'alchemyKey'} [needs] a key only the server has (keyed.js); such a block is never in BLOCKS
  */
 

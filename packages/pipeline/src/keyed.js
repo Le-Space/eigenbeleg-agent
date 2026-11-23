@@ -8,6 +8,10 @@
 // dataSources() never lists the Alchemy hosts; keyedSources() does, so each
 // side adds them where it offers these blocks.
 //
+// A token not in the chain's list is booked by its contract once the address
+// sent it on, or the request names it (`tokens`); it gets a statement section
+// of its own and is valued by its contract (rates.js), never by its symbol.
+//
 // The key goes to the reads as a parameter (`alchemyKey`, only to a block
 // with `needs: 'alchemyKey'`); no descriptor, answer, file or log carries it.
 
@@ -25,12 +29,15 @@ function evmBlock(id) {
 		name: '@le-space/chains/evm',
 		chain: r.chain.id,
 		networks: ['mainnet'],
-		assets: [r.chain.native.symbol, ...Object.values(/** @type {Record<string, { symbol: string }>} */ (r.chain.tokens)).map((t) => t.symbol)],
+		// Every other ERC-20 the address sent on, or the request names, by its contract (#93).
+		assets: [r.chain.native.symbol, ...Object.values(/** @type {Record<string, { symbol: string }>} */ (r.chain.tokens)).map((t) => t.symbol), 'other ERC-20 tokens, by contract'],
 		kinds: ['fee', 'transfer'],
 		source: `Alchemy (${r.chain.alchemy.network}), with an Alchemy key`,
 		version: CHAINS_VERSION,
 		/** Offered only where this key is given: the API's own, or the person's own in the web UI and the CLI. */
 		needs: 'alchemyKey',
+		/** A request may name token contracts to put on the statement although only received (#93). */
+		tokens: true,
 		read: r.read,
 		statement: r.statement,
 		probe: r.probe,

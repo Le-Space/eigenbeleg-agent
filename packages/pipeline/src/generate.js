@@ -40,21 +40,22 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	if (!block) throw new Error(`no building block for chain ${req.chain} here`);
 	const wantBelege = req.document !== 'kontoauszug';
 	const wantStatement = req.document !== 'eigenbelege';
-	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey, endpoints: deps.endpoints?.[req.chain], own: req.addresses, ...(req.addressType ? { type: req.addressType } : {}), ...(deps.connect ? { connect: deps.connect } : {}), ...(block.needs === 'alchemyKey' ? { alchemyKey: deps.alchemyKey } : {}) };
+	const read = { network: req.network, from: req.period.from, to: req.period.to, fetch: deps.fetch, apiKey: deps.nearblocksKey, endpoints: deps.endpoints?.[req.chain], own: req.addresses, ...(req.addressType ? { type: req.addressType } : {}), ...(deps.connect ? { connect: deps.connect } : {}), ...(block.needs === 'alchemyKey' ? { alchemyKey: deps.alchemyKey } : {}), ...(req.tokens?.length ? { tokens: req.tokens } : {}) };
 	// What the documents name an account by: a wallet read from its key carries the key's fingerprint, never the key.
 	const accountOf = block.accountOf ?? ((/** @type {string} */ a) => a);
 	const payer = { ...req.payer, addresses: req.payer.addresses.map(accountOf) };
 	const dataSource = deps.endpoints?.[req.chain] ? block.dataSource?.(deps.endpoints[req.chain]) : undefined;
 	/** @type {import('@le-space/ledger').LedgerEntry[]} */
 	const entries = [];
-	/** @type {{ account: string, opening: Record<string, string>, closing: Record<string, string>, method: 'archive' | 'derived', at: any }[]} */
+	/** @type {{ account: string, opening: Record<string, string>, closing: Record<string, string>, method: 'archive' | 'derived', at: any, contracts?: Record<string, string> }[]} */
 	const balances = [];
 	for (const [index, account] of req.addresses.entries()) {
 		onProgress?.({ step: 'read', account: accountOf(account), index, count: req.addresses.length });
 		if (wantStatement && block.statement) {
 			const st = await block.statement({ ...read, account });
 			entries.push(...st.entries);
-			balances.push({ account: accountOf(account), opening: st.opening, closing: st.closing, method: st.method, at: st.at });
+			// `contracts`: a token not in the list by its contract (EVM, #93), also one without a booking in the period.
+			balances.push({ account: accountOf(account), opening: st.opening, closing: st.closing, method: st.method, at: st.at, ...(st.contracts ? { contracts: st.contracts } : {}) });
 		} else entries.push(...(await block.read({ ...read, account })));
 	}
 	onProgress?.({ step: 'rates' });
@@ -63,7 +64,9 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	// currency the reference value (EUR) is taken times the euro in it on the day.
 	// The request's currency (EUR unless another): the rates come in it, and the documents are in it.
 	const currency = req.currency ?? 'EUR';
-	const priced = deps.rates ?? dayRates({ fetch: deps.fetch, currency });
+	// A token not in the list (EVM, #93) is valued by its contract: CoinGecko, else its Uniswap pool at the block,
+	// read through Alchemy with the key the block reads with.
+	const priced = deps.rates ?? dayRates({ fetch: deps.fetch, currency, ...(block.needs === 'alchemyKey' && deps.alchemyKey ? { alchemyKey: deps.alchemyKey } : {}) });
 	const rates = block.referenceAssets?.length ? referenceRates(priced, Object.fromEntries(block.referenceAssets.map((a) => [a, req.reference?.[a] ?? []])), currency) : priced;
 	const valued = await valueEntries(sortEntries(entries), rates, { currency });
 	const issuedAt = (deps.now?.() ?? new Date()).toISOString();
@@ -85,7 +88,8 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 			belege,
 			number: balances.length > 1 ? `${req.statementNumber}-${i + 1}` : req.statementNumber,
 			issuedAt,
-			currency
+			currency,
+			...(b.contracts ? { contracts: b.contracts } : {})
 		})
 	);
 	const summary = {
@@ -105,7 +109,8 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 			number: s.number,
 			account: s.account,
 			method: s.method,
-			assets: s.sections.map((x) => ({ asset: x.asset, opening: x.opening, closing: x.closing, reconciled: reconciled(x.difference), monthly: x.monthly }))
+			// A token not in the list: its contract, which names it; the symbol is the token's own claim.
+			assets: s.sections.map((x) => ({ asset: x.asset, ...(x.contract ? { contract: x.contract } : {}), opening: x.opening, closing: x.closing, reconciled: reconciled(x.difference), monthly: x.monthly }))
 		}))
 	};
 	if (preview) return { summary, pdf: null, statements: [], csv: null };

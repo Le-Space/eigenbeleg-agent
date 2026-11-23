@@ -29,7 +29,7 @@ test('without an Alchemy key there are no EVM blocks: not in GET /blocks, not in
 	await assert.rejects(blocksFor({ alchemyKey: KEY }).base.read({ account: OWN, from: '2026-10-01', to: '2026-10-31', fetch }), /needs an Alchemy key/);
 	const withKey = describeBlocks(blocksFor({ alchemyKey: KEY }));
 	assert.deepEqual(withKey.map((b) => b.chain), ['near', 'akash', 'filecoin', 'doichain', 'bitcoin', 'filecoin-pay', 'aleph', 'ethereum', 'base']);
-	assert.deepEqual(withKey.find((b) => b.chain === 'base')?.assets, ['ETH', 'USDC', 'ALEPH']);
+	assert.deepEqual(withKey.find((b) => b.chain === 'base')?.assets, ['ETH', 'USDC', 'ALEPH', 'other ERC-20 tokens, by contract']);
 	assert.ok(!JSON.stringify(withKey).includes(KEY), 'the key is in no descriptor');
 });
 

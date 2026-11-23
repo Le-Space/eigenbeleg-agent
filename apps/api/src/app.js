@@ -56,6 +56,12 @@ import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatc
  *   cards' absolute URLs; unset: taken from the request's Host (and X-Forwarded-Proto)
  */
 /** Where to get help; what to send is on the page (/ui/#hilfe). */
+/**
+ * The test phase, said wherever documents are offered or delivered (AGB sections 3 and 9a): in GET /,
+ * /llms.txt, the preview, the answer with the documents, and as a header on the paid request.
+ */
+export const PILOT_NOTICE = 'Test phase (pilot): the documents may contain errors. Check every document (amounts, dates, transaction hashes, rates) before using it and report any discrepancy, with the transaction hash, to eigenbeleg@le-space.de.';
+
 export const SUPPORT = Object.freeze({
 	help: 'eigenbeleg@le-space.de',
 	payments: 'support@le-space.de',
@@ -130,6 +136,7 @@ export function createApp({
 		}
 		res.json({
 			service: 'eigenbeleg',
+			pilot: PILOT_NOTICE,
 			// Which build answers: the version, and the commit with its instant (build.js).
 			...buildFields(build),
 			what: 'Eigenbelege (self-issued proofs of payment, never invoices) for the payments of own blockchain addresses, as PDF/A-2b and CSV',
@@ -214,6 +221,8 @@ ${stamp ? `\nThis instance: ${stamp}.\n` : ''}
 > Eigenbelege (self-issued proofs of payment for German bookkeeping; never invoices) for the payments of a person's own blockchain addresses: network fees, storage deposits, transfers. PDF/A-2b and CSV, with the EUR rate of each payment's day and its source. Paid per request with x402.
 
 People use the web UI at ${base}/ui/ instead: it does everything in their browser, for free, and sends nothing here. This API is for agents acting for someone.
+
+**Test phase.** ${PILOT_NOTICE} Tell the person so with every delivery; never present the documents as checked.
 
 **Businesses only.** The paid API sells to businesses (§ 14 BGB, German Civil Code) under its terms of business: ${base}${TERMS_PATH} (German binding, English for reading). By paying, the customer confirms they act for their business; buy only for someone who does. Private persons use the web UI, free. Prices include ${VAT}% German VAT; an invoice comes on request (e-mail to contact@le-space.de with the payment's transaction hash and the billing address).
 
@@ -394,7 +403,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 			// the paid request names its id instead of sending it again. One that came by its id stays as it is.
 			const sent = req.body?.issuerLogo !== undefined && req.body?.issuerLogo !== null;
 			const kept = sent && job.issuerLogo && logos ? await logos.put(issuerLogoImage(job.issuerLogo).bytes) : null;
-			res.json({ ...summary, ...(kept ? { issuerLogoId: kept.id, issuerLogoUntil: kept.until } : {}) });
+			res.json({ ...summary, notice: PILOT_NOTICE, ...(kept ? { issuerLogoId: kept.id, issuerLogoUntil: kept.until } : {}) });
 		} catch (e) {
 			failed(res, e);
 		}
@@ -454,6 +463,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 		// No summary in a header: headers set here would stay on the 402 that a
 		// failed settlement sends. The JSON format carries the summary.
 		const name = (/** @type {string} */ n) => `${test ? 'TEST-' : ''}${n.replace(/[^A-Za-z0-9._-]/g, '_')}`;
+		res.setHeader('X-Eigenbeleg-Notice', PILOT_NOTICE);
 		if (job.format === 'pdf' && job.document === 'eigenbelege') {
 			res.setHeader('Content-Disposition', `attachment; filename="${name(out.summary.eigenbelege[0] ?? out.summary.number)}.pdf"`);
 			res.type('application/pdf').send(Buffer.from(/** @type {Uint8Array} */ (out.pdf)));
@@ -467,6 +477,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 		} else {
 			res.json({
 				...out.summary,
+				notice: PILOT_NOTICE,
 				...(out.pdf ? { pdf: Buffer.from(out.pdf).toString('base64') } : {}),
 				...(out.statements.length ? { kontoauszuegePdf: out.statements.map((s) => ({ account: s.account, number: s.number, pdf: Buffer.from(s.pdf).toString('base64') })) } : {}),
 				csv: out.csv,

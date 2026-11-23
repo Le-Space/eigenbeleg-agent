@@ -5,7 +5,7 @@ license: CC-BY-4.0 (this text); the scripts of the repository are AGPL-3.0-or-la
 compatibility: Needs network access to eigenbeleg.le-space.de and, to pay, an x402 client with a USDC wallet (NEAR; Base or Ethereum where offered), or a DOI key or a Doichain wallet that scans a QR code. The free preview needs no wallet.
 metadata:
   author: Le Space UG
-  version: "0.2"
+  version: "0.3"
   homepage: https://eigenbeleg.le-space.de
   source: https://github.com/Le-Space/eigenbeleg-agent
 ---
@@ -77,7 +77,12 @@ the payment days, as PDF/A-2b and CSV. It stores nothing beyond the request.
    reconciled with the chain). `PAYMENT-RESPONSE` carries the payment's
    transaction; keep it as the receipt of the purchase.
 6. **Hand over** the files, the summary and the payment transaction. Remind the
-   person that an Eigenbeleg counts only with their signature.
+   person that an Eigenbeleg counts only with their signature. Tell them every
+   time that the service is in a **test phase**: they check each document
+   themselves before using it (amounts, dates, transaction hashes against a block
+   explorer, rates), and report any discrepancy at once, with the transaction
+   hash, to eigenbeleg@le-space.de. Never present the documents as checked. The
+   answer's `notice` field (or the `X-Eigenbeleg-Notice` header) says the same.
 
 **If the 402 also lists an offer with scheme `onchain`** (DOI on Doichain; only
 where the instance offers it, see `payment.coins` in `GET /`), the person can pay

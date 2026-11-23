@@ -11,9 +11,15 @@
 // same way, times the euro in the currency of its day. The Eigenbeleg names
 // both legs with source and day, so a bookkeeper can look each up again.
 //
+// A token not in the chain's list (Ethereum, Base: #93) has no market asset:
+// it is valued by its contract only – CoinGecko's price for that contract, else
+// the deepest Uniswap pool against ETH or USDC at the booking's block (through
+// Alchemy, with the key the EVM blocks read with), times that quote's rate of
+// the day. Its symbol is the token's own claim and never asked for.
+//
 // No storage: rates are cached in memory for one run.
 
-import { RateError, createRateService, multiplyRates } from '@le-space/rates';
+import { RateError, createDexRates, createRateService, multiplyRates } from '@le-space/rates';
 import { withReferenceRates } from '@le-space/rates/reference-rate';
 
 /** How the euro leg's source is named on the document. @type {Record<string, (date: string, r: { asset: string, at: string }) => string>} */
@@ -45,6 +51,25 @@ export function sourceText(date, r) {
 	return r.fx ? `${leg(date, r)} × ${fxText(r.fx)}` : leg(date, r);
 }
 
+/**
+ * What a token's rate by its contract is called on the document: CoinGecko's price for the contract, or the
+ * Uniswap pool at the block, and the leg into the document's currency where there is one. The contract is
+ * named: the symbol is the token's own claim.
+ *
+ * @param {string} date YYYY-MM-DD
+ * @param {string} contract 0x + 40 hex, lower case
+ * @param {{ source: string, at: string, ref?: string, fx?: { currency: string, source: string, at: string } }} r
+ */
+export function tokenSourceText(date, contract, r) {
+	// `uniswap-v3:<pool>@<block>`; a V4 pool by its id.
+	const pool = /^uniswap-v(\d):([^@]+)@(\d+)$/.exec(r.ref ?? '');
+	const leg =
+		r.source === 'dex' && pool
+			? `Uniswap v${pool[1]}, Pool ${pool[2]} bei Block ${pool[3]}, gegen den Tageskurs ${date} 00:00 UTC (Token-Vertrag ${contract})`
+			: `${r.source === 'coingecko' ? 'CoinGecko' : r.source}, Kurs ${date} 00:00 UTC (Token-Vertrag ${contract})`;
+	return r.fx ? `${leg} × ${fxText(r.fx)}` : leg;
+}
+
 /** The leg from the euro into the document's currency, as named on it. @param {{ currency: string, source: string, at: string }} fx */
 export function fxText(fx) {
 	const text = FX_TEXT[fx.source] ?? ((/** @type {{ currency: string, at: string }} */ f) => `${fx.source} EUR/${f.currency} vom ${String(f.at).slice(0, 10)}`);
@@ -57,10 +82,13 @@ export function fxText(fx) {
  * @param {string} [o.coingeckoKey] a CoinGecko demo key, optional
  * @param {() => Date} [o.now] for tests
  * @param {string} [o.currency] the document's currency (DOCUMENT_CURRENCIES of @le-space/eigenbeleg), EUR when not given
- * @returns {import('@le-space/eigenbeleg').Rates & { perEuro: (date: string) => Promise<{ currency: string, perEur: string, source: string, at: string } | null> }}
+ * @param {string} [o.alchemyKey] the EVM blocks' key: a token not in the list is then priced by its Uniswap pool at
+ *   the block where CoinGecko has none (#93); without it by CoinGecko only
+ * @returns {import('@le-space/eigenbeleg').Rates & { tokenRateFor: NonNullable<import('@le-space/eigenbeleg').Rates['tokenRateFor']>, perEuro: (date: string) => Promise<{ currency: string, perEur: string, source: string, at: string } | null> }}
  */
-export function dayRates({ fetch = globalThis.fetch, coingeckoKey, now, currency = 'EUR' } = {}) {
-	const service = createRateService({ fetch, coingeckoKey: async () => coingeckoKey ?? null, ...(now ? { now } : {}) });
+export function dayRates({ fetch = globalThis.fetch, coingeckoKey, now, currency = 'EUR', alchemyKey } = {}) {
+	const dex = alchemyKey ? createDexRates({ fetch, alchemyKey: async () => alchemyKey }) : null;
+	const service = createRateService({ fetch, coingeckoKey: async () => coingeckoKey ?? null, ...(now ? { now } : {}), ...(dex ? { dex } : {}) });
 	/** @type {Map<string, Promise<import('@le-space/eigenbeleg').Rate | null>>} */
 	const cache = new Map();
 	// An EUR rate stays as it always was; another currency is named on it, as valueEntries checks.
@@ -112,7 +140,36 @@ export function dayRates({ fetch = globalThis.fetch, coingeckoKey, now, currency
 		return /** @type {Promise<{ currency: string, perEur: string, source: string, at: string } | null>} */ (legs.get(date));
 	}
 
-	return { rateFor, perEuro };
+	/**
+	 * A token not in the chain's list, by its contract (#93): CoinGecko's price for the contract, else its
+	 * Uniswap pool at the booking's block; null where neither has one.
+	 *
+	 * @param {{ asset: string, contract: string, chain: string, block: number, decimals: number }} token
+	 * @param {string} date YYYY-MM-DD (UTC)
+	 */
+	function tokenRateFor(token, date) {
+		const contract = token.contract.toLowerCase();
+		// The pool's price is that of the block: one rate per block, CoinGecko's per day.
+		const key = `${token.chain}:${contract}:${date}:${token.block}`;
+		if (!cache.has(key)) {
+			cache.set(
+				key,
+				(async () => {
+					let r;
+					try {
+						r = await service.rate(token.asset, date, { contract, chain: token.chain, block: token.block, decimals: token.decimals, ...(currency === 'EUR' ? {} : { currency }) });
+					} catch (e) {
+						if (e instanceof RateError) return null;
+						throw e;
+					}
+					return { rate: r.rate, source: tokenSourceText(date, contract, r), date, ...mark };
+				})()
+			);
+		}
+		return /** @type {Promise<import('@le-space/eigenbeleg').Rate | null>} */ (cache.get(key));
+	}
+
+	return { rateFor, tokenRateFor, perEuro };
 }
 
 /**
@@ -129,6 +186,8 @@ export function referenceRates(priced, tables, currency = 'EUR') {
 	const inEur = withReferenceRates(priced, tables);
 	if (currency === 'EUR') return inEur;
 	return {
+		// A token by its contract is no reference asset: as the request's rates give it.
+		...(priced.tokenRateFor ? { tokenRateFor: priced.tokenRateFor } : {}),
 		async rateFor(asset, date) {
 			if (!Object.hasOwn(tables, asset)) return priced.rateFor(asset, date);
 			const r = await inEur.rateFor(asset, date);

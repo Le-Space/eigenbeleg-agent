@@ -16,6 +16,9 @@ const ADDRESS_TYPES = new Set(['p2wpkh', 'p2pkh']);
 const DOCUMENTS = new Set(['eigenbelege', 'kontoauszug', 'beide']);
 const KINDS = new Set(['fee', 'storage', 'transfer', 'call', 'swap']);
 const MAX_DAYS = 92;
+/** The most token contracts a request can name (#93). */
+export const MAX_TOKENS = 50;
+const CONTRACT = /^0x[0-9a-fA-F]{40}$/;
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 /** The longest base64 text a file within the picture's limit can have. */
 const MAX_LOGO_TEXT = Math.ceil(IMAGE_LIMITS.bytes / 3) * 4;
@@ -90,7 +93,7 @@ export function issuerLogoImage(bytes) {
  *   machine; the API leaves it out, as the server would learn every past and future address of the wallet. today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
  *   must not get the payer's name and address (a body with `payer` is refused) and has no format; blocks: what this side serves
  *   (the API with an Alchemy key: `blocksFor(deps)`, keyed.js), the keyless BLOCKS when not given
- * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean, chart: boolean, issuerLogo: Uint8Array | null, email: string | null, language: 'de' | 'en', currency: string, reference: Record<string, { from: string, eur: string, by: string }[]> }}
+ * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean, chart: boolean, issuerLogo: Uint8Array | null, email: string | null, language: 'de' | 'en', currency: string, reference: Record<string, { from: string, eur: string, by: string }[]>, tokens?: string[], addressType?: string }}
  */
 export function parseRequest(body, { preview = false, today, blocks = BLOCKS, keys = false } = {}) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
@@ -217,6 +220,18 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS, ke
 	// No value given: the block's default (DOI: 0.04 EUR), for the whole period, printed as the default and by whom.
 	for (const a of block.referenceAssets ?? []) if (!reference[a] && block.referenceDefault?.[a]) reference[a] = [{ from: period.from, eur: block.referenceDefault[a], by: REFERENCE_DEFAULT_BY }];
 
+	// Token contracts the request names (EVM, #93): a token not in the chain's list goes on the statement once the
+	// address sent it on; one only received (an airdrop, often spam) only when named here. Never one calling itself
+	// like a listed or a big token (@le-space/chains leaves it out all the same).
+	/** @type {string[]} */
+	let tokens = [];
+	if (body.tokens !== undefined && body.tokens !== null) {
+		if (!block.tokens) throw new RequestError(`tokens: ${chain} takes no token contracts; Ethereum and Base do`);
+		if (!Array.isArray(body.tokens) || body.tokens.length > MAX_TOKENS) throw new RequestError(`tokens: up to ${MAX_TOKENS} token contracts, like ["0x…"]`);
+		for (const t of body.tokens) if (typeof t !== 'string' || !CONTRACT.test(t.trim())) throw new RequestError(`tokens: a contract is 0x and 40 hex digits, not ${String(t).slice(0, 50)}`);
+		tokens = [...new Set(body.tokens.map((/** @type {string} */ t) => t.trim().toLowerCase()))];
+	}
+
 	// A reference value is the issuer's figure in EUR; in another currency it is taken times the euro in it on the day (generate).
 	// An Eigenbeleg is a euro amount: for an asset nothing quotes and no default it needs the issuer's value. The statement does not.
 	const unvalued = (block.referenceAssets ?? []).filter((a) => !reference[a]);
@@ -226,6 +241,7 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS, ke
 	return {
 		reference,
 		...(addressType ? { addressType } : {}),
+		...(tokens.length ? { tokens } : {}),
 		chain,
 		network,
 		addresses,

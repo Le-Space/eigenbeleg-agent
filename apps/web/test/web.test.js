@@ -396,3 +396,16 @@ test('the test phase: the band says it, the form asks for it before creating, th
 	assert.equal((html.match(/<p>Stand: 23\. November 2026<\/p>/g) ?? []).length, 2, 'the terms and the privacy policy, in force');
 	assert.doesNotMatch(html, /noch nicht freigegeben|not yet approved/);
 });
+
+test('the documents’ language: a choice in the form, German unless English is chosen, sent as documentLanguage', async () => {
+	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+	const { TEXTS } = await import('../src/i18n.js');
+	assert.match(html, /<select name="documentLanguage" id="document-language"><option value="de" lang="de" selected>Deutsch<\/option><option value="en" lang="en">English<\/option><\/select>/);
+	assert.equal('documentLanguage' in requestBody(form), false, 'German: nothing sent, the default');
+	assert.equal(requestBody({ ...form, documentLanguage: 'de' }).documentLanguage, undefined);
+	assert.equal(requestBody({ ...form, documentLanguage: 'en' }).documentLanguage, 'en');
+	for (const l of /** @type {const} */ (['de', 'en'])) {
+		assert.match(TEXTS[l].docLangNote, /§ 87 AO/);
+		assert.doesNotMatch(TEXTS[l].currencyNote, /bleiben deutsch|stay in German/);
+	}
+});

@@ -45,7 +45,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const WORDS = {
 	de: {
 		hello: 'Guten Tag,',
-		intro: (/** @type {string} */ what, /** @type {string} */ where, /** @type {string} */ period) => `anbei ${what} für ${where}, ${period}, als PDF/A für die Buchhaltung.`,
+		intro: (/** @type {string} */ what, /** @type {string} */ where, /** @type {string} */ period, /** @type {string} */ docs = 'de') => `anbei ${what} für ${where}, ${period}, als PDF/A für die Buchhaltung.${docs === 'en' ? ' Die Dokumente sind auf Englisch.' : ''}`,
 		attached: 'Im Anhang',
 		eigenbelege: (/** @type {number} */ n, /** @type {number} */ positions, /** @type {string} */ eur, currency = 'EUR') => `${n} ${n === 1 ? 'Eigenbeleg' : 'Eigenbelege'} (${positions} Positionen, ${eur} ${currency})`,
 		statement: (/** @type {string} */ kind, /** @type {string} */ account) => `${kind} für ${account}`,
@@ -71,7 +71,7 @@ const WORDS = {
 	},
 	en: {
 		hello: 'Hello,',
-		intro: (/** @type {string} */ what, /** @type {string} */ where, /** @type {string} */ period) => `attached ${what} for ${where}, ${period}, as PDF/A for the books. The documents are in German, as German bookkeeping needs them.`,
+		intro: (/** @type {string} */ what, /** @type {string} */ where, /** @type {string} */ period, /** @type {string} */ docs = 'de') => `attached ${what} for ${where}, ${period}, as PDF/A for the books. ${docs === 'en' ? 'The documents are in English.' : 'The documents are in German, as German bookkeeping needs them.'}`,
 		attached: 'Attached',
 		eigenbelege: (/** @type {number} */ n, /** @type {number} */ positions, /** @type {string} */ eur, currency = 'EUR') => `${n} ${n === 1 ? 'Eigenbeleg' : 'Eigenbelege'} (${positions} positions, ${eur} ${currency})`,
 		statement: (/** @type {string} */ kind, /** @type {string} */ account) => `${kind} for ${account}`,
@@ -139,7 +139,7 @@ export function composeMail(job, out, { origin, source = SOURCE_URL, subscriptio
 	const text = [
 		w.hello,
 		'',
-		w.intro(what, where, period),
+		w.intro(what, where, period, job.documentLanguage),
 		'',
 		`${w.attached}:`,
 		...listed.map(([file, about]) => `- ${file}: ${about}`),
@@ -160,7 +160,7 @@ export function composeMail(job, out, { origin, source = SOURCE_URL, subscriptio
 		'<div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e5e1d6;border-radius:8px;padding:28px 28px 20px">',
 		'<div style="font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#6b7280;margin-bottom:18px">Eigenbeleg</div>',
 		p(esc(w.hello)),
-		p(esc(w.intro(what, where, period))),
+		p(esc(w.intro(what, where, period, job.documentLanguage))),
 		`<p style="margin:0 0 6px;font-weight:600">${esc(w.attached)}</p>`,
 		'<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 16px;width:100%">',
 		...listed.map(([file, about]) => `<tr><td style="padding:6px 10px 6px 0;vertical-align:top;white-space:nowrap;font-family:ui-monospace,Menlo,monospace;font-size:13px">${esc(file)}</td><td style="padding:6px 0;vertical-align:top;border-bottom:1px solid #eee">${esc(about)}</td></tr>`),

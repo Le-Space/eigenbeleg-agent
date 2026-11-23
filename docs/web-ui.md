@@ -37,7 +37,8 @@ share these building blocks with Le Space Belege as well is #6.
    the downloads: Eigenbelege (PDF/A), Kontoauszug per address (PDF/A), CSV.
 
 German by default, English for a browser set to another language, a switch in
-the header (kept in `localStorage` only when clicked). The documents stay German.
+the header (kept in `localStorage` only when clicked). The documents are German
+unless *Sprache der Dokumente* / *Language of the documents* says English.
 
 ## What the browser asks
 

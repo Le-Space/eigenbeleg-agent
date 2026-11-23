@@ -16,7 +16,7 @@ An **Eigenbeleg** is a receipt the payer writes for their own payment when nobod
 sends an invoice: a network fee, a storage deposit, a payment to a peer-to-peer
 network. It is never an invoice, and it counts only once the payer signs it.
 Whether a tax adviser accepts it is theirs to decide. The documents are in German,
-as German bookkeeping needs them; a **Kontoauszug** is the account statement per
+as German bookkeeping needs them, or in English on request; a **Kontoauszug** is the account statement per
 address, and for Aleph Cloud credits a **Verbrauchsauszug** (usage statement).
 
 The API makes these documents from public chain data and the EUR rate of each
@@ -143,7 +143,12 @@ The request has choices that change what the person gets. Take each from what th
 - **Other tokens on Ethereum and Base** (`tokens`): the Kontoauszug has ETH and the listed tokens (GET /blocks), and every other ERC-20 token the address sent on, each in a section of its own named by its contract – the symbol is the token's own claim. A token the address only received (an airdrop, often spam) is left out unless the person names its contract here (up to 50). Such a token is valued by its contract only, CoinGecko or its Uniswap pool at the booking's block, else not at all. Ask only when the person mentions a token that is missing; never pick contracts yourself.
 - **The diagram** (`chart`, on by default): above a statement's bookings, the balance over the period or the consumption per day. Only on statements, and none for a period of one day or without bookings. Switch it off when the person wants a plain statement, tables only, or the fewest pages.
 - **What goes on an Eigenbeleg** (`includeKinds`): network fees and, on NEAR, storage deposits by default. Transfers and contract calls are payments to someone who may have sent a receipt; include them only when the person says those payments have none.
-- **Language:** the documents are German whatever is asked for.
+- **Language of the documents** (`documentLanguage`, German by default): `de` for German
+  bookkeeping, or `en`: the same documents with English words, a decimal point and ISO dates,
+  the German names beside the English ones (Eigenbeleg (self-issued receipt), Account
+  statement (Kontoauszug)). Choose `en` when the person's books are kept in English or they
+  cannot read German; a German tax office may ask for a translation of a document in another
+  language (§ 87 AO), so for German books keep `de`.
 
 After the preview, say what you are about to buy – document, period, these choices, the price – and buy only then.
 
@@ -203,7 +208,9 @@ After the preview, say what you are about to buy – document, period, these cho
 - `email`: optional, the files also by mail, once the payment is settled; only
   where `llms.txt` says the instance offers it.
 - `language`: optional, `en` (the default) or `de`: the language of that mail
-  and of a subscription's mails. The documents are German either way.
+  and of a subscription's mails. The documents' own language is `documentLanguage`.
+- `documentLanguage`: optional, `de` (the default) or `en`: the language of the
+  documents; see the choices above.
 
 A **subscription** (`POST /eigenbeleg/subscribe`, where `llms.txt` offers it):
 the same body with `email` and without `period`, twelve monthly Kontoauszüge by

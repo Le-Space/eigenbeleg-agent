@@ -9,7 +9,7 @@
     "@eigenbeleg/onchain-pay": "0.1.0",
     "@eigenbeleg/pipeline": "0.1.0",
     "@le-space/chains": "0.9.1",
-    "@le-space/eigenbeleg": "0.8.0",
+    "@le-space/eigenbeleg": "0.9.0",
     "@le-space/ledger": "0.3.0",
     "@x402/core": "^2.30.0",
     "@x402/evm": "^2.30.0",

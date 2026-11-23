@@ -93,7 +93,7 @@ export function issuerLogoImage(bytes) {
  *   machine; the API leaves it out, as the server would learn every past and future address of the wallet. today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
  *   must not get the payer's name and address (a body with `payer` is refused) and has no format; blocks: what this side serves
  *   (the API with an Alchemy key: `blocksFor(deps)`, keyed.js), the keyless BLOCKS when not given
- * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean, chart: boolean, issuerLogo: Uint8Array | null, email: string | null, language: 'de' | 'en', currency: string, reference: Record<string, { from: string, eur: string, by: string }[]>, tokens?: string[], addressType?: string }}
+ * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean, chart: boolean, issuerLogo: Uint8Array | null, email: string | null, language: 'de' | 'en', documentLanguage: 'de' | 'en', currency: string, reference: Record<string, { from: string, eur: string, by: string }[]>, tokens?: string[], addressType?: string }}
  */
 export function parseRequest(body, { preview = false, today, blocks = BLOCKS, keys = false } = {}) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
@@ -182,9 +182,13 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS, ke
 	if (preview && body.email !== undefined) throw new RequestError('the preview takes no email: the files go only with the paid POST /eigenbeleg');
 	const email = body.email === undefined || body.email === null ? null : body.email;
 	if (email !== null && !(typeof email === 'string' && EMAIL.test(email) && email.length <= 254)) throw new RequestError('email: one address to mail the files to, like belege@example.org');
-	// The language of the mail (and of what else is said to the person); the documents are German either way.
+	// The language of the mail (and of what else is said to the person); the documents' own is documentLanguage.
 	const language = body.language ?? 'en';
-	if (language !== 'de' && language !== 'en') throw new RequestError('language: "de" or "en" (the language of the mail; the documents are German)');
+	if (language !== 'de' && language !== 'en') throw new RequestError('language: "de" or "en" (the language of the mail; the documents\' is documentLanguage)');
+	// The language of the documents: German, for German bookkeeping, unless English is asked for. Not `language`,
+	// whose default is English: a request that set only the mail's language keeps its German documents.
+	const documentLanguage = body.documentLanguage ?? 'de';
+	if (documentLanguage !== 'de' && documentLanguage !== 'en') throw new RequestError('documentLanguage: "de" (the default, for German bookkeeping) or "en"');
 	// The currency the documents are in (ISO 4217): EUR unless another is asked for. A value in another
 	// currency is the euro rate of the day times that currency's official rate of the day, both named.
 	const currency = body.currency ?? 'EUR';
@@ -257,6 +261,7 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS, ke
 		issuerLogo,
 		email,
 		language,
+		documentLanguage,
 		currency
 	};
 }

@@ -769,3 +769,24 @@ test('the test phase is said wherever documents are offered or delivered: GET /,
 		close();
 	}
 });
+
+test('documentLanguage: English documents on request, named in llms.txt and the schema; German by default', async () => {
+	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {}, web: null }));
+	try {
+		const llms = await (await globalThis.fetch(base + '/llms.txt')).text();
+		assert.match(llms, /"documentLanguage": "de" \| "en"/);
+		assert.match(llms, /- \*\*Language of the documents\*\* \(`documentLanguage`, German by default\)/);
+		assert.doesNotMatch(llms, /German whatever is asked for/);
+		const en = await (await post(base, { ...job, format: 'json', documentLanguage: 'en' })).json();
+		assert.equal(en.documentLanguage, 'en');
+		assert.ok(en.csv.startsWith('﻿Receipt number;'));
+		const de = await (await post(base, { ...job, format: 'json' })).json();
+		assert.equal(de.documentLanguage, 'de');
+		assert.ok(de.csv.startsWith('﻿Belegnummer;'));
+		assert.equal((await post(base, { ...job, documentLanguage: 'fr' })).status, 400);
+		const openapi = await (await globalThis.fetch(base + '/openapi.json')).json();
+		assert.ok(JSON.stringify(openapi).includes('"documentLanguage":{"type":"string","enum":["de","en"]'));
+	} finally {
+		close();
+	}
+});

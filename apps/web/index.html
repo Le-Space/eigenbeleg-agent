@@ -143,7 +143,10 @@
 						<label class="inline"><input type="checkbox" name="chart" id="chart" checked /> <span data-i18n="chart">Diagramm auf dem Kontoauszug (Kontostand oder Verbrauch je Tag)</span></label>
 						<!-- The documents' currency (ISO 4217): the options come from the pipeline's CURRENCIES (main.js). -->
 						<label><span data-i18n="currency">Währung der Dokumente</span> <select name="currency" id="currency"><option value="EUR" selected>EUR</option></select></label>
-						<p class="note" data-i18n="currencyNote">EUR, wenn Sie nichts anderes wählen. In einer anderen Währung ist jeder Wert der Euro-Kurs des Tages mal dem amtlichen Kurs der Währung vom selben Tag (EZB-Referenzkurs, auch für USD; für RUB die Bank von Russland); jede Position nennt beide. Die Dokumente bleiben deutsch.</p>
+						<p class="note" data-i18n="currencyNote">EUR, wenn Sie nichts anderes wählen. In einer anderen Währung ist jeder Wert der Euro-Kurs des Tages mal dem amtlichen Kurs der Währung vom selben Tag (EZB-Referenzkurs, auch für USD; für RUB die Bank von Russland); jede Position nennt beide.</p>
+						<!-- The documents' language: German for German bookkeeping, or English (@le-space/eigenbeleg language.js). -->
+						<label><span data-i18n="docLang">Sprache der Dokumente</span> <select name="documentLanguage" id="document-language"><option value="de" lang="de" selected>Deutsch</option><option value="en" lang="en">English</option></select></label>
+						<p class="note" data-i18n="docLangNote">Deutsch für die deutsche Buchhaltung. Englisch: dieselben Dokumente mit englischen Wörtern, Dezimalpunkt und ISO-Datum; die deutschen Namen stehen daneben. Für fremdsprachige Belege kann ein deutsches Finanzamt eine Übersetzung verlangen (§ 87 AO).</p>
 					</fieldset>
 					<details class="more" data-step="2">
 						<summary data-i18n="moreSettings">Mehr Einstellungen: Belegnummern und was auf den Beleg kommt</summary>

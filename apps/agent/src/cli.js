@@ -41,7 +41,7 @@ Options: --chain, --network, --address (repeatable), --month YYYY-MM or --from/-
   --name and --postal (the payer, printed on the documents), --number, --statement,
   --include fee,storage,transfer,call, --document eigenbelege|kontoauszug|beide,
   --email belege@example.org (the API also mails the files, e.g. to a document management system),
-  --language de (the mail's language, default en; the documents are German),
+  --language de (the mail's language, default en), --document-language en (the documents' language, default de),
   --api URL (else API_URL), --out DIR (else OUT_DIR, default ./out),
   --pay doi   pay in DOI (Doichain) where the API offers it: the agent signs from its DOI key, the API
               broadcasts, and the agent waits for the block (about 10 minutes) before the files come;
@@ -77,6 +77,7 @@ const { values: v } = parseArgs({
 		document: { type: 'string' },
 		email: { type: 'string' },
 		language: { type: 'string' },
+		'document-language': { type: 'string' },
 		api: { type: 'string' },
 		pay: { type: 'string' },
 		resume: { type: 'string' },
@@ -102,7 +103,8 @@ const job = v.market ? null : v.job
 			...(v.include ? { includeKinds: v.include.split(',') } : {}),
 			...(v.document ? { document: v.document } : {}),
 			...(v.email ? { email: v.email } : {}),
-			...(v.language ? { language: v.language } : {})
+			...(v.language ? { language: v.language } : {}),
+			...(v['document-language'] ? { documentLanguage: v['document-language'] } : {})
 		};
 
 const env = process.env;

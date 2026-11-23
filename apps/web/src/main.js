@@ -114,6 +114,7 @@ function values() {
 		issuerLogo: issuerLogo?.bytes ?? null,
 		document: /** @type {'eigenbelege' | 'kontoauszug' | 'beide'} */ (s('document') || 'eigenbelege'),
 		currency: s('currency') || 'EUR',
+		documentLanguage: s('documentLanguage') === 'en' ? 'en' : 'de',
 		referenceEur: s('referenceEur'),
 		referenceFrom: s('referenceFrom'),
 		// only for a chain whose asset no price source quotes (Doichain)

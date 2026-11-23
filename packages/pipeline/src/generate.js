@@ -70,7 +70,7 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	const rates = block.referenceAssets?.length ? referenceRates(priced, Object.fromEntries(block.referenceAssets.map((a) => [a, req.reference?.[a] ?? []])), currency) : priced;
 	const valued = await valueEntries(sortEntries(entries), rates, { currency });
 	const issuedAt = (deps.now?.() ?? new Date()).toISOString();
-	const doc = buildDocument({ payer, dataSource, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single', currency });
+	const doc = buildDocument({ payer, dataSource, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single', currency, language: req.documentLanguage ?? 'de' });
 	const belege = new Map(doc.transactions.map((t) => [t.hash, t.number]));
 	const statements = balances.map((b, i) =>
 		buildStatement({
@@ -89,6 +89,7 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 			number: balances.length > 1 ? `${req.statementNumber}-${i + 1}` : req.statementNumber,
 			issuedAt,
 			currency,
+			language: req.documentLanguage ?? 'de',
 			...(b.contracts ? { contracts: b.contracts } : {})
 		})
 	);
@@ -104,6 +105,7 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 		// `totalEur` keeps its name and holds the total in `currency`.
 		totalEur: doc.totals.eur,
 		currency,
+		documentLanguage: doc.language,
 		quantities: doc.totals.quantities,
 		kontoauszuege: statements.map((s) => ({
 			number: s.number,

@@ -151,7 +151,7 @@ export function subscriptionJob(body, { today, blocks, months = MONTHS }) {
 	// not the file that was sent. Only the Eigenbelege carry it (@le-space/eigenbeleg 0.6.0): a subscription
 	// of statements alone would keep a picture for a year that no document draws, so it keeps none.
 	const issuerLogo = probe.issuerLogo && probe.document !== 'kontoauszug' ? Buffer.from(issuerLogoImage(probe.issuerLogo).bytes).toString('base64') : null;
-	return { chain: probe.chain, network: probe.network, addresses: probe.addresses, payer: { name: probe.payer.name, address: probe.payer.address }, email: probe.email, includeKinds: probe.includeKinds, logo: probe.logo, chart: probe.chart, ...(probe.currency !== 'EUR' ? { currency: probe.currency } : {}), document: probe.document, language: probe.language, ...(issuerLogo ? { issuerLogo } : {}) };
+	return { chain: probe.chain, network: probe.network, addresses: probe.addresses, payer: { name: probe.payer.name, address: probe.payer.address }, email: probe.email, includeKinds: probe.includeKinds, logo: probe.logo, chart: probe.chart, ...(probe.currency !== 'EUR' ? { currency: probe.currency } : {}), document: probe.document, language: probe.language, ...(probe.documentLanguage === 'en' ? { documentLanguage: 'en' } : {}), ...(issuerLogo ? { issuerLogo } : {}) };
 }
 
 /**

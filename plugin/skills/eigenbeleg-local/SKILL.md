@@ -16,7 +16,7 @@ An **Eigenbeleg** is a receipt the payer writes for their own payment when nobod
 sends an invoice: a network fee, a storage deposit, a payment to a peer-to-peer
 network. It is never an invoice, and it counts only once the payer signs it.
 Whether a tax adviser accepts it is theirs to decide. The documents are in German,
-as German bookkeeping needs them; the **Kontoauszug** is the account statement per
+as German bookkeeping needs them, or in English on request; the **Kontoauszug** is the account statement per
 address, for Aleph Cloud credits a **Verbrauchsauszug** (usage statement).
 
 This skill makes them with the same code the web UI runs in the browser and the
@@ -59,7 +59,12 @@ The request has choices that change what the person gets. Take each from what th
 - **Their own logo** (`--issuer-logo FILE`, none by default): the logo of the person's company, top right in the head of every Eigenbeleg, beside or without the chain's mark; a Kontoauszug or Verbrauchsauszug carries none. Only a file on this machine that the person names (PNG or JPEG, at most 512 kB; no SVG): never download one or make one up. It stays on this machine. Ask for it once when the person wants their own documents to look like theirs or asks for "our logo"; otherwise mention it only if they ask what can be changed.
 - **The diagram** (on by default; `--no-chart` leaves it out): above a statement's bookings, the balance over the period or the consumption per day. Only on statements, and none for a period of one day or without bookings. Switch it off when the person wants a plain statement, tables only, or the fewest pages.
 - **What goes on an Eigenbeleg** (`--include`): network fees and, on NEAR, storage deposits by default. Transfers and contract calls are payments to someone who may have sent a receipt; include them only when the person says those payments have none.
-- **Language:** the documents are German whatever is asked for.
+- **Language of the documents** (`documentLanguage`, German by default): `de` for German
+  bookkeeping, or `en`: the same documents with English words, a decimal point and ISO dates,
+  the German names beside the English ones (Eigenbeleg (self-issued receipt), Account
+  statement (Kontoauszug)). Choose `en` when the person's books are kept in English or they
+  cannot read German; a German tax office may ask for a translation of a document in another
+  language (§ 87 AO), so for German books keep `de`. On the command line: `--document-language en`.
 
 ## Steps
 

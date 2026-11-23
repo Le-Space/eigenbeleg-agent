@@ -32,7 +32,8 @@ Options: --chain near|akash|filecoin|doichain|bitcoin|filecoin-pay|aleph (ethere
   --statement KA-2026-10, --logo (the chain's mark), --issuer-logo FILE (your own logo, a PNG or JPEG file, top right on
   every Eigenbeleg, not on a statement; it stays on this machine), --no-chart (a statement without its diagram),
   --reference DOI=0.05@2026-01-01 (Doichain: your own euro value per DOI and the day it holds from, repeatable;
-  DOI has no published rate; without it 0.04 EUR per DOI, printed as the default), --currency EUR|USD|CHF|GBP|SEK|NOK|DKK|PLN|CZK|HUF|RON|ISK|TRY|RUB (the documents' currency, default EUR), --out DIR (default ./out), --preview.
+  DOI has no published rate; without it 0.04 EUR per DOI, printed as the default), --currency EUR|USD|CHF|GBP|SEK|NOK|DKK|PLN|CZK|HUF|RON|ISK|TRY|RUB (the documents' currency, default EUR),
+  --document-language de|en (the documents' language: German, the default, for German bookkeeping, or English), --out DIR (default ./out), --preview.
 Keys, all optional and yours: --alchemy-key or ALCHEMY_KEY (Ethereum and Base; goes to Alchemy only),
   --nearblocks-key or NEARBLOCKS_API_KEY (a month with many NEAR transactions), --akash-indexer URL,
   --esplora URL (Bitcoin from your own Esplora instead of mempool.space, e.g. http://127.0.0.1:3002; named on the documents).
@@ -59,6 +60,7 @@ const { values: v } = parseArgs({
 		'issuer-logo': { type: 'string' },
 		'no-chart': { type: 'boolean', default: false },
 		currency: { type: 'string' },
+		'document-language': { type: 'string' },
 		reference: { type: 'string', multiple: true },
 		out: { type: 'string' },
 		'alchemy-key': { type: 'string' },
@@ -99,6 +101,7 @@ const body = v.job
 			...(v['issuer-logo'] && !v.preview ? { issuerLogo: new Uint8Array(await readFile(v['issuer-logo'])) } : {}),
 			...(v['no-chart'] ? { chart: false } : {}),
 			...(v.currency ? { currency: v.currency.toUpperCase() } : {}),
+			...(v['document-language'] ? { documentLanguage: v['document-language'].toLowerCase() } : {}),
 			...(v['address-type'] ? { addressType: v['address-type'] } : {})
 		};
 // --reference with --job too: the option's values replace the job's own.

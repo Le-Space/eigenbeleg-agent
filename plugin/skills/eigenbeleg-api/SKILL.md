@@ -5,7 +5,7 @@ license: CC-BY-4.0 (this text); the scripts of the repository are AGPL-3.0-or-la
 compatibility: Needs network access to eigenbeleg.le-space.de and, to pay, an x402 client with a USDC wallet (NEAR; Base or Ethereum where offered), or a DOI key or a Doichain wallet that scans a QR code. The free preview needs no wallet.
 metadata:
   author: Le Space UG
-  version: "0.3"
+  version: "0.4"
   homepage: https://eigenbeleg.le-space.de
   source: https://github.com/Le-Space/eigenbeleg-agent
 ---
@@ -19,8 +19,11 @@ Whether a tax adviser accepts it is theirs to decide. The documents are in Germa
 as German bookkeeping needs them; a **Kontoauszug** is the account statement per
 address, and for Aleph Cloud credits a **Verbrauchsauszug** (usage statement).
 
-The API makes these documents from public chain data and the ECB's EUR rates of
-the payment days, as PDF/A-2b and CSV. It stores nothing beyond the request.
+The API makes these documents from public chain data and the EUR rate of each
+payment's day (CoinGecko, else Kraken; the ECB's reference rates for another
+currency), as PDF/A-2b and CSV. It keeps nothing of a single request beyond the
+answer, except: a logo sent with the free preview for 24 hours, a subscription's
+details until its end, and what a payment in DOI needs (see `GET /`).
 
 ## When to use this skill, and when not
 
@@ -37,7 +40,7 @@ the payment days, as PDF/A-2b and CSV. It stores nothing beyond the request.
 - The request carries the blockchain **addresses** (public), the **period**, and
   the payer's **name and postal address** (printed on the documents). The API
   uses them for this one response and never stores or logs them; its privacy
-  note is at https://eigenbeleg.le-space.de/#datenschutz. Say so to the person
+  note is at https://eigenbeleg.le-space.de/ui/#datenschutz. Say so to the person
   before you send their name and address, if they have not asked for that.
 - **Keys never leave the wallet.** The payment is one signature, made by the
   x402 client from the wallet's key. Never paste a private key, seed phrase or

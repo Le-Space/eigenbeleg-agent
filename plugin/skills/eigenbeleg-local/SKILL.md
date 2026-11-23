@@ -2,10 +2,10 @@
 name: eigenbeleg-local
 description: Builds Eigenbelege (self-issued German proofs of payment, never invoices), Kontoauszüge and a CSV for a person's own blockchain addresses on their own machine, for free, with the open-source Eigenbeleg pipeline; nothing is paid and nothing goes to a server of Le Space, the name and address stay local. Use when someone wants Eigenbelege, Belege, a Kontoauszug or Verbrauchsauszug for payments on NEAR, Akash, Filecoin, Doichain, Bitcoin, Filecoin Pay or Aleph Cloud (Ethereum and Base with their own Alchemy key) and the work can run in a shell with Node.js, or when they prefer not to send their name and address anywhere.
 license: CC-BY-4.0 (this text); the scripts of the repository are AGPL-3.0-or-later
-compatibility: Needs Node.js 20 or newer, git, a shell, and network access to the public data sources of the chain (NearBlocks, FastNEAR, PublicNode, Filfox, the Aleph API, the Doichain ElectrumX servers at doi.works, mempool.space) and of the EUR rates (CoinGecko, Kraken, the ECB).
+compatibility: Needs Node.js 22 or newer, git, a shell, and network access to the public data sources of the chain (NearBlocks, FastNEAR, PublicNode, Filfox, the Aleph API, the Doichain ElectrumX servers at doi.works, mempool.space) and of the EUR rates (CoinGecko, Kraken, the ECB).
 metadata:
   author: Le Space UG
-  version: "0.3"
+  version: "0.4"
   homepage: https://eigenbeleg.le-space.de
   source: https://github.com/Le-Space/eigenbeleg-agent
 ---
@@ -21,7 +21,8 @@ address, for Aleph Cloud credits a **Verbrauchsauszug** (usage statement).
 
 This skill makes them with the same code the web UI runs in the browser and the
 paid API runs for agents, but here, in a shell, for free: PDF/A-2b and CSV, valued
-at the ECB's EUR rate of each payment's day.
+at the EUR rate of each payment's day (CoinGecko, else Kraken; the ECB's
+reference rates for another currency).
 
 ## When to use this skill, and when not
 
@@ -40,7 +41,7 @@ at the ECB's EUR rate of each payment's day.
 - The chain's public data source and the rate services are asked directly. They
   see the machine's IP address and, except the rate services, the blockchain
   addresses (which are public anyway). The web UI's privacy note lists them:
-  https://eigenbeleg.le-space.de/#datenschutz. Nothing goes to a server of
+  https://eigenbeleg.le-space.de/ui/#datenschutz. Nothing goes to a server of
   Le Space.
 - The payer's **name and postal address** are printed on the documents and go
   nowhere else. The summary file holds counts and numbers only.

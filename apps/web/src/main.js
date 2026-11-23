@@ -271,7 +271,7 @@ async function onCreate(e) {
 	const served = blocksFor({ alchemyKey: key });
 	let req;
 	try {
-		req = parseRequest(requestBody(f), { blocks: served });
+		req = parseRequest(requestBody(f), { blocks: served, keys: true });
 	} catch (err) {
 		return say('form-error', t('refused', { error: String(/** @type {Error} */ (err).message) }));
 	}

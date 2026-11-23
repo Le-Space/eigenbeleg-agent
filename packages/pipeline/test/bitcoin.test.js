@@ -62,3 +62,44 @@ test('a Doichain address or an xpub is refused before anything is asked', () => 
 		assert.throws(() => parseRequest({ ...body, addresses: [bad] }, { today: '2026-11-06' }), (e) => e instanceof RequestError);
 	assert.throws(() => parseRequest({ ...body, reference: { BTC: { eur: '1', from: '2026-01-01' } } }, { today: '2026-11-06' }), /bitcoin takes a reference value for no asset/);
 });
+
+// A wallet from a made-up seed (the 64 bytes 255, 254, …): its zpub, and an address of each branch.
+const { HDKey } = await import('@scure/bip32');
+const { deriveAddress, keyFingerprint, parseExtendedKey } = await import('@le-space/chains/bitcoin');
+const zpub = HDKey.fromMasterSeed(Uint8Array.from({ length: 64 }, (_, i) => 255 - i), { private: 0x04b2430c, public: 0x04b24746 }).derive("m/84'/0'/0'").publicExtendedKey;
+const wallet = parseExtendedKey(zpub);
+const receive1 = deriveAddress(wallet.account, wallet.type, 0, 1);
+const change0 = deriveAddress(wallet.account, wallet.type, 1, 0);
+
+test('a wallet by its zpub on the web UI and the CLI: one Kontoauszug, named by the key\'s fingerprint, the key never asked nor printed', async () => {
+	const walletApi = fakeEsplora({
+		txs: [
+			btcTx('customer pays the wallet', 100, [[customer, 300_000]], [[receive1, 200_000]]),
+			btcTx('wallet pays the shop', 300, [[receive1, 200_000]], [[shop, 100_000], [change0, 98_000]])
+		]
+	});
+	const req = parseRequest({ ...body, addresses: [zpub] }, { today: '2026-11-06', keys: true });
+	const out = await generate(req, { ...deps, fetch: walletApi.fetch, endpoints: { bitcoin: { api: walletApi.url } } });
+	assert.deepEqual([out.summary.positions, out.summary.totalEur], [2, '51']);
+	const [k] = out.summary.kontoauszuege;
+	assert.equal(k.account, keyFingerprint(zpub));
+	const btc = k.assets.find((/** @type {any} */ a) => a.asset === 'BTC');
+	assert.deepEqual([btc.opening, btc.closing, btc.reconciled], ['0', '0.00098', true]);
+	assert.ok(!out.csv.includes(zpub) && !JSON.stringify(out.summary).includes(zpub));
+	assert.ok(walletApi.calls.every((c) => !c.includes(zpub)));
+	// the change back to the wallet is no booking
+	assert.ok(!out.csv.includes(change0));
+	assert.ok(out.statements[0].pdf.length > 1000);
+	// read from an Esplora of one's own: the documents name it (@le-space/eigenbeleg draws it in the footer)
+	assert.equal(BLOCKS.bitcoin.dataSource?.({ api: walletApi.url }), 'Esplora-API von esplora.example.com');
+	assert.equal(BLOCKS.bitcoin.dataSource?.({}), undefined);
+});
+
+test('the API takes no extended key; an xpub needs its address type', () => {
+	assert.throws(() => parseRequest({ ...body, addresses: [zpub] }, { today: '2026-11-06' }), /zpub…\) is read on the web UI or with the CLI/);
+	assert.throws(() => parseRequest({ ...body, addresses: [zpub] }, { today: '2026-11-06' }), (e) => !String(e.message).includes(zpub));
+	const xpub = HDKey.fromMasterSeed(Uint8Array.from({ length: 64 }, (_, i) => i)).derive("m/44'/0'/0'").publicExtendedKey;
+	assert.throws(() => parseRequest({ ...body, addresses: [xpub] }, { today: '2026-11-06', keys: true }), /an xpub needs addressType/);
+	assert.equal(parseRequest({ ...body, addresses: [xpub], addressType: 'p2pkh' }, { today: '2026-11-06', keys: true }).addressType, 'p2pkh');
+	assert.throws(() => parseRequest({ ...body, addresses: [xpub], addressType: 'taproot' }, { today: '2026-11-06', keys: true }), /addressType: p2wpkh/);
+});

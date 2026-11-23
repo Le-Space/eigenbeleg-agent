@@ -11,6 +11,8 @@ import { BLOCKS } from './blocks.js';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const NUMBER = /^[A-Za-z0-9][A-Za-z0-9._\/-]{0,39}$/;
 const FORMATS = new Set(['pdf', 'csv', 'json']);
+/** The address types of an xpub's wallet (@le-space/chains' bitcoin reader). */
+const ADDRESS_TYPES = new Set(['p2wpkh', 'p2pkh']);
 const DOCUMENTS = new Set(['eigenbelege', 'kontoauszug', 'beide']);
 const KINDS = new Set(['fee', 'storage', 'transfer', 'call', 'swap']);
 const MAX_DAYS = 92;
@@ -83,12 +85,14 @@ export function issuerLogoImage(bytes) {
 
 /**
  * @param {any} body
- * @param {{ preview?: boolean, today?: string, blocks?: Record<string, import('./blocks.js').Block> }} [opts] today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
+ * @param {{ preview?: boolean, today?: string, blocks?: Record<string, import('./blocks.js').Block>, keys?: boolean }} [opts] keys: an
+ *   extended public key (Bitcoin: xpub, ypub, zpub) is taken as an account, for the web UI and the CLI, where it stays on the person's
+ *   machine; the API leaves it out, as the server would learn every past and future address of the wallet. today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
  *   must not get the payer's name and address (a body with `payer` is refused) and has no format; blocks: what this side serves
  *   (the API with an Alchemy key: `blocksFor(deps)`, keyed.js), the keyless BLOCKS when not given
  * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean, chart: boolean, issuerLogo: Uint8Array | null, email: string | null, language: 'de' | 'en', currency: string, reference: Record<string, { from: string, eur: string, by: string }[]> }}
  */
-export function parseRequest(body, { preview = false, today, blocks = BLOCKS } = {}) {
+export function parseRequest(body, { preview = false, today, blocks = BLOCKS, keys = false } = {}) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
 	const chain = typeof body.chain === 'string' ? body.chain : '';
 	const block = Object.hasOwn(blocks, chain) ? blocks[chain] : null;
@@ -99,7 +103,19 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 	// Trimmed before they are checked and compared: the same address twice
 	// would be read twice, and a transfer between own addresses look like a payment.
 	const trimmed = [...new Set(body.addresses.map((/** @type {unknown} */ a) => (typeof a === 'string' ? a.trim() : '')))];
-	for (const a of trimmed) if (!block.isAddress(a)) throw new RequestError(`not a ${chain} address: ${String(a).slice(0, 80)}`);
+	for (const a of trimmed) {
+		if (block.isAddress(a)) continue;
+		// A key is named by its first characters only: the whole of it would show the wallet's addresses.
+		if (block.isKey?.(a)) {
+			if (keys) continue;
+			throw new RequestError(`${chain}: an extended public key (${a.slice(0, 4)}…) is read on the web UI or with the CLI, where it stays on your machine; here, give the addresses`);
+		}
+		throw new RequestError(`not a ${chain} address: ${String(a).slice(0, 80)}`);
+	}
+	// An xpub says nothing of its addresses' kind: the request names it (ypub, zpub do).
+	const addressType = body.addressType ?? null;
+	if (addressType !== null && !ADDRESS_TYPES.has(addressType)) throw new RequestError('addressType: p2wpkh (bc1q…) or p2pkh (1…), for an xpub');
+	if (trimmed.some((a) => block.isKey?.(a) && a.startsWith('xpub')) && !addressType) throw new RequestError('an xpub needs addressType: p2wpkh (bc1q…) or p2pkh (1…)');
 	// One spelling per account where the source has one (Aleph: the EIP-55 checksum).
 	const addresses = block.canonical ? [...new Set(trimmed.map(block.canonical))] : trimmed;
 
@@ -209,6 +225,7 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS } =
 
 	return {
 		reference,
+		...(addressType ? { addressType } : {}),
 		chain,
 		network,
 		addresses,

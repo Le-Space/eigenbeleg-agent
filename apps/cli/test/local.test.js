@@ -11,7 +11,10 @@ import { join } from 'node:path';
 import { fixedRates } from '@le-space/eigenbeleg';
 import { samplePng } from '@le-space/pdf/testing/sample-images';
 import { recordedNear } from '../../agent/src/recorded.js';
-import { runLocal } from '../src/local.js';
+import { esploraUrl, runLocal } from '../src/local.js';
+import { btcTx, fakeBitcoinAddress, fakeEsplora } from '@le-space/chains/testing/bitcoin';
+import { keyFingerprint } from '@le-space/chains/bitcoin';
+import { HDKey } from '@scure/bip32';
 
 const raw = JSON.parse(await readFile(new URL('../../../packages/pipeline/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
 const NOW = Date.parse('2026-11-06T12:00:00Z');
@@ -84,4 +87,31 @@ test('the issuer’s own logo, from a file on this machine, is on every Eigenbel
 test('a wrong request is refused before anything is read', async () => {
 	await assert.rejects(runLocal({ body: { ...body, chain: 'nope' }, outDir: tmpdir(), fetch: recorded([]), today: '2026-11-06', say: () => {} }), /chain/);
 	await assert.rejects(runLocal({ body: { ...body, chain: 'ethereum' }, outDir: tmpdir(), fetch: recorded([]), today: '2026-11-06', say: () => {} }), /chain/, 'ethereum needs an Alchemy key');
+});
+
+test('--esplora: an own node, at home too; no password, query or fragment', () => {
+	assert.equal(esploraUrl('http://127.0.0.1:3002/'), 'http://127.0.0.1:3002');
+	assert.equal(esploraUrl('http://umbrel.local:3006/api'), 'http://umbrel.local:3006/api');
+	assert.equal(esploraUrl('https://esplora.example.com/api'), 'https://esplora.example.com/api');
+	for (const bad of ['ftp://esplora.example.com', 'https://user:secret@esplora.example.com', 'https://esplora.example.com/api?key=1', 'https://esplora.example.com/#x', 'not a url']) assert.equal(esploraUrl(bad), null, bad);
+});
+
+test('a Bitcoin wallet by its zpub, read from an own Esplora: one Kontoauszug named by the fingerprint', async () => {
+	const zpub = HDKey.fromMasterSeed(Uint8Array.from({ length: 64 }, (_, i) => (i * 7) % 256), { private: 0x04b2430c, public: 0x04b24746 }).derive("m/84'/0'/0'").publicExtendedKey;
+	const { deriveAddress, parseExtendedKey } = await import('@le-space/chains/bitcoin');
+	const w = parseExtendedKey(zpub);
+	const api = fakeEsplora({ txs: [btcTx('pays the wallet', 100, [[fakeBitcoinAddress('a customer'), 30_000]], [[deriveAddress(w.account, w.type, 0, 0), 20_000]])] });
+	const { summary } = await runLocal({
+		body: { chain: 'bitcoin', addresses: [zpub], period: { from: '2026-05-01', to: '2026-06-30' }, document: 'kontoauszug' },
+		outDir: 'unused',
+		preview: true,
+		esplora: api.url,
+		fetch: api.fetch,
+		rates: fixedRates({ BTC: '50000' }),
+		today: '2026-11-06',
+		say: () => {}
+	});
+	assert.equal(summary.kontoauszuege[0].account, keyFingerprint(zpub));
+	assert.deepEqual(summary.kontoauszuege[0].assets.map((/** @type {any} */ a) => [a.asset, a.closing]), [['BTC', '0.0002']]);
+	assert.ok(api.calls.length > 20 && api.calls.every((c) => c.startsWith(api.url) && !c.includes(zpub)));
 });

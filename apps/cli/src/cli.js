@@ -25,7 +25,8 @@ const HELP = `Eigenbelege and Kontoauszüge on your own machine: no payment, not
   npm run local -- … --preview             counts and totals only, no files
 
 Options: --chain near|akash|filecoin|doichain|bitcoin|filecoin-pay|aleph (ethereum, base with --alchemy-key), --network mainnet|testnet,
-  --address (repeatable, up to ten), --month YYYY-MM or --from/--to YYYY-MM-DD (finished days, at most 92),
+  --address (repeatable, up to ten; Bitcoin: also a wallet's zpub, ypub or xpub, read here, one Kontoauszug for the wallet;
+  an xpub with --address-type p2wpkh|p2pkh), --month YYYY-MM or --from/--to YYYY-MM-DD (finished days, at most 92),
   --name and --postal (the issuer, printed on the documents; they stay on this machine),
   --document eigenbelege|kontoauszug|beide, --include fee,storage,transfer,call,swap, --number EB-2026-001,
   --statement KA-2026-10, --logo (the chain's mark), --issuer-logo FILE (your own logo, a PNG or JPEG file, top right on
@@ -33,7 +34,8 @@ Options: --chain near|akash|filecoin|doichain|bitcoin|filecoin-pay|aleph (ethere
   --reference DOI=0.05@2026-01-01 (Doichain: your own euro value per DOI and the day it holds from, repeatable;
   DOI has no published rate; without it 0.04 EUR per DOI, printed as the default), --currency EUR|USD|CHF|GBP|SEK|NOK|DKK|PLN|CZK|HUF|RON|ISK|TRY|RUB (the documents' currency, default EUR), --out DIR (default ./out), --preview.
 Keys, all optional and yours: --alchemy-key or ALCHEMY_KEY (Ethereum and Base; goes to Alchemy only),
-  --nearblocks-key or NEARBLOCKS_API_KEY (a month with many NEAR transactions), --akash-indexer URL.
+  --nearblocks-key or NEARBLOCKS_API_KEY (a month with many NEAR transactions), --akash-indexer URL,
+  --esplora URL (Bitcoin from your own Esplora instead of mempool.space, e.g. http://127.0.0.1:3002; named on the documents).
 The data sources your machine asks: see the web UI's privacy note (eigenbeleg.le-space.de/#datenschutz).`;
 
 const { values: v } = parseArgs({
@@ -61,7 +63,9 @@ const { values: v } = parseArgs({
 		out: { type: 'string' },
 		'alchemy-key': { type: 'string' },
 		'nearblocks-key': { type: 'string' },
-		'akash-indexer': { type: 'string' }
+		'akash-indexer': { type: 'string' },
+		esplora: { type: 'string' },
+		'address-type': { type: 'string' }
 	}
 });
 
@@ -94,7 +98,8 @@ const body = v.job
 			...(v.logo ? { logo: true } : {}),
 			...(v['issuer-logo'] && !v.preview ? { issuerLogo: new Uint8Array(await readFile(v['issuer-logo'])) } : {}),
 			...(v['no-chart'] ? { chart: false } : {}),
-			...(v.currency ? { currency: v.currency.toUpperCase() } : {})
+			...(v.currency ? { currency: v.currency.toUpperCase() } : {}),
+			...(v['address-type'] ? { addressType: v['address-type'] } : {})
 		};
 // --reference with --job too: the option's values replace the job's own.
 if (reference) body.reference = reference;
@@ -106,7 +111,8 @@ try {
 		preview: v.preview,
 		alchemyKey: v['alchemy-key'] ?? process.env.ALCHEMY_KEY,
 		nearblocksKey: v['nearblocks-key'] ?? process.env.NEARBLOCKS_API_KEY,
-		akashIndexer: v['akash-indexer']
+		akashIndexer: v['akash-indexer'],
+		esplora: v.esplora
 	});
 	const s = summary;
 	console.log(`${s.chain} ${s.network}, ${s.period.from} to ${s.period.to}: ${s.transactions} transaction(s), ${s.positions} position(s), ${s.totalEur} ${s.currency ?? 'EUR'}${s.eigenbelege.length ? `, Eigenbelege ${s.eigenbelege[0]}…${s.eigenbelege.at(-1)}` : ''}`);

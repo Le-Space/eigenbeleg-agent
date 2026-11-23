@@ -122,6 +122,13 @@ passed as a file with `--job job.json`.
   transactions, beyond NearBlocks' free limit per IP.
 - `--akash-indexer URL`: an Akash Console indexer other than the default, for
   history the public node has pruned.
+- Bitcoin: `--address` also takes a wallet's zpub, ypub or xpub (an xpub with
+  `--address-type p2wpkh|p2pkh`). Its addresses are derived here and only they
+  are asked; the key stays on this machine, and the Kontoauszug names the
+  wallet by the key's fingerprint (`btc-…`). One Kontoauszug for the wallet.
+- `--esplora URL`: Bitcoin from an Esplora of the user's own instead of
+  mempool.space (its http or https address, on this machine or at home,
+  without a password); the documents name it as their data source.
 
 ## Edge cases
 

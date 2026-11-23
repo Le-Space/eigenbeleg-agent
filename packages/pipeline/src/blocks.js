@@ -15,7 +15,7 @@ import * as aleph from './readers/aleph.js';
 import * as filecoinPay from './readers/filecoin-pay.js';
 
 /** The version of @le-space/chains the blocks are built on (a test holds it against the installed package). */
-export const CHAINS_VERSION = '0.7.0';
+export const CHAINS_VERSION = '0.8.0';
 
 /**
  * @typedef {object} Block
@@ -31,6 +31,12 @@ export const CHAINS_VERSION = '0.7.0';
  * @property {(p: any) => Promise<any>} [statement] the entries and the balances before and after the period
  * @property {(o?: any) => Promise<{ sample: string, entries: number }>} probe a live check against public data
  * @property {(a: string) => boolean} isAddress before anything is fetched
+ * @property {(a: string) => boolean} [isKey] an account's extended public key the block reads a whole wallet from (Bitcoin:
+ *   xpub, ypub, zpub). Taken only where the key stays on the person's machine: the web UI and the CLI (`parseRequest`'s
+ *   `keys`), never by the API
+ * @property {(a: string) => string} [accountOf] what the documents name an account by (a wallet: its key's fingerprint, never the key)
+ * @property {(endpoints: Record<string, string>) => string | undefined} [dataSource] the data source the documents name
+ *   when the request's endpoints replace the block's own (an own Esplora)
  * @property {(a: string) => string} [canonical] one spelling per account, where the source has one
  * @property {string[]} [documents] the documents it gives, when not all (Filecoin Pay: the statement only)
  * @property {'month'} [period] reads whole finished months only
@@ -110,12 +116,15 @@ export const BLOCKS = {
 		assets: ['BTC'],
 		// The miner fee of an own payment and what was sent or received; only confirmed transactions.
 		kinds: ['fee', 'transfer'],
-		source: 'Esplora API at mempool.space, by the address (1…, 3…, bc1…), no key; EUR at the day\'s BTC rate',
+		source: 'Esplora API at mempool.space, by the address (1…, 3…, bc1…); on the web UI and the CLI also a wallet by its xpub, ypub or zpub, its addresses derived there; EUR at the day\'s BTC rate',
 		version: CHAINS_VERSION,
 		read: bitcoin.readBitcoin,
 		statement: bitcoin.statementBitcoin,
 		probe: bitcoin.probe,
-		isAddress: bitcoin.isBitcoinAddress
+		isAddress: bitcoin.isBitcoinAddress,
+		isKey: bitcoin.isExtendedKey,
+		accountOf: bitcoin.accountOf,
+		dataSource: (endpoints) => (endpoints?.api ? `Esplora-API von ${new URL(endpoints.api).host}` : undefined)
 	},
 	'filecoin-pay': {
 		name: '@le-space/chains/filecoin-pay',

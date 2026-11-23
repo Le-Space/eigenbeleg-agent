@@ -222,7 +222,7 @@ ${stamp ? `\nThis instance: ${stamp}.\n` : ''}
 
 People use the web UI at ${base}/ui/ instead: it does everything in their browser, for free, and sends nothing here. This API is for agents acting for someone.
 
-**Test phase.** ${PILOT_NOTICE} Tell the person so with every delivery; never present the documents as checked.
+**Test phase (pilot).** ${PILOT_NOTICE.replace(/^Test phase \(pilot\): t/, 'T')} Tell the person so with every delivery; never present the documents as checked.
 
 **Businesses only.** The paid API sells to businesses (§ 14 BGB, German Civil Code) under its terms of business: ${base}${TERMS_PATH} (German binding, English for reading). By paying, the customer confirms they act for their business; buy only for someone who does. Private persons use the web UI, free. Prices include ${VAT}% German VAT; an invoice comes on request (e-mail to contact@le-space.de with the payment's transaction hash and the billing address).
 

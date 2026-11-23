@@ -409,3 +409,13 @@ test('the documents’ language: a choice in the form, German unless English is 
 		assert.doesNotMatch(TEXTS[l].currencyNote, /bleiben deutsch|stay in German/);
 	}
 });
+
+test('the English page says self-issued receipt; Eigenbeleg only in brackets, the brand aside', async () => {
+	const { TEXTS } = await import('../src/i18n.js');
+	const values = Object.values(TEXTS.en).filter((v) => typeof v === 'string');
+	const german = values.flatMap((v) => [...v.matchAll(/\b(Eigenbelege?|Kontoauszug|Verbrauchsauszug)\b/g)].map((m) => ({ v, at: m.index ?? 0 })));
+	// Allowed: the German name in brackets right after its English one, at first mention.
+	for (const { v, at } of german) assert.equal(v[at - 1], '(', v.slice(0, 80));
+	assert.equal(TEXTS.en.title, 'Self-issued receipts for blockchain payments');
+	assert.equal(TEXTS.en.dlEigenbelege, 'Self-issued receipts (PDF/A, {n})');
+});

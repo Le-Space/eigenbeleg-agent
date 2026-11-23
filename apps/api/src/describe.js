@@ -47,7 +47,7 @@ export const REQUEST_SCHEMA = /** @type {const} */ ({
 		issuerLogoId: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'Optional, instead of issuerLogo, where the instance keeps a preview\'s picture: the id POST /eigenbeleg/preview answered with for a picture sent there. Valid for 24 hours; then the picture is deleted.' },
 		email: { type: 'string', maxLength: 254, description: 'Optional, where the instance offers mail: the files also to this address, used for that one mail.' },
 		currency: { type: 'string', enum: [...CURRENCIES], description: 'Optional, default EUR: the currency of the documents (ISO 4217; GET /blocks lists them as currencies). Another than EUR is the euro rate of the payment\'s day times that currency\'s official rate of the day (ECB euro reference rate, USD too; RUB: Bank of Russia; a reference value in EUR, DOI, times the same leg), both named on every position. The value fields keep their names (eur, totalEur) and hold the value in this currency.' },
-		documentLanguage: { type: 'string', enum: ['de', 'en'], description: 'Optional, default de: the language of the documents – German for German bookkeeping, or English (the German document names stay beside the English ones).' },
+		documentLanguage: { type: 'string', enum: ['de', 'en'], description: 'Optional, default de: the language of the documents – German for German bookkeeping, or English throughout (Self-Issued Receipt, Account Statement, Usage Statement).' },
 		language: { type: 'string', enum: ['de', 'en'], description: 'Optional, default en: the language of the mail. The documents\' language is documentLanguage.' }
 	},
 	required: ['chain', 'addresses', 'period', 'payer']

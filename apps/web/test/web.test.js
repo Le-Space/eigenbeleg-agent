@@ -393,5 +393,6 @@ test('the test phase: the band says it, the form asks for it before creating, th
 	assert.match(html, /<h3>9a\. Kostenlose Seite und Vorschau \(Pilotbetrieb\)<\/h3>/);
 	assert.match(html, /<h3>9a\. Free page and preview \(pilot\)<\/h3>/);
 	assert.match(html, /für sie gilt nur Ziffer 9a\./);
-	assert.match(html, /Stand: 23\. November 2026 \(Entwurf, noch nicht freigegeben\)/);
+	assert.equal((html.match(/<p>Stand: 23\. November 2026<\/p>/g) ?? []).length, 2, 'the terms and the privacy policy, in force');
+	assert.doesNotMatch(html, /noch nicht freigegeben|not yet approved/);
 });

@@ -28,31 +28,44 @@
 			<small data-i18n="hackSmall">PILOTBETRIEB · AGPL-3.0</small>
 			<button type="button" id="hackathon-close" aria-label="Hinweis schließen" data-i18n-aria="hackClose">✕</button>
 		</aside>
-		<main>
-			<header>
-				<div class="top">
-					<span class="logo">
-						<!-- The Le Space Belege signet: a coin (payment) and a receipt (document) interlocking. -->
-						<svg class="mark" viewBox="0 0 100 100" aria-hidden="true">
-							<circle class="coin" cx="36" cy="38" r="27" fill="none" stroke-width="17" />
-							<path
-								class="receipt"
-								fill-rule="evenodd"
-								d="M43 47h50a9 9 0 0 1 9 9v37a9 9 0 0 1-9 9H43a9 9 0 0 1-9-9V56a9 9 0 0 1 9-9zM58 60h20a6 6 0 0 1 6 6v17a6 6 0 0 1-6 6H58a6 6 0 0 1-6-6V66a6 6 0 0 1 6-6z"
-							/>
-						</svg>
-						<span class="words" aria-label="Le Space Eigenbeleg"><span class="prefix" aria-hidden="true">LE SPACE</span><span class="name" aria-hidden="true">eigenbeleg</span></span>
-					</span>
-					<button type="button" class="link" id="btn-lang" data-i18n="langSwitch" lang="en">English</button>
+		<!-- The header in the new Le Space style, first made for belege.le-space.de (its Header.svelte): the signet left,
+		     the sections in the middle, language and source on the right; on a phone the sections fold into a menu. -->
+		<header class="site">
+			<div class="bar">
+				<span class="logo">
+					<!-- The Le Space Belege signet: a coin (payment) and a receipt (document) interlocking. -->
+					<svg class="mark" viewBox="0 0 100 100" aria-hidden="true">
+						<circle class="coin" cx="36" cy="38" r="27" fill="none" stroke-width="17" />
+						<path
+							class="receipt"
+							fill-rule="evenodd"
+							d="M43 47h50a9 9 0 0 1 9 9v37a9 9 0 0 1-9 9H43a9 9 0 0 1-9-9V56a9 9 0 0 1 9-9zM58 60h20a6 6 0 0 1 6 6v17a6 6 0 0 1-6 6H58a6 6 0 0 1-6-6V66a6 6 0 0 1 6-6z"
+						/>
+					</svg>
+					<span class="words" aria-label="Le Space Eigenbeleg"><span class="prefix" aria-hidden="true">LE SPACE</span><span class="name" aria-hidden="true">eigenbeleg</span></span>
+				</span>
+				<nav class="jump" id="site-nav" aria-label="Abschnitte" data-i18n-aria="navSections">
+					<a href="#erstellen" data-i18n="navCreate">Erstellen</a>
+					<a href="#so-gehts" data-i18n="navHow">So geht's</a>
+					<a href="#agents" data-i18n="navAgents">Für Agenten</a>
+					<a href="#hilfe" data-i18n="navHelp">Hilfe</a>
+					<a href="#datenschutz" data-i18n="navPrivacy">Datenschutz</a>
+				</nav>
+				<div class="tools">
+					<nav class="lang" aria-label="Sprache" data-i18n-aria="langLabel">
+						<a href="?lang=de" hreflang="de" lang="de" data-to="de" aria-label="Deutsch" aria-current="true">DE</a><span class="sep" aria-hidden="true">|</span><a href="?lang=en" hreflang="en" lang="en" data-to="en" aria-label="English">EN</a>
+					</nav>
+					<!-- The GitHub mark as the Le Space sites draw it (Lucide's "github", ISC licence). -->
+					<a class="round" href="https://github.com/Le-Space/eigenbeleg-agent" rel="noopener noreferrer" aria-label="Quellcode auf GitHub" title="Quellcode auf GitHub" data-i18n-aria="githubLabel">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5a11 11 0 0 0-6 0C8 2 7 2 7 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 6 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" /><path d="M9 18c-4.51 2-5-2-7-2" /></svg>
+					</a>
+					<button type="button" class="menu" id="btn-menu" aria-expanded="false" aria-controls="site-nav" aria-label="Menü öffnen" data-i18n-aria="navMenu">
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path class="open" d="M4 7h16M4 12h16M4 17h16" /><path class="close" d="M6 6l12 12M18 6L6 18" /></svg>
+					</button>
 				</div>
-			</header>
-			<nav class="jump" aria-label="Abschnitte">
-				<a href="#erstellen" data-i18n="navCreate">Erstellen</a>
-				<a href="#so-gehts" data-i18n="navHow">So geht's</a>
-				<a href="#agents" data-i18n="navAgents">Für Agenten</a>
-				<a href="#hilfe" data-i18n="navHelp">Hilfe</a>
-				<a href="#datenschutz" data-i18n="navPrivacy">Datenschutz</a>
-			</nav>
+			</div>
+		</header>
+		<main>
 			<div class="intro">
 				<h1 data-i18n="title">Eigenbeleg für Blockchain-Zahlungen</h1>
 				<p class="tagline" data-i18n="tagline">Kostenlos und quelloffen. Alles in Ihrem Browser, nichts auf unseren Servern.</p>
@@ -402,7 +415,7 @@ claude plugin install eigenbeleg@le-space</pre>
 					<a href="https://github.com/Le-Space/eigenbeleg-agent/blob/main/docs/web-ui.md" rel="noopener noreferrer" data-i18n="navGuide">Anleitung</a>
 					<a href="#agents" data-i18n="navAgents">Für Agenten</a>
 					<a href="https://eigenbeleg.le-space.de/llms.txt" data-i18n="navApi">API (llms.txt)</a>
-					<a href="https://github.com/Le-Space/eigenbeleg-agent" rel="noopener noreferrer" data-i18n="source">Quellcode</a>
+					<span class="src"><span data-i18n="source">Quellcode</span>: <a href="https://github.com/Le-Space/eigenbeleg-agent/tree/main/apps/web" rel="noopener noreferrer" data-i18n="srcWeb">Web-App (PWA)</a> · <a href="https://github.com/Le-Space/eigenbeleg-agent/tree/main/plugin/skills" rel="noopener noreferrer" data-i18n="srcSkills">Skills</a> · <a href="https://github.com/Le-Space/eigenbeleg-agent/tree/main/apps/agent" rel="noopener noreferrer" data-i18n="srcAgent">Agent</a> · <a href="https://github.com/Le-Space/belege/tree/main/packages" rel="noopener noreferrer" data-i18n="srcBlocks">Bausteine (Reader, Kurse, PDF)</a></span>
 					<a href="#hilfe" data-i18n="navHelp">Hilfe</a>
 					<a href="/security" data-i18n="navSecurity">Sicherheit</a>
 					<a href="#agb" data-i18n="navTerms">AGB</a>

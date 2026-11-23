@@ -396,6 +396,34 @@ function showBuild() {
 	el.append(sep(), ...(build.release ? [document.createTextNode(build.release), sep()] : []), document.createTextNode(`${t('build')} `), time, document.createTextNode(' '), link);
 }
 
+// On a phone the sections fold into a menu (the header, as the style guide sets it); a section
+// chosen, Escape or a tap elsewhere closes it again.
+const menuBtn = $('btn-menu');
+const siteNav = $('site-nav');
+function labelMenu() {
+	const open = menuBtn.getAttribute('aria-expanded') === 'true';
+	menuBtn.setAttribute('aria-label', t(open ? 'navClose' : 'navMenu'));
+}
+/** @param {boolean} open */
+function setMenu(open) {
+	menuBtn.setAttribute('aria-expanded', String(open));
+	siteNav.classList.toggle('open', open);
+	labelMenu();
+}
+menuBtn.addEventListener('click', () => setMenu(menuBtn.getAttribute('aria-expanded') !== 'true'));
+siteNav.addEventListener('click', (e) => {
+	if (/** @type {Element} */ (e.target).closest('a')) setMenu(false);
+});
+document.addEventListener('keydown', (e) => {
+	if (e.key === 'Escape' && siteNav.classList.contains('open')) {
+		setMenu(false);
+		menuBtn.focus();
+	}
+});
+document.addEventListener('click', (e) => {
+	if (siteNav.classList.contains('open') && !(/** @type {Element} */ (e.target).closest('header.site'))) setMenu(false);
+});
+
 /** Sets every static text, then draws what is on screen again in the chosen language. */
 function applyLang() {
 	const l = lang();
@@ -406,9 +434,18 @@ function applyLang() {
 		const key = /** @type {HTMLElement} */ (el).dataset.i18n;
 		if (key) el.textContent = t(/** @type {any} */ (key));
 	}
-	$('btn-lang').lang = l === 'de' ? 'en' : 'de';
+	for (const a of document.querySelectorAll('.lang a')) {
+		if (/** @type {HTMLElement} */ (a).dataset.to === l) a.setAttribute('aria-current', 'true');
+		else a.removeAttribute('aria-current');
+	}
 	for (const btn of document.querySelectorAll('button[data-copy]')) btn.setAttribute('aria-label', t('copy'));
-	$('hackathon-close').setAttribute('aria-label', t('hackClose'));
+	// Labels that are only read out (and shown on hover where the element has a title).
+	for (const el of document.querySelectorAll('[data-i18n-aria]')) {
+		const text = t(/** @type {any} */ (/** @type {HTMLElement} */ (el).dataset.i18nAria));
+		el.setAttribute('aria-label', text);
+		if (el.hasAttribute('title')) el.setAttribute('title', text);
+	}
+	labelMenu();
 	// Texts written in both languages in the markup (the privacy policy), and the Impressum on le-space.de.
 	for (const el of document.querySelectorAll('[data-lang]')) /** @type {HTMLElement} */ (el).hidden = /** @type {HTMLElement} */ (el).dataset.lang !== l;
 	/** @type {HTMLAnchorElement} */ ($('link-imprint')).href = l === 'de' ? 'https://le-space.de/#impressum' : 'https://le-space.de/#imprint';
@@ -425,14 +462,23 @@ function applyLang() {
 
 setLang(detectLang());
 applyLang();
-$('btn-lang').addEventListener('click', () => {
-	setLang(lang() === 'de' ? 'en' : 'de', true);
-	// The address names the language, so a link shared from here opens in it.
-	const url = new URL(location.href);
-	url.searchParams.set('lang', lang());
-	history.replaceState(null, '', url);
-	applyLang();
-});
+// DE | EN: real links (each language has its own address, for search engines and a cmd-click), while a
+// plain click switches in place and keeps what is filled in and where the reader is.
+for (const a of document.querySelectorAll('.lang a')) {
+	a.addEventListener('click', (e) => {
+		const ev = /** @type {MouseEvent} */ (e);
+		if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || ev.button !== 0) return;
+		ev.preventDefault();
+		const to = /** @type {HTMLElement} */ (a).dataset.to === 'en' ? 'en' : 'de';
+		if (to === lang()) return;
+		setLang(to, true);
+		// The address names the language, so a link shared from here opens in it.
+		const url = new URL(location.href);
+		url.searchParams.set('lang', lang());
+		history.replaceState(null, '', url);
+		applyLang();
+	});
+}
 /** @type {HTMLInputElement} */ ($('month')).value = lastMonth();
 const saved = rememberedPayer();
 if (saved) {

@@ -229,3 +229,9 @@ header.site .logo { --size: 44px; }
 	header.site .logo { --size: 34px; }
 }
 @media (max-width: 22.4rem) { header.site .logo .words { display: none; } }
+
+/* The test phase: confirmed before creating, and recalled above the documents. */
+.pilot { margin: 1rem 0 0.5rem; font-size: 0.92rem; }
+.pilot label.inline { display: inline; margin: 0; }
+.pilot a { white-space: nowrap; }
+.pilot-check { margin: 0 0 1rem; padding: 0.6rem 0.8rem; font-size: 0.92rem; background: var(--bg); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; }

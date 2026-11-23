@@ -52,6 +52,7 @@ const WORDS = {
 		balance: (/** @type {{ asset: string, opening: string, closing: string, reconciled: boolean | null }} */ a) => `${a.asset}: Anfangsbestand ${a.opening}, Endbestand ${a.closing}${a.reconciled === null ? '' : a.reconciled ? ', mit der Chain abgestimmt' : ', nicht abgestimmt – bitte prüfen'}`,
 		csv: 'alle Bewegungen, für die Tabellenkalkulation',
 		next: 'So geht es weiter',
+		pilotHint: 'Testphase: Bitte prüfen Sie jedes Dokument (Beträge, Daten, Transaktions-Hashes, Kurse), bevor Sie es verwenden, und melden Sie Unstimmigkeiten mit dem Transaktions-Hash an eigenbeleg@le-space.de.',
 		signHint: 'Eigenbelege ausdrucken, prüfen und unterschreiben: ein Eigenbeleg gilt erst mit Unterschrift. Ob der Steuerberater ihn anerkennt, entscheidet er.',
 		fileHint: 'Den Kontoauszug wie einen Bankauszug ablegen. Jede Buchung ist über ihren Transaktions-Hash in einem öffentlichen Block-Explorer nachprüfbar.',
 		subscription: (/** @type {SubscriptionNote} */ s) => `Aus Ihrem Abo der Eigenbeleg-API (${s.id}): noch ${s.monthsLeft} Monat(e) nach diesem. Ihre Angaben bleiben verschlüsselt bis zum letzten Auszug oder bis Sie beenden.`,
@@ -77,6 +78,7 @@ const WORDS = {
 		balance: (/** @type {{ asset: string, opening: string, closing: string, reconciled: boolean | null }} */ a) => `${a.asset}: opening balance ${a.opening}, closing balance ${a.closing}${a.reconciled === null ? '' : a.reconciled ? ', reconciled with the chain' : ', not reconciled – please check'}`,
 		csv: 'every movement, for the spreadsheet',
 		next: 'What to do next',
+		pilotHint: 'Test phase: please check every document (amounts, dates, transaction hashes, rates) before using it, and report discrepancies with the transaction hash to eigenbeleg@le-space.de.',
 		signHint: 'Print, check and sign the Eigenbelege: an Eigenbeleg counts only with a signature. Whether the tax adviser accepts it is their call.',
 		fileHint: 'File the statement like a bank statement. Every booking can be checked by its transaction hash in a public block explorer.',
 		subscription: (/** @type {SubscriptionNote} */ s) => `From your Eigenbeleg API subscription (${s.id}): ${s.monthsLeft} month(s) left after this one. Your details stay encrypted until the last statement or until you cancel.`,
@@ -131,7 +133,7 @@ export function composeMail(job, out, { origin, source = SOURCE_URL, subscriptio
 	const subject = `${title} · ${s.chain} ${s.network} · ${period}`;
 	const what = wantBelege && wantStatement ? w.docs : wantBelege ? (s.eigenbelege.length > 1 ? w.docsEb : w.docEb) : isUsageStatement(job.chain) ? w.docVa : w.docKa;
 	const where = `${s.chain} (${s.network})`;
-	const hints = [...(wantBelege ? [w.signHint] : []), ...(wantStatement ? [w.fileHint] : [])];
+	const hints = [...(wantBelege ? [w.signHint] : []), ...(wantStatement ? [w.fileHint] : []), w.pilotHint];
 	const web = origin ? `${origin}/ui/` : null;
 
 	const text = [

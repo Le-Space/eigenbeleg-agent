@@ -750,3 +750,22 @@ test('llms.txt explains signing only for the networks offered', async () => {
 		close();
 	}
 });
+
+test('the test phase is said wherever documents are offered or delivered: GET /, llms.txt, the preview, the answer and its header', async () => {
+	const { PILOT_NOTICE } = await import('../src/app.js');
+	assert.match(PILOT_NOTICE, /^Test phase \(pilot\): .*eigenbeleg@le-space\.de\.$/);
+	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {}, web: null }));
+	try {
+		assert.equal((await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json()).pilot, PILOT_NOTICE);
+		assert.ok((await (await globalThis.fetch(base + '/llms.txt')).text()).includes(`**Test phase.** ${PILOT_NOTICE} Tell the person so with every delivery`));
+		const { payer: _payer, ...body } = job;
+		const p = await preview(base, body);
+		assert.equal(p.status, 200);
+		assert.equal((await p.json()).notice, PILOT_NOTICE);
+		const pdf = await post(base, job);
+		assert.equal(pdf.headers.get('x-eigenbeleg-notice'), PILOT_NOTICE);
+		assert.equal((await (await post(base, { ...job, format: 'json' })).json()).notice, PILOT_NOTICE);
+	} finally {
+		close();
+	}
+});

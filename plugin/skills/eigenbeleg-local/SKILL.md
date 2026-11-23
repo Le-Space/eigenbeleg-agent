@@ -61,8 +61,8 @@ The request has choices that change what the person gets. Take each from what th
 - **What goes on an Eigenbeleg** (`--include`): network fees and, on NEAR, storage deposits by default. Transfers and contract calls are payments to someone who may have sent a receipt; include them only when the person says those payments have none.
 - **Language of the documents** (`documentLanguage`, German by default): `de` for German
   bookkeeping, or `en`: the same documents with English words, a decimal point and ISO dates,
-  the German names beside the English ones (Eigenbeleg (self-issued receipt), Account
-  statement (Kontoauszug)). Choose `en` when the person's books are kept in English or they
+  English throughout, the names too (Self-Issued Receipt, Account Statement, Usage
+  Statement). Choose `en` when the person's books are kept in English or they
   cannot read German; a German tax office may ask for a translation of a document in another
   language (§ 87 AO), so for German books keep `de`. On the command line: `--document-language en`.
 

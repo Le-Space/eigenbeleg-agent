@@ -757,7 +757,7 @@ test('the test phase is said wherever documents are offered or delivered: GET /,
 	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {}, web: null }));
 	try {
 		assert.equal((await (await globalThis.fetch(base + '/', { headers: { accept: 'application/json' } })).json()).pilot, PILOT_NOTICE);
-		assert.ok((await (await globalThis.fetch(base + '/llms.txt')).text()).includes(`**Test phase.** ${PILOT_NOTICE} Tell the person so with every delivery`));
+		assert.ok((await (await globalThis.fetch(base + '/llms.txt')).text()).includes(`**Test phase (pilot).** The documents may contain errors. Check every document`));
 		const { payer: _payer, ...body } = job;
 		const p = await preview(base, body);
 		assert.equal(p.status, 200);

@@ -359,3 +359,21 @@ test('a chain without a published rate (Doichain): the form\'s own reference val
 	// another chain never carries one, whatever is left in the fields
 	assert.equal('reference' in requestBody({ ...f, chain: 'near', referenceAsset: '', referenceEur: '0,05', referenceFrom: '2026-01-01' }), false);
 });
+
+test('the header has DE | EN as two links, the source on GitHub and a menu for the sections; the footer links each part of the source', async () => {
+	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+	const { TEXTS } = await import('../src/i18n.js');
+	const header = html.slice(html.indexOf('<header class="site">'), html.indexOf('</header>'));
+	assert.match(header, /<a href="\?lang=de" hreflang="de" lang="de" data-to="de"/);
+	assert.match(header, /<a href="\?lang=en" hreflang="en" lang="en" data-to="en"/);
+	assert.match(header, /<a class="round" href="https:\/\/github\.com\/Le-Space\/eigenbeleg-agent"/);
+	assert.match(header, /<button type="button" class="menu" id="btn-menu" aria-expanded="false" aria-controls="site-nav"/);
+	assert.match(header, /<nav class="jump" id="site-nav"/);
+	// Every label that is only read out is in both languages, and the German one is the markup's.
+	for (const [, key, label] of html.matchAll(/aria-label="([^"]+)"[^>]*data-i18n-aria="(\w+)"/g).map((m) => [m, m[2], m[1]])) {
+		assert.equal(TEXTS.de[key], label, key);
+		assert.ok(TEXTS.en[key], key);
+	}
+	const footer = html.slice(html.indexOf('<footer>'));
+	for (const path of ['eigenbeleg-agent/tree/main/apps/web', 'eigenbeleg-agent/tree/main/plugin/skills', 'eigenbeleg-agent/tree/main/apps/agent', 'belege/tree/main/packages']) assert.ok(footer.includes(`https://github.com/Le-Space/${path}"`), path);
+});

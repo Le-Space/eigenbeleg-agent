@@ -259,6 +259,8 @@ async function onCreate(e) {
 		if (given && (!referenceEur(given) || !f.referenceFrom)) return say('form-error', t('badReference'));
 	}
 	if (f.name.trim().length < 2 || f.postal.trim().length < 5) return say('form-error', t('needPayer'));
+	if (!pilotOk.checked) return say('form-error', t('pilotNeeded'));
+	rememberPilot();
 	const kept = rememberPayer(remember.checked ? { name: f.name.trim(), postal: f.postal.trim(), logo: issuerLogo?.bytes ?? null } : null);
 	if (!kept) say('logo-error', t('logoNotKept'));
 	rememberAccounts(rememberAcc.checked ? { chain: f.chain, network: f.network, addresses: f.addresses.trim() } : null);
@@ -558,7 +560,8 @@ spy();
 const band = $('hackathon');
 let bandSeen = false;
 try {
-	bandSeen = localStorage.getItem('hackathon') === 'closed';
+	// 'closed-pilot': the band now says the test phase, so whoever closed the old one sees it once more.
+	bandSeen = localStorage.getItem('hackathon') === 'closed-pilot';
 } catch {
 	// no storage: show it every time
 }
@@ -566,7 +569,7 @@ band.hidden = bandSeen;
 $('hackathon-close').addEventListener('click', () => {
 	band.hidden = true;
 	try {
-		localStorage.setItem('hackathon', 'closed');
+		localStorage.setItem('hackathon', 'closed-pilot');
 	} catch {
 		// then it comes back next time
 	}
@@ -600,6 +603,30 @@ if (savedAccounts) {
 rememberAcc.addEventListener('change', () => {
 	const f = values();
 	rememberAccounts(rememberAcc.checked ? { chain: f.chain, network: f.network, addresses: f.addresses.trim() } : null);
+});
+// The test phase, confirmed before anything is made (AGB section 9a). This browser remembers the
+// confirmation with the date of the terms, so a change of the terms asks again.
+const PILOT_TERMS = '2026-11-23';
+const pilotOk = /** @type {HTMLInputElement} */ ($('pilot-ok'));
+try {
+	pilotOk.checked = localStorage.getItem('pilot-ok') === PILOT_TERMS;
+} catch {
+	// blocked storage: asked on every visit
+}
+function rememberPilot() {
+	try {
+		localStorage.setItem('pilot-ok', PILOT_TERMS);
+	} catch {
+		// blocked storage: asked again next time
+	}
+}
+pilotOk.addEventListener('change', () => {
+	if (pilotOk.checked) return;
+	try {
+		localStorage.removeItem('pilot-ok');
+	} catch {
+		// nothing kept
+	}
 });
 form.addEventListener('submit', onCreate);
 form.addEventListener('change', syncPeriod);

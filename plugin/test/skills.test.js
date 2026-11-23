@@ -60,7 +60,8 @@ for (const name of skills) {
 		assert.doesNotMatch(text, /ed25519:[1-9A-HJ-NP-Za-km-z]{40,}/, 'a NEAR key');
 		assert.doesNotMatch(text, /0x[0-9a-fA-F]{64}/, 'an EVM key');
 		assert.doesNotMatch(text, /\baat_[A-Za-z0-9]/, 'a market token');
-		assert.doesNotMatch(text, /[\w.-]+@[\w-]+(\.[\w-]+)*\.(de|com|org|net)\b/, 'a mail address');
+		// Our own addresses (where to report a discrepancy) only.
+		assert.deepEqual([...text.matchAll(/[\w.-]+@[\w-]+(\.[\w-]+)*\.(de|com|org|net)\b/g)].map((m) => m[0]).filter((a) => !a.endsWith('@le-space.de')), [], 'a mail address');
 		// Examples use the made-up payer only.
 		if (/"name":/.test(text)) assert.match(text, /Wolkenfabrik Hosting GmbH/);
 	});
@@ -88,5 +89,14 @@ test('the plugin manifest and the marketplace point at the skills', async () => 
 		const dir = join(root.pathname, p.source);
 		assert.ok((await stat(join(dir, 'skills'))).isDirectory(), `${p.source} has skills/`);
 		assert.ok((await stat(join(dir, '.claude-plugin/plugin.json'))).isFile());
+	}
+});
+
+test('every skill tells the person, with each delivery, that the service is in a test phase: check the documents, report discrepancies', async () => {
+	for (const name of skills) {
+		const text = await readFile(new URL(`${name}/SKILL.md`, skillsDir), 'utf8');
+		assert.match(text, /\*\*test phase\*\*/, name);
+		assert.match(text, /report any discrepancy at once, with the\s+transaction\s+hash, to eigenbeleg@le-space\.de/, name);
+		assert.match(text, /Never present the documents as\s+checked/, name);
 	}
 });

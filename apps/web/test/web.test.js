@@ -377,3 +377,21 @@ test('the header has DE | EN as two links, the source on GitHub and a menu for t
 	const footer = html.slice(html.indexOf('<footer>'));
 	for (const path of ['eigenbeleg-agent/tree/main/apps/web', 'eigenbeleg-agent/tree/main/plugin/skills', 'eigenbeleg-agent/tree/main/apps/agent', 'belege/tree/main/packages']) assert.ok(footer.includes(`https://github.com/Le-Space/${path}"`), path);
 });
+
+test('the test phase: the band says it, the form asks for it before creating, the result recalls it, and the terms carry it (draft)', async () => {
+	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+	const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+	const { TEXTS } = await import('../src/i18n.js');
+	for (const l of /** @type {const} */ (['de', 'en'])) {
+		assert.match(TEXTS[l].hackText, /eigenbeleg@le-space\.de/);
+		assert.match(TEXTS[l].pilotConfirm, /eigenbeleg@le-space\.de/);
+		assert.match(TEXTS[l].pilotCheck, /eigenbeleg@le-space\.de/);
+	}
+	assert.match(html, /<input type="checkbox" id="pilot-ok" required \/>/);
+	assert.ok(html.indexOf('id="pilot-ok"') < html.indexOf('id="btn-create"'), 'before the button');
+	assert.match(main, /if \(!pilotOk\.checked\) return say\('form-error', t\('pilotNeeded'\)\);/);
+	assert.match(html, /<h3>9a\. Kostenlose Seite und Vorschau \(Pilotbetrieb\)<\/h3>/);
+	assert.match(html, /<h3>9a\. Free page and preview \(pilot\)<\/h3>/);
+	assert.match(html, /für sie gilt nur Ziffer 9a\./);
+	assert.match(html, /Stand: 23\. November 2026 \(Entwurf, noch nicht freigegeben\)/);
+});

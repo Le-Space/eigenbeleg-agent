@@ -5,7 +5,7 @@ license: CC-BY-4.0 (this text); the scripts of the repository are AGPL-3.0-or-la
 compatibility: Needs Node.js 20 or newer, git, a shell, and network access to the public data sources of the chain (NearBlocks, FastNEAR, PublicNode, Filfox, the Aleph API, the Doichain ElectrumX servers at doi.works, mempool.space) and of the EUR rates (CoinGecko, Kraken, the ECB).
 metadata:
   author: Le Space UG
-  version: "0.2"
+  version: "0.3"
   homepage: https://eigenbeleg.le-space.de
   source: https://github.com/Le-Space/eigenbeleg-agent
 ---
@@ -88,7 +88,11 @@ The request has choices that change what the person gets. Take each from what th
    also the ones that got no Eigenbeleg, with the reason), `EB-2026-001.summary.json`.
 4. **Hand over** the files and the summary, and remind the person that an
    Eigenbeleg counts only with their signature. Printing, checking and signing is
-   theirs.
+   theirs. Tell them every time that eigenbeleg is in a **test phase**: they check
+   each document themselves before using it (amounts, dates, transaction hashes
+   against a block explorer, rates), and report any discrepancy at once, with the
+   transaction hash, to eigenbeleg@le-space.de. Never present the documents as
+   checked.
 
 `npm run local -- --help` lists every option. A body in the API's shape can be
 passed as a file with `--job job.json`.

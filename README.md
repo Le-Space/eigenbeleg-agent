@@ -42,7 +42,7 @@ npm run local -- --chain near --network mainnet --address own-account.near --mon
 | --- | --- |
 | **Chains read** | NEAR, Akash, Filecoin, Filecoin Pay, Aleph Cloud credits, Doichain, Bitcoin; Ethereum and Base with an Alchemy key ([building blocks](docs/building-blocks.md)) |
 | **Paying the API** | x402: USDC on NEAR (gasless for the payer), DOI on Doichain, and USDC on Base and Ethereum where the instance offers them ([docs/x402.md](docs/x402.md)) |
-| **Prices** | 0.005 USDC per request on NEAR (and Base), 0.10 USDC on Ethereum, 0.25 DOI on Doichain; a year's subscription 12 × that, in USDC (0.06 USDC, on Ethereum 1.20 USDC) ([`packages/pipeline/src/prices.js`](packages/pipeline/src/prices.js)) |
+| **Prices** | by the document asked for: the Eigenbelege 0.005 USDC per request on NEAR (and Base), 0.10 USDC on Ethereum, 0.25 DOI on Doichain; the Kontoauszug 0.10 USDC, 1.00 USDC on Ethereum, 5 DOI; both (`beide`) the sum. A year's subscription is 12 × that, in USDC (a Kontoauszug, the default: 1.20 USDC, on Ethereum 12.00 USDC) ([`packages/pipeline/src/prices.js`](packages/pipeline/src/prices.js)) |
 
 It consists of open **building blocks** (AGPL-3.0-or-later: chain readers, a neutral booking format, EUR day rates, the documents), an **HTTP API** that sells them per request, and a minimal **agent** that takes a job, checks the building block is current, pays the API within its budget, checks the result and keeps a receipt of what it bought. For a chain it cannot serve, it drafts the missing building block as a pull request with tests instead of buying anything.
 

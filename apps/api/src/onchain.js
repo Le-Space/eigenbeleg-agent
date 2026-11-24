@@ -36,6 +36,7 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { PaymentError, UNREACHABLE, broadcast, checkPayment, explorerTx, fromUnits, inspectPayment, isAddress, paymentUri, receiveAddresses, scriptOf, scripthashOf, toUnits, withServer } from '@eigenbeleg/onchain-pay';
+import { documentOf } from '@eigenbeleg/pipeline/prices';
 
 export const SCHEME = 'onchain';
 /** A payment stays redeemable for its request this long after it was first seen. */
@@ -211,7 +212,8 @@ export const bodyHash = (body) => createHash('sha256').update(canonical(body)).d
  *   can pay by itself. Kept like a secret: it is in no answer, error or log
  * @param {OrderStore} [o.orders] where the orders are kept (with xpub)
  * @param {number} [o.gap] addresses given out unpaid at most; default GAP
- * @param {string} o.price a decimal of the coin, e.g. "2.5"
+ * @param {string | Record<import('@eigenbeleg/pipeline/prices').Document, string>} o.price a decimal of the coin, e.g. "2.5":
+ *   one for every request, or one per document the request's body asks for (`document`, eigenbelege by default)
  * @param {number} [o.confirmations] blocks before the documents are built; default 1
  * @param {PaymentStore} o.store
  * @param {string[]} [o.servers] ElectrumX servers instead of the network's
@@ -234,19 +236,25 @@ export function createOnchain({ network, payTo, xpub, orders = memoryOrders(), g
 	/** Where a payment goes that has no address of its own: with xpub the first address, for signed transactions only. */
 	const shared = addressAt ? addressAt(0) : /** @type {string} */ (payTo);
 	if (!Number.isInteger(confirmations) || confirmations < 0 || confirmations > 100) throw new Error(`${sym}_CONFIRMATIONS: a number of blocks, 0 to 100`);
-	/** @type {bigint} */
-	let amount;
-	try {
-		amount = toUnits(network, price);
-	} catch {
-		throw new Error(`PRICE_${sym}: an amount of ${sym} like 2.5`);
+	/** The amount per document, in units. @type {Record<string, bigint>} */
+	const amounts = {};
+	for (const d of /** @type {const} */ (['eigenbelege', 'kontoauszug', 'beide'])) {
+		const p = typeof price === 'string' ? price : price?.[d];
+		try {
+			amounts[d] = toUnits(network, /** @type {string} */ (p));
+		} catch {
+			throw new Error(`PRICE_${sym}: an amount of ${sym} like 2.5`);
+		}
+		if (amounts[d] < BigInt(network.dust)) throw new Error(`PRICE_${sym} is below what the network relays`);
 	}
-	if (amount < BigInt(network.dust)) throw new Error(`PRICE_${sym} is below what the network relays`);
+	/** What a request pays: the price of the document its body asks for. @param {unknown} body */
+	const amountOf = (body) => amounts[documentOf(body)];
+	/** e.g. "0.25 DOI" @param {bigint} units */
+	const coin = (units) => `${fromUnits(network, units)} ${sym}`;
 	const run = open ?? ((fn) => withServer(network, fn, servers?.length ? { servers } : {}));
 	const scriptHex = (/** @type {string} */ address) => Buffer.from(/** @type {Uint8Array} */ (scriptOf(network, address))).toString('hex');
 	/** Marks a payment this process's step has judged: nothing a client sends can carry it. */
 	const stamp = randomBytes(16).toString('hex');
-	const priced = `${fromUnits(network, amount)} ${sym}`;
 	const wait = `about ${Math.round((network.blockSeconds * Math.max(1, confirmations)) / 60)} minutes`;
 	const ORDER_HEADER = 'X-Eigenbeleg-Order';
 
@@ -329,29 +337,36 @@ export function createOnchain({ network, payTo, xpub, orders = memoryOrders(), g
 		});
 
 	const signed = `Sign a transaction that pays at least the amount to payTo and send the same request with PAYMENT-SIGNATURE, payload { "transaction": "<hex>" }; do not broadcast it yourself. The answer is 202 until ${confirmations} confirmation(s) (${wait}); repeat the request (payload { "txid": "…" } is enough then) until 200.`;
-	/** The price as a route names it, for a request with or without an address of its own. @param {Order | null} order */
-	const priceOf = (order) => ({
-		amount: amount.toString(),
-		asset: sym,
-		extra: {
-			name: network.name,
-			decimals: network.decimals,
-			price: priced,
-			confirmations,
-			blockSeconds: network.blockSeconds,
-			explorer: network.explorer.tx,
-			...(addressAt
-				? order
-					? {
-							ownAddress: true,
-							uri: paymentUri(network, { address: order.address, amount }),
-							payBefore: new Date(Date.parse(order.at) + ORDER_SECONDS * 1000).toISOString(),
-							how: `payTo is the address of this request alone. Pay it from a wallet (uri, as a QR code) before payBefore, or sign a transaction and send it as payload { "transaction": "<hex>" }. Then send the same request with PAYMENT-SIGNATURE (payload {} is enough: the payment is found at the address) until the answer is 200; it is 202 until ${confirmations} confirmation(s) (${wait}).`
-						}
-					: { ownAddress: false, how: `${signed} To pay from a wallet instead, send the request with the header ${ORDER_HEADER}: ${network.id}: the 402 then names an address of this request alone.` }
-				: { how: signed })
-		}
-	});
+	/**
+	 * The price as a route names it, for a request with or without an address of its own.
+	 * @param {Order | null} order
+	 * @param {unknown} body the request's body: its document sets the amount
+	 */
+	const priceOf = (order, body) => {
+		const amount = amountOf(body);
+		return {
+			amount: amount.toString(),
+			asset: sym,
+			extra: {
+				name: network.name,
+				decimals: network.decimals,
+				price: coin(amount),
+				confirmations,
+				blockSeconds: network.blockSeconds,
+				explorer: network.explorer.tx,
+				...(addressAt
+					? order
+						? {
+								ownAddress: true,
+								uri: paymentUri(network, { address: order.address, amount }),
+								payBefore: new Date(Date.parse(order.at) + ORDER_SECONDS * 1000).toISOString(),
+								how: `payTo is the address of this request alone. Pay it from a wallet (uri, as a QR code) before payBefore, or sign a transaction and send it as payload { "transaction": "<hex>" }. Then send the same request with PAYMENT-SIGNATURE (payload {} is enough: the payment is found at the address) until the answer is 200; it is 202 until ${confirmations} confirmation(s) (${wait}).`
+							}
+						: { ownAddress: false, how: `${signed} To pay from a wallet instead, send the request with the header ${ORDER_HEADER}: ${network.id}: the 402 then names an address of this request alone.` }
+					: { how: signed })
+			}
+		};
+	};
 	/** @param {any} context the x402 middleware's request context @returns {Promise<Order | null>} */
 	const offered = async (context) => {
 		const body = context?.adapter?.getBody?.();
@@ -364,7 +379,7 @@ export function createOnchain({ network, payTo, xpub, orders = memoryOrders(), g
 		scheme: SCHEME,
 		network: network.caip2,
 		payTo: addressAt ? async (/** @type {any} */ context) => (await offered(context))?.address ?? shared : shared,
-		price: addressAt ? async (/** @type {any} */ context) => priceOf(await offered(context)) : priceOf(null),
+		price: async (/** @type {any} */ context) => priceOf(addressAt ? await offered(context) : null, context?.adapter?.getBody?.()),
 		maxTimeoutSeconds: REDEEM_SECONDS
 	};
 
@@ -386,6 +401,8 @@ export function createOnchain({ network, payTo, xpub, orders = memoryOrders(), g
 			}
 			txid = seen.txid;
 		}
+		// The price of the document this request asks for.
+		const amount = amountOf(body);
 		// With an address of its own a payment needs no proof: whatever arrives there is this request's.
 		const order = await orderOf(body);
 		const to = order?.address ?? shared;
@@ -598,8 +615,10 @@ export function createOnchain({ network, payTo, xpub, orders = memoryOrders(), g
 			network: network.caip2,
 			name: network.name,
 			asset: network.symbol,
-			price: priced,
-			amount: amount.toString(),
+			// `price` and `amount` of the default document, eigenbelege; `prices` per document ("beide" is the sum).
+			price: coin(amounts.eigenbelege),
+			amount: amounts.eigenbelege.toString(),
+			prices: { eigenbelege: coin(amounts.eigenbelege), kontoauszug: coin(amounts.kontoauszug), beide: coin(amounts.beide) },
 			payTo: shared,
 			// With an extended public key: `payTo` takes signed transactions; a wallet pays the address of its order.
 			perOrder: Boolean(addressAt),

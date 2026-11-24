@@ -55,7 +55,7 @@ Payment in DOI beside USDC, single requests only ([`apps/api/src/onchain.js`](..
 
 - [ ] `DOI_XPUB` = the receiving account's extended public key (BIP84, as DoiWallet exports it), so a request can get an address of its own and a wallet can pay from a QR code; or `DOI_PAY_TO` = one dc1… address (signed transactions through the server only). Treat the xpub like a secret: who knows it sees every payment of the account
 - [ ] no `PRICE_DOI` and no `DOI_CONFIRMATIONS=0` (a production build refuses both); `PAYMENTS_DIR` on the volume
-- [ ] `curl -s https://eigenbeleg.le-space.de/ | jq .payment.coins`: one entry, `0.25 DOI`, `confirmations` 1, `wait` "about 10 minutes"; `/llms.txt` has "Paying in DOI (Doichain)"
+- [ ] `curl -s https://eigenbeleg.le-space.de/ | jq .payment.coins`: one entry, `0.25 DOI` (`prices`: 0.25 / 5 / 5.25 DOI), `confirmations` 1, `wait` "about 10 minutes"; `/llms.txt` has "Paying in DOI (Doichain)"
 
 ### 3. Mail and subscriptions (Nico)
 
@@ -88,11 +88,11 @@ Payment in DOI beside USDC, single requests only ([`apps/api/src/onchain.js`](..
 
 ### 7. The first real payment (Nico)
 
-- [ ] `curl -s https://eigenbeleg.le-space.de/llms.txt`: `POST …/eigenbeleg` lists mainnet networks only, prices 0.005 / 0.10 USDC, the recipients you set (testnet appears only in the "Test (testnet)" section, once the test route is on)
-- [ ] `curl -si -X POST …/eigenbeleg` with a made-up payer: `402`, `PAYMENT-REQUIRED` lists only mainnet networks and the published amounts (`5000` = 0.005 USDC, on Ethereum `100000` = 0.10 USDC)
-- [ ] **Nico** pays once from his own mainnet account (agent: `npm run agent -- --api https://eigenbeleg.le-space.de …` with `AGENT_BUDGET=$0.005`, or a Claude Code session with the skill): the documents arrive, the transaction is on NearBlocks / Basescan, the USDC is at `PAY_TO`
+- [ ] `curl -s https://eigenbeleg.le-space.de/llms.txt`: `POST …/eigenbeleg` lists mainnet networks only, prices per document (Eigenbelege 0.005 / 0.10 USDC, Kontoauszug 0.10 / 1.00 USDC, beide the sum), the recipients you set (testnet appears only in the "Test (testnet)" section, once the test route is on)
+- [ ] `curl -si -X POST …/eigenbeleg` with a made-up payer: `402`, `PAYMENT-REQUIRED` lists only mainnet networks and the published amounts (`5000` = 0.005 USDC, on Ethereum `100000` = 0.10 USDC; with `"document": "kontoauszug"` `100000` and `1000000`)
+- [ ] **Nico** pays once from his own mainnet account (agent: `npm run agent -- --api https://eigenbeleg.le-space.de …` with `AGENT_BUDGET=$0.105`, or a Claude Code session with the skill): the documents arrive, the transaction is on NearBlocks / Basescan, the USDC is at `PAY_TO`
 - [ ] **Nico** pays once in DOI from a wallet (`npm run agent -- --api https://eigenbeleg.le-space.de --pay qr …`): the QR code, the transaction in the explorer, `202` until the block, then the documents; the DOI is at the account
-- [ ] the subscription once (`/eigenbeleg/subscribe/1`, 0.005 USDC): the confirmation and the cancel link work; cancel it again
+- [ ] the subscription once (`/eigenbeleg/subscribe/1`, 0.10 USDC for a Kontoauszug): the confirmation and the cancel link work; cancel it again
 - [ ] the web UI at `/ui/` still builds documents locally (no request to the API host; DevTools → Network)
 
 ### 8. Listing and announcement

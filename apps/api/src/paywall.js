@@ -33,7 +33,7 @@ import { toFacilitatorEvmSigner } from '@x402/evm';
 import { ExactEvmScheme as EvmServerScheme } from '@x402/evm/exact/server';
 import { ExactEvmScheme as EvmFacilitatorScheme } from '@x402/evm/exact/facilitator';
 
-import { coinPriceFor, priceFor, timesMonths } from '@eigenbeleg/pipeline/prices';
+import { coinPriceFor, documentOf, perDocument, priceFor, timesMonths } from '@eigenbeleg/pipeline/prices';
 
 import { nearSecretKey } from './keys.js';
 import { checkOnchain, checkPayments } from './release.js';
@@ -58,6 +58,18 @@ export const subscribeDescription = (months) => `Subscription: ${months} monthly
 export function subscriptionPriceOf(price, months = MONTHS) {
 	return timesMonths(price, months);
 }
+
+/** The documents, each with its own price (@eigenbeleg/pipeline/prices); "beide" costs the sum. */
+const DOCS = /** @type {const} */ (['eigenbelege', 'kontoauszug', 'beide']);
+
+/**
+ * The document a request in the x402 middleware asks for: its body's `document`, else the route's
+ * default. The body is parsed and checked before the middleware (app.js), so the 402 and the
+ * verification of the payment price the same document.
+ * @param {any} context the x402 middleware's request context
+ * @param {import('@eigenbeleg/pipeline/prices').Document} [fallback]
+ */
+export const documentIn = (context, fallback) => documentOf(context?.adapter?.getBody?.(), fallback);
 
 /** The networks this server can take USDC on, and what the 402 and GET / call them. */
 export const NETWORKS = {
@@ -114,12 +126,14 @@ export async function createPaywall(c) {
 	let onchain = null;
 	if (c.onchain) {
 		const { network } = c.onchain;
-		const published = coinPriceFor(network.id);
-		const price = c.onchain.price ?? published;
-		if (price === undefined) throw new Error(`${network.symbol} payments are switched on, but there is no price: PRICE_${network.symbol} (development), or a published one in packages/pipeline/src/prices.js`);
+		const published = perDocument((d) => coinPriceFor(network.id, d));
+		// PRICE_<COIN> (development only) is one price for every document.
+		const given = c.onchain.price;
+		const prices = perDocument((d) => given ?? published[d]);
+		if (DOCS.some((d) => prices[d] === undefined)) throw new Error(`${network.symbol} payments are switched on, but there is no price: PRICE_${network.symbol} (development), or a published one in packages/pipeline/src/prices.js`);
 		const confirmations = c.onchain.confirmations ?? 1;
-		checkOnchain({ production: !!c.production, mode: c.mode, symbol: network.symbol, price, published, confirmations, servers: c.onchain.servers?.length ? c.onchain.servers : network.electrum });
-		onchain = createOnchain({ ...c.onchain, price, confirmations });
+		for (const d of DOCS) checkOnchain({ production: !!c.production, mode: c.mode, symbol: network.symbol, price: /** @type {string} */ (prices[d]), published: published[d], confirmations, servers: c.onchain.servers?.length ? c.onchain.servers : network.electrum });
+		onchain = createOnchain({ ...c.onchain, price: /** @type {Record<import('@eigenbeleg/pipeline/prices').Document, string>} */ (prices), confirmations });
 	}
 	if (c.mode === 'none') return { middleware: null, info: { mode: 'none', note: 'no payment: development mode' } };
 
@@ -148,15 +162,19 @@ export async function createPaywall(c) {
 	if (!given.length) throw new Error('PAY_NETWORKS: name the networks to take USDC on, e.g. near:mainnet,eip155:8453');
 	const networks = [...new Set(given)];
 	for (const n of networks) if (!Object.hasOwn(NETWORKS, n)) throw new Error(`PAY_NETWORKS: unknown network ${n}; known: ${Object.keys(NETWORKS).join(', ')}`);
-	// The published prices (@eigenbeleg/pipeline/prices), unless PRICE / PRICE_<NETWORK> set others.
-	const priceOf = (/** @type {string} */ n) => c.prices?.[n] ?? c.price ?? priceFor(n);
-	const subscriptionPriceFor = (/** @type {string} */ n) => c.subscriptionPrices?.[n] ?? c.subscriptionPrice ?? subscriptionPriceOf(priceOf(n));
+	// The published prices (@eigenbeleg/pipeline/prices) per document, unless PRICE / PRICE_<NETWORK>
+	// set others (development only; one price for every document).
+	/** @typedef {import('@eigenbeleg/pipeline/prices').Document} Document */
+	const priceOf = (/** @type {string} */ n, /** @type {Document} */ d) => c.prices?.[n] ?? c.price ?? priceFor(n, d);
+	const subscriptionPriceFor = (/** @type {string} */ n, /** @type {Document} */ d) => c.subscriptionPrices?.[n] ?? c.subscriptionPrice ?? subscriptionPriceOf(priceOf(n, d));
 	// A production build charges what the page and /llms.txt publish, nothing else: a price
 	// change is a change of @eigenbeleg/pipeline/prices, so page and API change together.
 	if (c.production) {
 		for (const n of networks) {
-			if (priceOf(n) !== priceFor(n)) throw new Error(`production build: the price on ${n} is ${priceOf(n)}, the published one ${priceFor(n)}. Leave PRICE and PRICE_* unset; prices change in packages/pipeline/src/prices.js.`);
-			if (subscriptionPriceFor(n) !== subscriptionPriceOf(priceFor(n))) throw new Error(`production build: the subscription on ${n} costs ${subscriptionPriceFor(n)}, the published ${subscriptionPriceOf(priceFor(n))}. Leave PRICE_SUBSCRIPTION* unset.`);
+			for (const d of DOCS) {
+				if (priceOf(n, d) !== priceFor(n, d)) throw new Error(`production build: the price on ${n} for ${d} is ${priceOf(n, d)}, the published one ${priceFor(n, d)}. Leave PRICE and PRICE_* unset; prices change in packages/pipeline/src/prices.js.`);
+				if (subscriptionPriceFor(n, d) !== subscriptionPriceOf(priceFor(n, d))) throw new Error(`production build: the subscription on ${n} for ${d} costs ${subscriptionPriceFor(n, d)}, the published ${subscriptionPriceOf(priceFor(n, d))}. Leave PRICE_SUBSCRIPTION* unset.`);
+			}
 		}
 	}
 	const timeout = c.timeoutSeconds ?? 300;
@@ -167,10 +185,8 @@ export async function createPaywall(c) {
 		settle: (p, r) => facilitator.settle(p, r),
 		getSupported: async () => facilitator.getSupported()
 	});
-	/** @type {{ scheme: 'exact', price: string, network: string, payTo: string, maxTimeoutSeconds: number }[]} */
-	const accepts = [];
-	/** The same networks and recipients, at the subscription's price. @type {typeof accepts} */
-	const subscriptionAccepts = [];
+	/** The networks and their recipients; the price of each is set per request (below). @type {{ network: string, payTo: string }[]} */
+	const offers = [];
 	/** @type {Record<string, string>} */
 	const relayers = {};
 
@@ -183,8 +199,7 @@ export async function createPaywall(c) {
 		const signer = createFacilitatorNearSigner({ relayers: [{ accountId: c.relayerId, secretKey }], rpcUrls });
 		facilitator.register(/** @type {any} */ (network), new NearFacilitatorScheme(signer));
 		server.register(/** @type {any} */ (network), new NearServerScheme());
-		accepts.push({ scheme: 'exact', price: priceOf(network), network, payTo: c.payTo, maxTimeoutSeconds: timeout });
-		subscriptionAccepts.push({ scheme: 'exact', price: subscriptionPriceFor(network), network, payTo: c.payTo, maxTimeoutSeconds: timeout });
+		offers.push({ network, payTo: c.payTo });
 		relayers[network] = c.relayerId;
 	}
 
@@ -202,16 +217,25 @@ export async function createPaywall(c) {
 			const signer = toFacilitatorEvmSigner(/** @type {any} */ (client));
 			facilitator.register(/** @type {any} */ (network), new EvmFacilitatorScheme(signer));
 			server.register(/** @type {any} */ (network), new EvmServerScheme());
-			accepts.push({ scheme: 'exact', price: priceOf(network), network, payTo: c.payToEvm, maxTimeoutSeconds: timeout });
-			subscriptionAccepts.push({ scheme: 'exact', price: subscriptionPriceFor(network), network, payTo: c.payToEvm, maxTimeoutSeconds: timeout });
+			offers.push({ network, payTo: c.payToEvm });
 			relayers[network] = account.address;
 		}
 	}
 
+	// The price of each request follows the document its body asks for: POST /eigenbeleg is
+	// eigenbelege by default, a subscription kontoauszug; "beide" costs the sum.
+	/** @param {{ network: string, payTo: string }} o @param {(context: any) => string} price */
+	const exact = (o, price) => ({ scheme: 'exact', price, network: o.network, payTo: o.payTo, maxTimeoutSeconds: timeout });
+	const accepts = offers.map((o) => exact(o, (context) => priceOf(o.network, documentIn(context))));
+	const subscriptionAccepts = offers.map((o) => exact(o, (context) => subscriptionPriceFor(o.network, documentIn(context, 'kontoauszug'))));
 	// The route per months (1 to MONTHS) always sells at months × the price: the same networks and recipients.
 	const monthRoutes = Object.fromEntries(
-		MONTH_CHOICES.map((m) => [routeFor(m), { accepts: accepts.map((a) => ({ ...a, price: subscriptionPriceOf(a.price, m) })), description: subscribeDescription(m), mimeType: 'application/json' }])
+		MONTH_CHOICES.map((m) => [
+			routeFor(m),
+			{ accepts: offers.map((o) => exact(o, (context) => subscriptionPriceOf(priceOf(o.network, documentIn(context, 'kontoauszug')), m))), description: subscribeDescription(m), mimeType: 'application/json' }
+		])
 	);
+	const first = offers[0].network;
 	// What to send, in every 402 (describe.js): x402's discovery extension. Only on the one-off
 	// route: a subscription's body carries a mail address, and nobody should try it out from a catalogue.
 	const { bazaarResourceServerExtension } = await import('@x402/extensions/bazaar');
@@ -229,23 +253,27 @@ export async function createPaywall(c) {
 		info: {
 			mode: 'x402',
 			scheme: 'exact',
-			// Kept for readers of the single-network shape (the first network).
-			network: accepts[0].network,
-			price: accepts[0].price,
-			asset: NETWORKS[/** @type {keyof typeof NETWORKS} */ (accepts[0].network)].asset,
-			payTo: accepts[0].payTo,
+			// Kept for readers of the single-network shape (the first network); `price` is that of the default document, eigenbelege.
+			network: first,
+			price: priceOf(first, 'eigenbelege'),
+			prices: perDocument((d) => priceOf(first, d)),
+			pricing: "by the body's document: eigenbelege (the default), kontoauszug, or beide (the sum); the 402 names the price of the request sent",
+			asset: NETWORKS[/** @type {keyof typeof NETWORKS} */ (first)].asset,
+			payTo: offers[0].payTo,
 			gasless: true,
-			accepts: accepts.map((a) => {
-				const meta = NETWORKS[/** @type {keyof typeof NETWORKS} */ (a.network)];
-				return { network: a.network, name: meta.name, asset: meta.asset, price: a.price, payTo: a.payTo, relayer: relayers[a.network], gasless: true };
+			accepts: offers.map((o) => {
+				const meta = NETWORKS[/** @type {keyof typeof NETWORKS} */ (o.network)];
+				return { network: o.network, name: meta.name, asset: meta.asset, price: priceOf(o.network, 'eigenbelege'), prices: perDocument((d) => priceOf(o.network, d)), payTo: o.payTo, relayer: relayers[o.network], gasless: true };
 			}),
 			// A chain's own coin, where offered: its own scheme, two steps, no relayer (onchain.js).
 			...(onchain ? { coins: [onchain.info] } : {}),
 			subscription: {
 				months: MONTHS,
-				price: subscriptionAccepts[0].price,
-				accepts: subscriptionAccepts.map((a) => ({ network: a.network, price: a.price })),
-				perMonths: { route: `${SUBSCRIBE_ROUTE}/<months>`, months: `1 to ${MONTHS}`, price: `months × the price (${subscriptionPriceOf(accepts[0].price, 1)} per month on ${accepts[0].network})` }
+				// `price` is that of the subscription's default document, kontoauszug.
+				price: subscriptionPriceFor(first, 'kontoauszug'),
+				prices: perDocument((d) => subscriptionPriceFor(first, d)),
+				accepts: offers.map((o) => ({ network: o.network, price: subscriptionPriceFor(o.network, 'kontoauszug'), prices: perDocument((d) => subscriptionPriceFor(o.network, d)) })),
+				perMonths: { route: `${SUBSCRIBE_ROUTE}/<months>`, months: `1 to ${MONTHS}`, price: `months × the price of one request for the document (on ${first} per month: ${subscriptionPriceOf(priceOf(first, 'kontoauszug'), 1)} for a Kontoauszug, ${subscriptionPriceOf(priceOf(first, 'eigenbelege'), 1)} for Eigenbelege, ${subscriptionPriceOf(priceOf(first, 'beide'), 1)} for both)` }
 			}
 		}
 	};
@@ -287,11 +315,11 @@ export async function createTestnetPaywall(c) {
 		getSupported: async () => facilitator.getSupported()
 	});
 	server.register(/** @type {any} */ (network), new NearServerScheme());
-	const price = priceFor(network);
-	const accepts = [{ scheme: 'exact', price, network, payTo: c.payTo, maxTimeoutSeconds: c.timeoutSeconds ?? 300 }];
+	// The published prices, by the body's document, as on POST /eigenbeleg.
+	const accepts = [{ scheme: 'exact', price: (/** @type {any} */ context) => priceFor(network, documentIn(context)), network, payTo: c.payTo, maxTimeoutSeconds: c.timeoutSeconds ?? 300 }];
 	return {
 		middleware: /** @type {any} */ (paymentMiddleware(/** @type {any} */ ({ [TESTNET_ROUTE]: { accepts, description: TESTNET_DESCRIPTION, mimeType: 'application/pdf' } }), server)),
-		info: testnetInfo({ price, payTo: c.payTo, relayer: c.relayerId })
+		info: testnetInfo({ price: priceFor(network), payTo: c.payTo, relayer: c.relayerId })
 	};
 }
 
@@ -305,6 +333,6 @@ export function testnetInfo({ price, payTo, relayer }) {
 		mode: 'x402',
 		testnet: true,
 		endpoint: TESTNET_ROUTE,
-		accepts: [{ network: 'near:testnet', name: meta.name, asset: meta.asset, price, payTo, relayer, gasless: true }]
+		accepts: [{ network: 'near:testnet', name: meta.name, asset: meta.asset, price, prices: perDocument((d) => priceFor('near:testnet', d)), payTo, relayer, gasless: true }]
 	};
 }

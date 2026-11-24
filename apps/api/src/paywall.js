@@ -48,7 +48,7 @@ export const SUBSCRIBE_DESCRIPTION = `Subscription: ${MONTHS} monthly Kontoausz�
 export const subscribeDescription = (months) => `Subscription: ${months} monthly Kontoauszüge by mail, paid once`;
 
 /**
- * The subscription's price: `months` times the single price, "$0.10" → "$1.20" for a year.
+ * The subscription's price: `months` times the single price, "$0.005" → "$0.06" for a year.
  * The plain route sells MONTHS (PRICE_SUBSCRIPTION may set it apart); the route per months
  * always sells at months × the price.
  *
@@ -72,8 +72,8 @@ export const NETWORKS = {
 /**
  * @param {object} c
  * @param {'x402' | 'near' | 'ping' | 'none'} c.mode
- * @param {string} [c.price] e.g. "$0.10" (USDC), for every network without its own
- * @param {Record<string, string>} [c.prices] per network, e.g. { 'eip155:1': '$1.00' }
+ * @param {string} [c.price] e.g. "$0.005" (USDC), for every network without its own
+ * @param {Record<string, string>} [c.prices] per network, e.g. { 'eip155:1': '$0.10' }
  * @param {string} [c.subscriptionPrice] the subscription's price (POST /eigenbeleg/subscribe); default MONTHS × the price
  * @param {Record<string, string>} [c.subscriptionPrices] per network
  * @param {string[]} [c.networks] the networks to take USDC on (keys of NETWORKS); default: [c.network]

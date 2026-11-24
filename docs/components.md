@@ -62,7 +62,7 @@ Two different "networks" are in play and need not match:
 - **The network being read** (`network` in the request): where the payments on
   the Eigenbeleg were made, e.g. NEAR mainnet. Read through NearBlocks and the
   archival RPC.
-- **The network being paid on** (`PAY_NETWORK`): where the 0.10 USDC moves,
+- **The network being paid on** (`PAY_NETWORK`): where the USDC moves,
   now `near:testnet`. Only the facilitator and relayer touch it, through
   `NEAR_RPC_URL`.
 

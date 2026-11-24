@@ -16,9 +16,9 @@
     "./prices": "./src/prices.js"
   },
   "dependencies": {
-    "@le-space/chains": "0.9.1",
-    "@le-space/eigenbeleg": "0.9.1",
-    "@le-space/ledger": "0.3.0",
+    "@le-space/chains": "0.10.0",
+    "@le-space/eigenbeleg": "0.10.0",
+    "@le-space/ledger": "0.4.0",
     "@le-space/pdf": "0.2.0",
     "@le-space/rates": "0.9.0"
   },

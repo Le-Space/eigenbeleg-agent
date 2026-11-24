@@ -7,7 +7,7 @@ wallet alike.
 
 ## In one sentence
 
-The payer signs **one exact action** (one USDC `ft_transfer` of 0.10 USDC to
+The payer signs **one exact action** (one USDC `ft_transfer` of 0.005 USDC to
 `eigenbeleg-api.testnet`) but does not send it; the API's **relayer** puts that
 signed action into its own transaction and pays the gas. The action runs on
 NEAR **as the payer**, so the USDC leaves the payer's account.
@@ -40,7 +40,7 @@ The relayer can only do two things: submit it as signed, or not submit it.
 | API + facilitator | `POST /eigenbeleg` | asks for payment (402), checks the signed delegate, settles only after a successful run |
 | Relayer | `eigenbeleg-api.testnet` (`RELAYER_ACCOUNT_ID`) | wraps the signed delegate into its own transaction, pays the gas |
 | Token contract (`receiver_id`) | USDC, `3e2210e1…b8af` | executes `ft_transfer` |
-| Recipient | `eigenbeleg-api.testnet` (`PAY_TO`) | receives 0.10 USDC |
+| Recipient | `eigenbeleg-api.testnet` (`PAY_TO`) | receives 0.005 USDC |
 
 ## The flow
 
@@ -54,8 +54,8 @@ sequenceDiagram
     participant T as USDC contract
 
     P->>A: POST /eigenbeleg
-    A-->>P: 402 PAYMENT-REQUIRED (0.10 USDC, payTo, asset, near:testnet)
-    Note over P: build DelegateAction:<br/>sender = payer, receiver = USDC,<br/>ft_transfer(payTo, 100000), 1 yocto, 30 Tgas,<br/>nonce, max_block_height
+    A-->>P: 402 PAYMENT-REQUIRED (0.005 USDC, payTo, asset, near:testnet)
+    Note over P: build DelegateAction:<br/>sender = payer, receiver = USDC,<br/>ft_transfer(payTo, 5000), 1 yocto, 30 Tgas,<br/>nonce, max_block_height
     P->>P: sign with the payer's full-access key
     P->>A: POST /eigenbeleg + PAYMENT-SIGNATURE (SignedDelegate, base64)
     A->>A: verify: signature, one ft_transfer, token, recipient,<br/>amount, deposit, gas, nonce, expiry, USDC balance
@@ -64,7 +64,7 @@ sequenceDiagram
     R->>N: Transaction (signer = relayer, receiver = payer)<br/>actions = [Delegate(SignedDelegate)], gas paid by relayer
     N->>N: check signature, nonce, max_block_height
     N->>T: ft_transfer as the payer (predecessor = payer)
-    T-->>N: 0.10 USDC payer → eigenbeleg-api.testnet
+    T-->>N: 0.005 USDC payer → eigenbeleg-api.testnet
     A-->>P: 200 PDF/CSV + PAYMENT-RESPONSE (transaction hash)
 ```
 
@@ -141,7 +141,7 @@ near-cli connect, HOT (mainnet only; its executor refuses testnet), NEAR Mobile
 
 ## Risks, plainly
 
-- **For the payer:** the worst case is losing the 0.10 USDC for nothing. The
+- **For the payer:** the worst case is losing the 0.005 USDC for nothing. The
   API settles only after the Eigenbeleg is made, and a failed settlement
   answers 402 without the files. But the relayer could submit and the response
   could be lost on the way: then the payer paid, and the transfer is on chain

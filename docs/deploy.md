@@ -48,7 +48,7 @@ The API keeps nothing beyond the request, except what it was asked to keep: a su
 | `TESTNET_PAY_TO`, `TESTNET_RELAYER_ACCOUNT_ID`, `TESTNET_RELAYER_SECRET_KEY`, `TESTNET_NEAR_RPC_URL` | the test route `POST /testnet/eigenbeleg` (testnet data for testnet USDC, production too): its recipient, relayer and RPC, NEAR testnet accounts only; unset: the route is off | no |
 | `EIGENBELEG_DEV_TESTNET` | `1`: allow `near:testnet` in `PAY_NETWORKS`. Development and tests only: a production build refuses to start when it is set | no |
 | `EIGENBELEG_PRODUCTION` | `1`: treat this process as a production build outside the image (the image is one anyway). It can only switch production on | no |
-| `PRICE` | price per request in USDC, e.g. `$0.10`; `PRICE_EIP155_1` etc. set one network's own price (Ethereum's gas costs the relayer more) | no |
+| `PRICE` | price per request in USDC, e.g. `$0.005`; `PRICE_EIP155_1` etc. set one network's own price (Ethereum's gas costs the relayer more) | no |
 | `SMTP_URL`, `MAIL_FROM` | optional: the files by mail when a request asks (`email`); the SMTP account as a URL and the sender. Without them the API offers no mail | **yes** |
 | `SUBSCRIPTION_KEY`, `SUBSCRIPTION_DIR` | optional: subscriptions (needs mail). The key (16+ characters) encrypts the one file per subscription in the directory (the compose volume `/var/lib/eigenbeleg`); losing the key loses them. Without the key no subscriptions | **yes** |
 | `LOGO_DIR` | optional: where a logo sent with the free preview is kept for 24 hours, encrypted with a key made from its id and deleted by an hourly sweep. Default: `SUBSCRIPTION_DIR/logos` where `SUBSCRIPTION_DIR` is set; with neither the preview checks a picture and keeps none |

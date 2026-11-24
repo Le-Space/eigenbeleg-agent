@@ -48,7 +48,7 @@ Options: --chain, --network, --address (repeatable), --month YYYY-MM or --from/-
   --pay qr    pay in DOI from a wallet: the agent shows a QR code (DoiWallet: scan from the send screen)
               and waits for the payment and its block; no key here;
   --resume TXID   continue a stopped run with the DOI payment already made (the same job, unchanged).
-A subscription costs twelve times the price (1.20 USDC at $0.10): raise AGENT_BUDGET for it.
+A subscription costs twelve times the price (0.06 USDC at $0.005; 1.20 USDC on Ethereum): raise AGENT_BUDGET for it there.
 Environment (.env): API_URL, AGENT_ACCOUNT_ID and AGENT_SECRET_KEY (or the near-cli keychain),
   PAY_NETWORK (near:testnet), AGENT_EVM_KEY (USDC on Base and Ethereum), PAY_PREFER (the network to
   pay on when the API offers several), AGENT_BUDGET per payment (default $0.25).

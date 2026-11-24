@@ -7,14 +7,15 @@
 
 import { USD_PER_EUR, VAT, coinPriceFor, eurGuide, priceFor, timesMonths, usdc } from '@eigenbeleg/pipeline/prices';
 
-/** "0,10 USDC (rund 0,09 €)": the price and its euro guide. */
+/** "0,005 USDC (rund 0,005 €)": the price and its euro guide. */
 const priced = (/** @type {string} */ p, /** @type {'de' | 'en'} */ l) => `${usdc(p, l)} (${eurGuide(p, l)})`;
 const [y, m, d] = USD_PER_EUR.date.split('-');
 
 const NEAR = priceFor('near:mainnet');
 const BASE = priceFor('eip155:8453');
 const ETH = priceFor('eip155:1');
-const DOI = `${coinPriceFor('doichain')} DOI`;
+/** "0,25 DOI" in German, "0.25 DOI" in English. */
+const doi = (/** @type {'de' | 'en'} */ l) => `${l === 'de' ? String(coinPriceFor('doichain')).replace('.', ',') : coinPriceFor('doichain')} DOI`;
 
 /** @typedef {'de' | 'en'} Lang */
 
@@ -54,7 +55,7 @@ const de = {
 	payNearPrice: priced(NEAR, 'de'),
 	payBasePrice: priced(BASE, 'de'),
 	payEthPrice: priced(ETH, 'de'),
-	payDoiPrice: DOI,
+	payDoiPrice: doi('de'),
 	payNote: `Die 402-Antwort nennt alle Wege, die die laufende API gerade nimmt, der Agent wählt einen; dieselbe Liste steht in /llms.txt. Bezahlt wird nur auf dem Mainnet. Alle Preise inkl. ${VAT} % USt; 1 USDC ist an den US-Dollar gebunden, der Euro-Betrag ist ein Richtwert zum EZB-Kurs vom ${d}.${m}.${y}; für DOI gibt es keinen veröffentlichten Kurs. Rechnung auf Anforderung.`,
 	businessOnly: 'Die bezahlte API ist nur für Unternehmer (§ 14 BGB), zu unseren AGB. Privatpersonen erstellen dieselben Dokumente kostenlos auf dieser Seite.',
 	subscriptionNote: `Wer die Kontoauszüge jeden Monat braucht, abonniert sie: einmal zahlen, und ab dem 2. jedes Monats kommt der Auszug für den Vormonat per E-Mail, etwa ins Postfach des Dokumentenmanagementsystems. Ein Jahr auf einmal (${usdc(timesMonths(NEAR), 'de')}, auf Ethereum, wo angeboten, ${usdc(timesMonths(ETH), 'de')}), oder 1 bis 12 Monate im Voraus zum normalen Preis je Anfrage (POST /eigenbeleg/subscribe/<Monate>). Dafür hebt die API Chain, Adressen, Aussteller (mit Logo, wenn eines mitgeschickt wurde) und E-Mail-Adresse verschlüsselt auf, bis der letzte Auszug verschickt ist oder Sie über den Link in jeder Mail beenden; Restmonate werden nicht erstattet. Das Abo wird in USDC bezahlt, nicht in DOI. Ob die laufende API das Abo anbietet, steht in /llms.txt.`,
@@ -241,7 +242,7 @@ const en = {
 	payNearPrice: priced(NEAR, 'en'),
 	payBasePrice: priced(BASE, 'en'),
 	payEthPrice: priced(ETH, 'en'),
-	payDoiPrice: DOI,
+	payDoiPrice: doi('en'),
 	payNote: `The 402 names every way the running API takes right now, and the agent picks one; /llms.txt has the same list. Payment is on mainnet only. All prices include ${VAT}% German VAT; 1 USDC is pegged to the US dollar, and the euro amount is a guide at the ECB rate of ${Number(d)} ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][Number(m) - 1]} ${y}; DOI has no published rate. Invoice on request.`,
 	businessOnly: 'The paid API is for businesses only (§ 14 BGB, German Civil Code), under our terms of business. Private persons make the same documents for free on this page.',
 	subscriptionNote: `Whoever needs the statements every month subscribes: pay once, and from the 2nd of each month the statement for the month before arrives by e-mail, say in the document management system's inbox. A year at once (${usdc(timesMonths(NEAR), 'en')}, on Ethereum, where offered, ${usdc(timesMonths(ETH), 'en')}), or 1 to 12 months in advance at the normal price per request (POST /eigenbeleg/subscribe/<months>). For that the API keeps chain, addresses, issuer (with the logo, if one was sent) and e-mail address encrypted until the last statement is sent or you cancel through the link in every mail; the remaining months are not refunded. The subscription is paid in USDC, not in DOI. Whether the running API offers the subscription, /llms.txt says.`,

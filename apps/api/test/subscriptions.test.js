@@ -84,6 +84,12 @@ test('the request is checked like a paid one, without a period and with an e-mai
 	assert.equal(newSubscription(job, { now: NOV, origin: 'x', months: 3 }).monthsLeft, 3);
 	assert.equal(subscriptionPriceOf('$0.10', 3), '$0.30');
 	assert.equal(subscriptionPriceOf('$1.00', 1), '$1.00');
+	// Prices below a cent: reckoned in USDC units, never rounded to a cent.
+	assert.equal(subscriptionPriceOf('$0.005', 1), '$0.005');
+	assert.equal(subscriptionPriceOf('$0.005', 2), '$0.01');
+	assert.equal(subscriptionPriceOf('$0.005', 3), '$0.015');
+	assert.equal(subscriptionPriceOf('$0.005'), '$0.06');
+	assert.throws(() => subscriptionPriceOf('$0.0000001'), /6 decimals/);
 	assert.deepEqual(job, { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], payer, email: 'belege@example.org', includeKinds: ['fee'], logo: true, chart: true, document: 'kontoauszug', language: 'en' });
 	assert.equal(subscriptionJob({ ...body, document: 'beide' }, { today: '2026-11-12', blocks }).document, 'beide');
 	for (const [bad, why] of [

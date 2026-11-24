@@ -195,11 +195,17 @@ test('the page shows the published prices and pays on mainnet only', async () =>
 	assert.equal(TEXTS.de.payNearPrice, `${usdc(priceFor('near:mainnet'), 'de')} (${eurGuide(priceFor('near:mainnet'), 'de')})`);
 	assert.equal(TEXTS.en.payEthPrice, `${usdc(priceFor('eip155:1'), 'en')} (${eurGuide(priceFor('eip155:1'), 'en')})`);
 	assert.equal(eurGuide('$0.10', 'de'), 'rund 0,09 €');
-	assert.equal(eurGuide('$1.00', 'en'), 'about €0.90');
+	assert.equal(eurGuide('$0.10', 'en'), 'about €0.09');
+	// Below a cent three decimals, never "0,00 €".
+	assert.equal(eurGuide('$0.005', 'de'), 'rund 0,005 €');
+	assert.equal(eurGuide('$0.005', 'en'), 'about €0.005');
+	assert.equal(usdc('$0.005', 'de'), '0,005 USDC');
+	assert.equal(usdc('$0.005', 'en'), '0.005 USDC');
 	assert.ok(TEXTS.de.subscriptionNote.includes(usdc(timesMonths(priceFor('near:mainnet')), 'de')));
 	assert.ok(TEXTS.en.prompt.includes(usdc(priceFor('near:mainnet'), 'en')));
 	// DOI on Doichain is a way to pay too, at its published price.
-	assert.equal(TEXTS.de.payDoiPrice, `${coinPriceFor('doichain')} DOI`);
+	assert.equal(TEXTS.de.payDoiPrice, `${String(coinPriceFor('doichain')).replace('.', ',')} DOI`);
+	assert.equal(TEXTS.en.payDoiPrice, `${coinPriceFor('doichain')} DOI`);
 	for (const lang of /** @type {const} */ (['de', 'en'])) assert.match(TEXTS[lang].agentsText, /DOI auf Doichain|DOI on Doichain/, lang);
 	// index.html's German text (what shows before the script runs) is the same as TEXTS.de.
 	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');

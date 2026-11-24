@@ -282,13 +282,13 @@ test('production: only the published price, at least one block, no server on thi
 	assert.throws(() => checkOnchain({ ...ok, servers: ['ws://electrum.example.org:50003'] }), /unencrypted/);
 	assert.throws(() => checkOnchain({ ...ok, production: false, mode: 'none' }), /needs PAYWALL=x402/);
 	checkOnchain({ ...ok, production: false, price: '0.1', confirmations: 0 });
-	// A production build charges the published price (5 DOI) and no other; without PRICE_DOI it is the price anyway.
+	// A production build charges the published price (0.25 DOI) and no other; without PRICE_DOI it is the price anyway.
 	const chain = fakeChain(DOICHAIN);
 	const onchain = { network: chain.network, payTo: addressOfKey(chain.network, fakeKey('shop')), price: '2.5', store: memoryPaymentStore() };
-	await assert.rejects(createPaywall({ production: true, mode: 'x402', networks: ['near:mainnet'], onchain }), /the price is 2\.5 DOI, the published one 5 DOI/);
+	await assert.rejects(createPaywall({ production: true, mode: 'x402', networks: ['near:mainnet'], onchain }), /the price is 2\.5 DOI, the published one 0\.25 DOI/);
 	const pw = await createPaywall({ mode: 'x402', networks: ['near:testnet'], allowTestnet: true, payTo: 'wolkenfabrik.testnet', relayerId: 'relayer.testnet', relayerKey: KeyPair.fromRandom('ed25519').toString(), onchain: { ...onchain, price: undefined } });
-	assert.equal(/** @type {any} */ (pw.info).coins[0].price, '5 DOI');
-	assert.equal(coinPriceFor('doichain'), '5');
+	assert.equal(/** @type {any} */ (pw.info).coins[0].price, '0.25 DOI');
+	assert.equal(coinPriceFor('doichain'), '0.25');
 	assert.equal(coinPriceFor('bitcoin'), undefined);
 });
 

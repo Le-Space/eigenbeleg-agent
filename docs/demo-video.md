@@ -25,4 +25,4 @@ node record.mjs --account eigenbeleg-agent.testnet --day 2026-11-06 --lang en
 node record.mjs --day 2026-11-06 --lang de --skip-run
 ```
 
-`--day` must be a finished UTC day on which the account made payments. Output: `out/video/eigenbeleg-demo-en.mp4` and `-de.mp4` (1920×1080, H.264/AAC, about 100 and 115 s). The second language uses `--skip-run`, so both show the same payment. Needs macOS, ffmpeg, `.env` as in the README (PAYWALL=near) and testnet USDC on the agent account. `--skip-run` re-renders from the last captured run without paying again.
+`--day` must be a finished UTC day on which the account made payments. Output: `out/video/eigenbeleg-demo-en.mp4` and `-de.mp4` (1920×1080, H.264/AAC, about 100 and 115 s). The second language uses `--skip-run`, so both show the same payment. Needs macOS, ffmpeg, `.env` as in [x402.md](x402.md#your-own-api-on-near-testnet) (PAYWALL=near) and testnet USDC on the agent account. `--skip-run` re-renders from the last captured run without paying again.

@@ -6,7 +6,7 @@
 //
 //   npm run demo
 //
-// The paid flow on testnet is in the README ("Pay with x402 on NEAR testnet").
+// The paid flow on testnet is in docs/x402.md ("Your own API on NEAR testnet").
 
 import { readFile } from 'node:fs/promises';
 

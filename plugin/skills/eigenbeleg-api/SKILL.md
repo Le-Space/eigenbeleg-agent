@@ -59,6 +59,8 @@ details until its end, and what a payment in DOI needs (see `GET /`).
    It names the chains the running instance serves, the payment networks and the
    price per request, and whether mailing the files is offered. Payment is in real
    USDC or DOI on mainnet networks; take the networks and prices from that file, not from here.
+   The price depends on `document`: the Eigenbelege cost less than the Kontoauszug, and
+   `beide` costs the sum of the two. Buy only the document the person needs.
 2. **Build the request body** (below). `GET https://eigenbeleg.le-space.de/blocks`
    lists the chains with their networks and the kinds of payment each knows.
 3. **Preview for free:** `POST https://eigenbeleg.le-space.de/eigenbeleg/preview`

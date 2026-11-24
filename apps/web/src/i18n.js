@@ -11,11 +11,25 @@ import { USD_PER_EUR, VAT, coinPriceFor, eurGuide, priceFor, timesMonths, usdc }
 const priced = (/** @type {string} */ p, /** @type {'de' | 'en'} */ l) => `${usdc(p, l)} (${eurGuide(p, l)})`;
 const [y, m, d] = USD_PER_EUR.date.split('-');
 
+// The price follows the document: the Eigenbelege, the Kontoauszug, or both (the sum).
 const NEAR = priceFor('near:mainnet');
 const BASE = priceFor('eip155:8453');
 const ETH = priceFor('eip155:1');
-/** "0,25 DOI" in German, "0.25 DOI" in English. */
-const doi = (/** @type {'de' | 'en'} */ l) => `${l === 'de' ? String(coinPriceFor('doichain')).replace('.', ',') : coinPriceFor('doichain')} DOI`;
+const NEAR_KA = priceFor('near:mainnet', 'kontoauszug');
+const BASE_KA = priceFor('eip155:8453', 'kontoauszug');
+const ETH_KA = priceFor('eip155:1', 'kontoauszug');
+/** The subscription's year (a Kontoauszug by default): on NEAR and Base, and on Ethereum. */
+const YEAR = { kontoauszug: timesMonths(NEAR_KA), eigenbelege: timesMonths(NEAR), beide: timesMonths(priceFor('near:mainnet', 'beide')) };
+const YEAR_ETH = { kontoauszug: timesMonths(ETH_KA), eigenbelege: timesMonths(ETH), beide: timesMonths(priceFor('eip155:1', 'beide')) };
+/**
+ * "0,25 DOI" in German, "0.25 DOI" in English.
+ * @param {'de' | 'en'} l
+ * @param {import('@eigenbeleg/pipeline/prices').Document} [document]
+ */
+const doi = (l, document = 'eigenbelege') => {
+	const p = String(coinPriceFor('doichain', document));
+	return `${l === 'de' ? p.replace('.', ',') : p} DOI`;
+};
 
 /** @typedef {'de' | 'en'} Lang */
 
@@ -47,7 +61,8 @@ const de = {
 	payNet: 'Netz',
 	payAsset: 'Asset',
 	payHow: 'Wie',
-	payPrice: 'Preis je Anfrage',
+	payPrice: 'Eigenbelege je Anfrage',
+	payPriceStatement: 'Kontoauszug je Anfrage',
 	payNearHow: 'Eine signierte Delegate-Action; unser Relayer trägt das Gas',
 	payEvmHow: 'Eine signierte EIP-3009-Überweisung; unser Relayer trägt das Gas; nur wo angeboten',
 	payDoiHow: 'Eine signierte Doichain-Transaktion oder per QR-Code aus der Wallet; die Dokumente nach 1 Bestätigung (rund 10 Minuten)',
@@ -56,13 +71,17 @@ const de = {
 	payBasePrice: priced(BASE, 'de'),
 	payEthPrice: priced(ETH, 'de'),
 	payDoiPrice: doi('de'),
-	payNote: `Die 402-Antwort nennt alle Wege, die die laufende API gerade nimmt, der Agent wählt einen; dieselbe Liste steht in /llms.txt. Bezahlt wird nur auf dem Mainnet. Alle Preise inkl. ${VAT} % USt; 1 USDC ist an den US-Dollar gebunden, der Euro-Betrag ist ein Richtwert zum EZB-Kurs vom ${d}.${m}.${y}; für DOI gibt es keinen veröffentlichten Kurs. Rechnung auf Anforderung.`,
+	payNearStatement: priced(NEAR_KA, 'de'),
+	payBaseStatement: priced(BASE_KA, 'de'),
+	payEthStatement: priced(ETH_KA, 'de'),
+	payDoiStatement: doi('de', 'kontoauszug'),
+	payNote: `Die 402-Antwort nennt alle Wege, die die laufende API gerade nimmt, der Agent wählt einen; dieselbe Liste steht in /llms.txt. Der Preis richtet sich nach dem angefragten Dokument; beide zusammen kosten die Summe (auf NEAR ${usdc(priceFor('near:mainnet', 'beide'), 'de')}). Bezahlt wird nur auf dem Mainnet. Alle Preise inkl. ${VAT} % USt; 1 USDC ist an den US-Dollar gebunden, der Euro-Betrag ist ein Richtwert zum EZB-Kurs vom ${d}.${m}.${y}; für DOI gibt es keinen veröffentlichten Kurs. Rechnung auf Anforderung.`,
 	businessOnly: 'Die bezahlte API ist nur für Unternehmer (§ 14 BGB), zu unseren AGB. Privatpersonen erstellen dieselben Dokumente kostenlos auf dieser Seite.',
-	subscriptionNote: `Wer die Kontoauszüge jeden Monat braucht, abonniert sie: einmal zahlen, und ab dem 2. jedes Monats kommt der Auszug für den Vormonat per E-Mail, etwa ins Postfach des Dokumentenmanagementsystems. Ein Jahr auf einmal (${usdc(timesMonths(NEAR), 'de')}, auf Ethereum, wo angeboten, ${usdc(timesMonths(ETH), 'de')}), oder 1 bis 12 Monate im Voraus zum normalen Preis je Anfrage (POST /eigenbeleg/subscribe/<Monate>). Dafür hebt die API Chain, Adressen, Aussteller (mit Logo, wenn eines mitgeschickt wurde) und E-Mail-Adresse verschlüsselt auf, bis der letzte Auszug verschickt ist oder Sie über den Link in jeder Mail beenden; Restmonate werden nicht erstattet. Das Abo wird in USDC bezahlt, nicht in DOI. Ob die laufende API das Abo anbietet, steht in /llms.txt.`,
+	subscriptionNote: `Wer die Kontoauszüge jeden Monat braucht, abonniert sie: einmal zahlen, und ab dem 2. jedes Monats kommt der Auszug für den Vormonat per E-Mail, etwa ins Postfach des Dokumentenmanagementsystems. Ein Jahr auf einmal (Kontoauszug ${usdc(YEAR.kontoauszug, 'de')}, Eigenbelege ${usdc(YEAR.eigenbelege, 'de')}, beide ${usdc(YEAR.beide, 'de')}; auf Ethereum, wo angeboten, ${usdc(YEAR_ETH.kontoauszug, 'de')}, ${usdc(YEAR_ETH.eigenbelege, 'de')} und ${usdc(YEAR_ETH.beide, 'de')}), oder 1 bis 12 Monate im Voraus zum normalen Preis je Anfrage (POST /eigenbeleg/subscribe/<Monate>). Dafür hebt die API Chain, Adressen, Aussteller (mit Logo, wenn eines mitgeschickt wurde) und E-Mail-Adresse verschlüsselt auf, bis der letzte Auszug verschickt ist oder Sie über den Link in jeder Mail beenden; Restmonate werden nicht erstattet. Das Abo wird in USDC bezahlt, nicht in DOI. Ob die laufende API das Abo anbietet, steht in /llms.txt.`,
 	agentsPrompt: 'So beauftragen Sie zum Beispiel Claude oder einen anderen Agenten, der x402 kann; Zeitraum, Adresse und Aussteller sind Beispiele, setzen Sie Ihre ein:',
 	copy: 'In die Zwischenablage',
 	copied: 'Kopiert',
-	prompt: `Besorge mir die Eigenbelege und den Kontoauszug für Oktober 2026 für meine NEAR-Adresse wolkenfabrik.near von https://eigenbeleg.le-space.de. Lies zuerst https://eigenbeleg.le-space.de/llms.txt und zeig mir die kostenlose Vorschau, bevor du zahlst. Aussteller: Wolkenfabrik Hosting GmbH, Musterstraße 1, 12345 Beispielstadt. Zahle höchstens ${usdc(NEAR, 'de')}.`,
+	prompt: `Besorge mir die Eigenbelege und den Kontoauszug für Oktober 2026 für meine NEAR-Adresse wolkenfabrik.near von https://eigenbeleg.le-space.de. Lies zuerst https://eigenbeleg.le-space.de/llms.txt und zeig mir die kostenlose Vorschau, bevor du zahlst. Aussteller: Wolkenfabrik Hosting GmbH, Musterstraße 1, 12345 Beispielstadt. Zahle höchstens ${usdc(priceFor('near:mainnet', 'beide'), 'de')}.`,
 	agentsCurl: 'Was die API ist, was sie kostet und wie man zahlt, sagt sie selbst:',
 	agentsMore: 'Der Agent aus dem Quellcode kauft innerhalb seines Budgets, prüft die PDFs und legt eine Quittung ab. Beauftragen lässt er sich auch auf dem',
 	hSkills: 'Als Skill für Claude Code und andere Agenten',
@@ -234,7 +253,8 @@ const en = {
 	payNet: 'Network',
 	payAsset: 'Asset',
 	payHow: 'How',
-	payPrice: 'Price per request',
+	payPrice: 'Receipts per request',
+	payPriceStatement: 'Statement per request',
 	payNearHow: 'One signed delegate action; our relayer pays the gas',
 	payEvmHow: 'One signed EIP-3009 transfer; our relayer pays the gas; only where offered',
 	payDoiHow: 'A signed Doichain transaction, or from a wallet by QR code; the documents after 1 confirmation (about 10 minutes)',
@@ -243,13 +263,17 @@ const en = {
 	payBasePrice: priced(BASE, 'en'),
 	payEthPrice: priced(ETH, 'en'),
 	payDoiPrice: doi('en'),
-	payNote: `The 402 names every way the running API takes right now, and the agent picks one; /llms.txt has the same list. Payment is on mainnet only. All prices include ${VAT}% German VAT; 1 USDC is pegged to the US dollar, and the euro amount is a guide at the ECB rate of ${Number(d)} ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][Number(m) - 1]} ${y}; DOI has no published rate. Invoice on request.`,
+	payNearStatement: priced(NEAR_KA, 'en'),
+	payBaseStatement: priced(BASE_KA, 'en'),
+	payEthStatement: priced(ETH_KA, 'en'),
+	payDoiStatement: doi('en', 'kontoauszug'),
+	payNote: `The 402 names every way the running API takes right now, and the agent picks one; /llms.txt has the same list. The price follows the document asked for; both together cost the sum (on NEAR ${usdc(priceFor('near:mainnet', 'beide'), 'en')}). Payment is on mainnet only. All prices include ${VAT}% German VAT; 1 USDC is pegged to the US dollar, and the euro amount is a guide at the ECB rate of ${Number(d)} ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][Number(m) - 1]} ${y}; DOI has no published rate. Invoice on request.`,
 	businessOnly: 'The paid API is for businesses only (§ 14 BGB, German Civil Code), under our terms of business. Private persons make the same documents for free on this page.',
-	subscriptionNote: `Whoever needs the statements every month subscribes: pay once, and from the 2nd of each month the statement for the month before arrives by e-mail, say in the document management system's inbox. A year at once (${usdc(timesMonths(NEAR), 'en')}, on Ethereum, where offered, ${usdc(timesMonths(ETH), 'en')}), or 1 to 12 months in advance at the normal price per request (POST /eigenbeleg/subscribe/<months>). For that the API keeps chain, addresses, issuer (with the logo, if one was sent) and e-mail address encrypted until the last statement is sent or you cancel through the link in every mail; the remaining months are not refunded. The subscription is paid in USDC, not in DOI. Whether the running API offers the subscription, /llms.txt says.`,
+	subscriptionNote: `Whoever needs the statements every month subscribes: pay once, and from the 2nd of each month the statement for the month before arrives by e-mail, say in the document management system's inbox. A year at once (the statement ${usdc(YEAR.kontoauszug, 'en')}, the receipts ${usdc(YEAR.eigenbelege, 'en')}, both ${usdc(YEAR.beide, 'en')}; on Ethereum, where offered, ${usdc(YEAR_ETH.kontoauszug, 'en')}, ${usdc(YEAR_ETH.eigenbelege, 'en')} and ${usdc(YEAR_ETH.beide, 'en')}), or 1 to 12 months in advance at the normal price per request (POST /eigenbeleg/subscribe/<months>). For that the API keeps chain, addresses, issuer (with the logo, if one was sent) and e-mail address encrypted until the last statement is sent or you cancel through the link in every mail; the remaining months are not refunded. The subscription is paid in USDC, not in DOI. Whether the running API offers the subscription, /llms.txt says.`,
 	agentsPrompt: 'This is how you brief Claude, say, or another agent that speaks x402; period, address and issuer are examples, put in your own:',
 	copy: 'Copy to clipboard',
 	copied: 'Copied',
-	prompt: `Get me the self-issued receipts (Eigenbelege) and the account statement for October 2026 for my NEAR address wolkenfabrik.near from https://eigenbeleg.le-space.de. Read https://eigenbeleg.le-space.de/llms.txt first and show me the free preview before paying. Issuer: Wolkenfabrik Hosting GmbH, Musterstraße 1, 12345 Beispielstadt. Pay at most ${usdc(NEAR, 'en')}.`,
+	prompt: `Get me the self-issued receipts (Eigenbelege) and the account statement for October 2026 for my NEAR address wolkenfabrik.near from https://eigenbeleg.le-space.de. Read https://eigenbeleg.le-space.de/llms.txt first and show me the free preview before paying. Issuer: Wolkenfabrik Hosting GmbH, Musterstraße 1, 12345 Beispielstadt. Pay at most ${usdc(priceFor('near:mainnet', 'beide'), 'en')}.`,
 	agentsCurl: 'What the API is, what it costs and how to pay, it says itself:',
 	agentsMore: 'The agent in the source code buys within its budget, checks the PDFs and keeps a receipt. It can also be hired on the',
 	hSkills: 'As a skill for Claude Code and other agents',

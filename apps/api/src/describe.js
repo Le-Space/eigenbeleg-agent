@@ -15,6 +15,7 @@
 // catalogue by themselves; they are what any reader of the 402 gets.
 
 import { CURRENCIES } from '@eigenbeleg/pipeline/request';
+import { byDocument } from '@eigenbeleg/pipeline/prices';
 
 /** The body of POST /eigenbeleg; `chain` is one of GET /blocks. */
 export const REQUEST_SCHEMA = /** @type {const} */ ({
@@ -94,11 +95,14 @@ export async function discoveryExtensions() {
  * @param {import('./build.js').Build} [o.build] which build this is; its version is the document's
  */
 export function openapi({ base, payment, chains, terms, source, subscriptions = false, build = { version: '', commit: '', date: '' } }) {
-	const accepts = /** @type {{ network: string, name: string, asset: string, price: string, payTo: string }[]} */ (payment.accepts ?? []);
+	/** @typedef {{ eigenbelege: string, kontoauszug: string, beide: string }} PerDocument */
+	const accepts = /** @type {{ network: string, name: string, asset: string, price: string, prices?: PerDocument, payTo: string }[]} */ (payment.accepts ?? []);
 	const paid = payment.mode === 'x402';
-	const coins = /** @type {{ name: string, asset: string, price: string, wait: string }[]} */ (payment.coins ?? []);
-	const coined = coins.map((c) => ` Also ${c.price} on ${c.name} (scheme onchain): the answer is 202 until the payment's block, ${c.wait}; see /llms.txt.`).join('');
-	const priced = accepts.map((a) => `${a.price} in ${a.asset} on ${a.name} (${a.network})`).join('; ');
+	const coins = /** @type {{ name: string, asset: string, price: string, prices?: PerDocument, wait: string }[]} */ (payment.coins ?? []);
+	// The price follows the body's document: eigenbelege (the default), kontoauszug, or beide (the sum).
+	const perDoc = (/** @type {{ price: string, prices?: PerDocument }} */ a) => (a.prices ? byDocument(a.prices) : a.price);
+	const coined = coins.map((c) => ` Also ${perDoc(c)} on ${c.name} (scheme onchain): the answer is 202 until the payment's block, ${c.wait}; see /llms.txt.`).join('');
+	const priced = accepts.map((a) => `${perDoc(a)} in ${a.asset} on ${a.name} (${a.network})`).join('; ');
 	const body = { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Request' }, example: REQUEST_EXAMPLE } } };
 	const error = { description: 'The body did not pass the check; nothing was charged.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } };
 	const pay = {

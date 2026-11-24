@@ -38,9 +38,10 @@ const ZPUB = 'zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1AD
 
 /**
  * An API that takes 2.5 DOI beside testnet USDC, on a chain in memory.
- * @param {{ deps?: any, xpub?: string, gap?: number }} [o] xpub: an address per order instead of one address
+ * @param {{ deps?: any, xpub?: string, gap?: number, price?: string | null }} [o] xpub: an address per order instead of one
+ *   address; price: one for every document, or null for the published prices per document
  */
-async function setup({ deps = reads, xpub, gap } = {}) {
+async function setup({ deps = reads, xpub, gap, price = '2.5' } = {}) {
 	const chain = fakeChain(DOICHAIN);
 	const addressAt = xpub ? receiveAddresses(chain.network, xpub) : null;
 	const payTo = addressAt ? addressAt(0) : addressOfKey(chain.network, fakeKey('shop'));
@@ -60,7 +61,7 @@ async function setup({ deps = reads, xpub, gap } = {}) {
 		onchain: {
 			network: chain.network,
 			...(xpub ? { xpub, orders: memoryOrders(), gap } : { payTo }),
-			price: '2.5',
+			...(price === null ? {} : { price }),
 			store,
 			now: () => clock.now,
 			open: async (fn) => {
@@ -107,6 +108,36 @@ test('the 402 offers DOI beside USDC: its own scheme, the amount in swartz, how 
 		assert.match(llms, /202 with the txid/);
 		const api = await (await fetch(`${t.base}/openapi.json`)).json();
 		assert.match(JSON.stringify(api), /Also 2\.5 DOI on Doichain \(scheme onchain\)/);
+	} finally {
+		t.close();
+	}
+});
+
+test('the published DOI price follows the document: Eigenbelege 0.25, Kontoauszug 5, both the sum; less than the document costs is refused', async () => {
+	const t = await setup({ price: null });
+	try {
+		const amount = async (/** @type {object} */ body) => (await t.offerOf(body)).amount;
+		assert.equal(t.offer.amount, '25000000');
+		assert.equal(await amount({ ...job, document: 'eigenbelege' }), '25000000');
+		assert.equal(await amount({ ...job, document: 'kontoauszug' }), '500000000');
+		assert.equal(await amount({ ...job, document: 'beide', format: 'json' }), '525000000');
+		const info = (await (await fetch(`${t.base}/`)).json()).payment;
+		assert.deepEqual(info.coins[0].prices, { eigenbelege: '0.25 DOI', kontoauszug: '5 DOI', beide: '5.25 DOI' });
+		assert.equal(info.coins[0].price, '0.25 DOI');
+		// /llms.txt and the OpenAPI description name every document's price, USDC and DOI.
+		const llms = await (await fetch(`${t.base}/llms.txt`)).text();
+		assert.match(llms, /NEAR testnet \(near:testnet\): \$0\.005 for eigenbelege, \$0\.10 for kontoauszug, \$0\.105 for beide to /);
+		assert.match(llms, /; or 0\.25 DOI for eigenbelege, 5 DOI for kontoauszug, 5\.25 DOI for beide on Doichain/);
+		assert.match(llms, /The price follows the body's `document`/);
+		const api = JSON.stringify(await (await fetch(`${t.base}/openapi.json`)).json());
+		assert.match(api, /Also 0\.25 DOI for eigenbelege, 5 DOI for kontoauszug, 5\.25 DOI for beide on Doichain/);
+		// The Eigenbelege's price does not buy a Kontoauszug: not broadcast.
+		const statement = { ...job, document: 'kontoauszug' };
+		const small = await t.sign(25_000_000n);
+		const r = await t.post(statement, t.pay({ transaction: small.hex }, await t.offerOf(statement)));
+		assert.equal(r.status, 402);
+		assert.match(t.why(r), /^onchain_amount/);
+		assert.equal(t.chain.outputsOf(small.txid).length, 0);
 	} finally {
 		t.close();
 	}

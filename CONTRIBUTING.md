@@ -78,7 +78,7 @@ two pull requests, and nothing is written twice:
    Kraken pair in that package's `RATE_SOURCES`; `priceAs` on the entry says
    which asset an entry is valued as.
 5. **Name the chain for people** in `apps/web/src/main.js` (`CHAIN_NAMES`), and
-   a line in the README's building-blocks table.
+   a line in the building-blocks table ([docs/building-blocks.md](docs/building-blocks.md)).
 6. `npm test`, including the browser test (`packages/pipeline/test/browser.test.js`:
    Node and Chromium give the same bytes). Add your chain to the fixture run
    only if you recorded a public account for it.

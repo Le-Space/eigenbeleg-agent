@@ -1,9 +1,33 @@
 # Web UI: everything in the browser
 
+Back to the [README](../README.md).
+
 Status: built in `apps/web` (issue #5, 6 Nov 2026). Replaces the first version,
 which sent the request to the API and paid 0.10 USDC with a NEAR browser wallet
 (x402); that version is in the git history up to `a103ca0`, and its payment flow
 lives on in the API for agents ([delegate-actions.md](delegate-actions.md)).
+
+## Using it
+
+For people, free: the page does **everything in your browser**. It reads the chain from the public data sources itself, fetches the EUR rates, and draws the self-issued receipts, the account statement and the CSV on your device, with the same code the API runs ([`@eigenbeleg/pipeline`](../packages/pipeline)). Nothing goes to a server of ours: not your name, not your address, not your blockchain addresses. It installs as an app (PWA) and runs from any static host. Plan: [#5](https://github.com/Le-Space/eigenbeleg-agent/issues/5); the concept follows below.
+
+1. Open **https://eigenbeleg.le-space.de/ui/**. You see what the page makes (an example self-issued receipt), the form, and below it *Für Agenten* with the price and a prompt to brief an agent; the footer links the guide, `/llms.txt`, the data sources and the source code. German, or English if your browser is set to another language; **English** / **Deutsch** at the top right switches (the PDFs stay German). *Welche Dienste Ihr Browser dabei fragt* lists every host the page will ask and what each learns.
+
+   Locally instead:
+   ```bash
+   npm run web:build
+   ```
+   ```bash
+   PAYWALL=none npm run api
+   ```
+   then open http://127.0.0.1:4402/ui/ (the API only serves the files here).
+2. Choose the chain and network of **your** payments, enter your addresses and a month or a range, pick the documents (**Eigenbelege**, **Kontoauszug** or **Beide**), and fill in name and postal address (they are printed on the documents and stay in the page; tick *merken* to keep them on this device, and the other *merken* keeps chain, network and addresses). A missing chain: [CONTRIBUTING.md](../CONTRIBUTING.md) or eigenbeleg@le-space.de.
+3. Click **Lesen und erstellen**. The first time, the page loads its PDF code and fonts (about 1.6 MB, then cached). You see how many self-issued receipts it made and their numbers, the positions, the EUR total, the quantities and, per address, the account statement's opening and closing balance (✓ when reconciled with the chain).
+4. Download **Eigenbelege (PDF/A, n)**, **Kontoauszug <address> (PDF/A)** per address, and **Alle Bewegungen (CSV)**.
+
+Which hosts your browser asks, and the keys of your own for Ethereum, Base and NearBlocks: [privacy.md](privacy.md#what-your-browser-asks).
+
+For development, `npm run web:dev` serves the page with hot reload. Build settings: `VITE_AKASH_INDEXER` (the Akash proxy's URL), `VITE_PUBLIC_URL` (for the share cards on a static host).
 
 ## Goal
 

@@ -10,7 +10,7 @@
 #   docker network create edge          # once, if Caddy's network is not there yet
 #   docker compose up -d
 #
-# .env holds the settings (README, "Deploy"); it is never committed.
+# .env holds the settings (docs/deploy.md); it is never committed.
 services:
   eigenbeleg:
     image: ghcr.io/le-space/eigenbeleg-agent:main

@@ -98,15 +98,15 @@ Payment in DOI beside USDC, single requests only ([`apps/api/src/onchain.js`](..
 ### 8. Listing and announcement
 
 - [ ] NEAR hackathon: the agent registered with the hosted URL (14 Nov)
-- [ ] NEAR AI Agent Market: the listing, `MARKET_TOKEN` on the agent's machine (README, "On the NEAR AI Agent Market")
+- [ ] NEAR AI Agent Market: the listing, `MARKET_TOKEN` on the agent's machine ([agent.md](agent.md#on-the-near-ai-agent-market))
 - [ ] after the launch: the Claude plugin directory (claude.ai/directory/manage, `claude plugin validate plugin` first), issue #29
 - [ ] issue #5's test with Claude: a session given only the URL finds the API, pays and gets valid documents; note where it got stuck
 
 ### 9. The test route (optional, after the launch)
 
-`POST /testnet/eigenbeleg`: testnet data for testnet USDC, in production, for developing and testing clients (README, "The test route").
+`POST /testnet/eigenbeleg`: testnet data for testnet USDC, in production, for developing and testing clients ([deploy.md](deploy.md#the-test-route-in-production-too)).
 
-- [ ] **Nico** creates two NEAR testnet accounts, e.g. `eigenbeleg-test.testnet` (receives) and `eigenbeleg-test-relayer.testnet` (pays the gas; faucet NEAR is enough), and registers the receiving one with testnet USDC (`storage_deposit`, README "Pay for it with x402 on NEAR testnet")
+- [ ] **Nico** creates two NEAR testnet accounts, e.g. `eigenbeleg-test.testnet` (receives) and `eigenbeleg-test-relayer.testnet` (pays the gas; faucet NEAR is enough), and registers the receiving one with testnet USDC (`storage_deposit`, [x402.md](x402.md#your-own-api-on-near-testnet))
 - [ ] on the host, `vi /opt/eigenbeleg/deploy/.env`: `TESTNET_PAY_TO`, `TESTNET_RELAYER_ACCOUNT_ID`, `TESTNET_RELAYER_SECRET_KEY` (Nico types the key; it is never the mainnet one), then `docker compose up -d eigenbeleg`
 - [ ] the log says `production (mainnet payments only)` and `test route: [{"network":"near:testnet",…}]`; `POST …/testnet/eigenbeleg` with `"network": "mainnet"` answers 400, with `"network": "testnet"` 402 offering `near:testnet` only
 - [ ] a paid run: `npm run agent -- --api https://eigenbeleg.le-space.de/testnet --network testnet …` with a testnet agent account; the PDFs say TESTNET, the files are `TEST-…`

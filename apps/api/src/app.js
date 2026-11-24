@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 
 import { CURRENCIES, RequestError, blocksFor, checkBlock, describeBlocks, generate, issuerLogoImage, parseRequest } from '@eigenbeleg/pipeline';
-import { VAT } from '@eigenbeleg/pipeline/prices';
+import { VAT, byDocument } from '@eigenbeleg/pipeline/prices';
 import { composeMail } from './mail.js';
 import { apiBuild, buildFields } from './build.js';
 import { openapi } from './describe.js';
@@ -111,7 +111,7 @@ export function createApp({
 		return { ...rest, issuerLogo: kept.bytes };
 	};
 	/** Payments in a chain's own coin, where this instance offers one (paywall.js, onchain.js). */
-	const coins = /** @type {{ network: string, name: string, asset: string, price: string, payTo: string, confirmations: number, wait: string, redeemableDays: number, explorer: string, servers: string[], perOrder: boolean, orderHeader: string | null, orderHours: number }[]} */ (/** @type {any} */ (paywall.info).coins ?? []);
+	const coins = /** @type {{ network: string, name: string, asset: string, price: string, prices?: { eigenbelege: string, kontoauszug: string, beide: string }, payTo: string, confirmations: number, wait: string, redeemableDays: number, explorer: string, servers: string[], perOrder: boolean, orderHeader: string | null, orderHours: number }[]} */ (/** @type {any} */ (paywall.info).coins ?? []);
 	const app = express();
 	app.disable('x-powered-by');
 	// The paywalls match the exact path: `/eigenbeleg/` or `/EIGENBELEG` must not
@@ -201,15 +201,21 @@ export function createApp({
 	// For agents (llms.txt convention): what is sold, the price, the x402 flow, and where people go instead.
 	app.get('/llms.txt', (req, res) => {
 		const p = /** @type {Record<string, unknown>} */ (paywall.info);
-		const accepts = /** @type {{ network: string, name: string, asset: string, price: string, payTo: string }[]} */ (p.accepts ?? []);
+		const accepts = /** @type {{ network: string, name: string, asset: string, price: string, prices?: { eigenbelege: string, kontoauszug: string, beide: string }, payTo: string }[]} */ (p.accepts ?? []);
+		// The price follows the body's document: eigenbelege (the default), kontoauszug, or beide (the sum).
+		const perDoc = (/** @type {{ price: string, prices?: { eigenbelege: string, kontoauszug: string, beide: string } }} */ a) => (a.prices ? byDocument(a.prices) : a.price);
+		const byDoc = [...accepts, ...coins].some((a) => a.prices && byDocument(a.prices) !== a.prices.eigenbelege);
 		const price =
 			p.mode === 'x402'
-				? `USDC on ${accepts.map((a) => `${a.name} (${a.network}): ${a.price} to ${a.payTo}`).join('; ')}. The payer picks one of the 402's accepts; this API's relayer pays the gas on each`
+				? `USDC on ${accepts.map((a) => `${a.name} (${a.network}): ${perDoc(a)} to ${a.payTo}`).join('; ')}. The payer picks one of the 402's accepts; this API's relayer pays the gas on each`
 				: p.mode === 'none'
 					? 'free (development mode)'
 					: `paid via ${p.mode}`;
 		// A coin beside USDC is named in the same line, so an agent that skims sees every way to pay.
-		const orCoins = coins.length ? `; or ${coins.map((c) => `${c.price} on ${c.name} (below, "Paying in ${c.asset}")`).join('; ')}` : '';
+		const orCoins = coins.length ? `; or ${coins.map((c) => `${perDoc(c)} on ${c.name} (below, "Paying in ${c.asset}")`).join('; ')}` : '';
+		const pricing = byDoc ? ` The price follows the body's \`document\`: \`eigenbelege\` (the default), \`kontoauszug\`, or \`beide\` (both, the sum of the two); the 402 names the price of the request sent.` : '';
+		/** @type {any} */
+		const sub = p.subscription;
 		// How to sign, only for the networks this instance offers.
 		const near = accepts.some((a) => a.network.startsWith('near:'));
 		const evm = accepts.some((a) => a.network.startsWith('eip155:'));
@@ -230,7 +236,7 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
 ## Buy
 
 - POST ${base}/eigenbeleg/preview: free, the same body without \`payer\`; counts and totals, no files. Check here first.
-- POST ${base}/eigenbeleg: ${price}${orCoins}.${subs ? `\n- POST ${base}/eigenbeleg/subscribe: a subscription, ${MONTHS} monthly Kontoauszüge by mail, paid once: ${/** @type {any} */ (paywall.info).subscription?.price ?? 'see GET /'} (${MONTHS} × the price, unless set apart); POST ${base}/eigenbeleg/subscribe/<months> buys 1 to ${MONTHS} months in advance at months × the price of one request. The same body as POST /eigenbeleg with \`email\` and without \`period\`; \`document\` is kontoauszug by default. From the 2nd of each month the statement for the month before goes to that address; the answer and every mail carry the cancel link, which deletes everything (no refund of the remaining months). Chain, addresses, payer, e-mail address and options are kept encrypted until the last statement or the cancellation; everything else this API does stays unstored.` : ''}
+- POST ${base}/eigenbeleg: ${price}${orCoins}.${pricing}${subs ? `\n- POST ${base}/eigenbeleg/subscribe: a subscription, ${MONTHS} monthly Kontoauszüge by mail, paid once: ${sub?.prices ? byDocument(sub.prices) : (sub?.price ?? 'see GET /')} (${MONTHS} × the price of one request for the document, unless set apart); POST ${base}/eigenbeleg/subscribe/<months> buys 1 to ${MONTHS} months in advance at months × the price of one request. The same body as POST /eigenbeleg with \`email\` and without \`period\`; \`document\` is kontoauszug by default. From the 2nd of each month the statement for the month before goes to that address; the answer and every mail carry the cancel link, which deletes everything (no refund of the remaining months). Chain, addresses, payer, e-mail address and options are kept encrypted until the last statement or the cancellation; everything else this API does stays unstored.` : ''}
   1. Send the body; the answer is 402 with a \`PAYMENT-REQUIRED\` header (base64 JSON, x402 v2, scheme \`exact\`).
   2. Sign what it asks for and send the same request again with \`PAYMENT-SIGNATURE\`.${signs ? ` ${signs}` : ''}
   3. The answer carries the files and \`PAYMENT-RESPONSE\` (the transaction). If reading the chain fails, nothing is charged.
@@ -238,7 +244,7 @@ People use the web UI at ${base}/ui/ instead: it does everything in their browse
 ${coins.map((c) => `
 ### Paying in ${c.asset} (${c.name})
 
-POST ${base}/eigenbeleg also takes ${c.price}${c.perOrder ? '' : ` to ${c.payTo}`}: the 402's accepts list it with scheme \`onchain\`, network ${c.network}, the amount in the smallest unit. A block takes its time, so this purchase has two steps; tell the person the documents come ${c.wait} after the payment.
+POST ${base}/eigenbeleg also takes ${perDoc(c)}${c.perOrder ? '' : ` to ${c.payTo}`}: the 402's accepts list it with scheme \`onchain\`, network ${c.network}, the amount in the smallest unit. A block takes its time, so this purchase has two steps; tell the person the documents come ${c.wait} after the payment.
   1. Sign a plain transaction that pays at least the amount to that address, with final sequence numbers. Do not broadcast it.
   2. Send the same request with \`PAYMENT-SIGNATURE\`: base64 JSON { "x402Version": 2, "accepted": <that entry of accepts, unchanged>, "payload": { "transaction": "<hex>" } }. This server ties the transaction to the request and broadcasts it. A transaction the network already knows is refused, because anybody could have copied it.
   3. The answer is 202 with the txid, an explorer link, the confirmations so far and \`Retry-After\`. Repeat the same request (the same header, or payload { "txid": "…" }) until it is 200 with the files and \`PAYMENT-RESPONSE\`; the documents are built after ${c.confirmations} confirmation(s).

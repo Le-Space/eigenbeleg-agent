@@ -201,11 +201,17 @@ test('the page shows the published prices and pays on mainnet only', async () =>
 	assert.equal(eurGuide('$0.005', 'en'), 'about €0.005');
 	assert.equal(usdc('$0.005', 'de'), '0,005 USDC');
 	assert.equal(usdc('$0.005', 'en'), '0.005 USDC');
-	assert.ok(TEXTS.de.subscriptionNote.includes(usdc(timesMonths(priceFor('near:mainnet')), 'de')));
-	assert.ok(TEXTS.en.prompt.includes(usdc(priceFor('near:mainnet'), 'en')));
+	// The Kontoauszug has its own price; the subscription's year names each document's.
+	assert.equal(TEXTS.de.payNearStatement, `${usdc(priceFor('near:mainnet', 'kontoauszug'), 'de')} (${eurGuide(priceFor('near:mainnet', 'kontoauszug'), 'de')})`);
+	assert.equal(TEXTS.en.payEthStatement, `${usdc(priceFor('eip155:1', 'kontoauszug'), 'en')} (${eurGuide(priceFor('eip155:1', 'kontoauszug'), 'en')})`);
+	for (const d of /** @type {const} */ (['eigenbelege', 'kontoauszug', 'beide'])) assert.ok(TEXTS.de.subscriptionNote.includes(usdc(timesMonths(priceFor('near:mainnet', d)), 'de')), d);
+	assert.ok(TEXTS.de.payNote.includes(usdc(priceFor('near:mainnet', 'beide'), 'de')));
+	// The example asks for both documents, so its ceiling is their sum.
+	assert.ok(TEXTS.en.prompt.includes(`Pay at most ${usdc(priceFor('near:mainnet', 'beide'), 'en')}.`));
 	// DOI on Doichain is a way to pay too, at its published price.
 	assert.equal(TEXTS.de.payDoiPrice, `${String(coinPriceFor('doichain')).replace('.', ',')} DOI`);
 	assert.equal(TEXTS.en.payDoiPrice, `${coinPriceFor('doichain')} DOI`);
+	assert.equal(TEXTS.de.payDoiStatement, `${coinPriceFor('doichain', 'kontoauszug')} DOI`);
 	for (const lang of /** @type {const} */ (['de', 'en'])) assert.match(TEXTS[lang].agentsText, /DOI auf Doichain|DOI on Doichain/, lang);
 	// index.html's German text (what shows before the script runs) is the same as TEXTS.de.
 	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
@@ -399,7 +405,11 @@ test('the test phase: the band says it, the form asks for it before creating, th
 	assert.match(html, /<h3>9a\. Kostenlose Seite und Vorschau \(Pilotbetrieb\)<\/h3>/);
 	assert.match(html, /<h3>9a\. Free page and preview \(pilot\)<\/h3>/);
 	assert.match(html, /für sie gilt nur Ziffer 9a\./);
-	assert.equal((html.match(/<p>Stand: 23\. November 2026<\/p>/g) ?? []).length, 2, 'the terms and the privacy policy, in force');
+	// The terms (prices per document since 24 Nov 2026) and the privacy policy, in force.
+	assert.equal((html.match(/<p>Stand: 24\. November 2026<\/p>/g) ?? []).length, 1, 'the terms, in force');
+	assert.equal((html.match(/<p>Stand: 23\. November 2026<\/p>/g) ?? []).length, 1, 'the privacy policy, in force');
+	assert.match(html, /Der Preis richtet sich nach der angefragten Dokumentart: Eigenbelege, Kontoauszug oder beide; beide zusammen kosten die Summe der beiden Preise\./);
+	assert.match(html, /The price depends on the kind of document asked for: the self-issued receipts, the account statement, or both; both together cost the sum of the two prices\./);
 	assert.doesNotMatch(html, /noch nicht freigegeben|not yet approved/);
 });
 

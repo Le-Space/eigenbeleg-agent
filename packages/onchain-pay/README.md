@@ -1,6 +1,6 @@
 # @eigenbeleg/onchain-pay
 
-A plain payment on a Bitcoin-like chain, through an ElectrumX server: for paying the Eigenbeleg API in DOI ([#61](https://github.com/Le-Space/eigenbeleg-agent/issues/61)), and by the same code in Bitcoin ([#62](https://github.com/Le-Space/eigenbeleg-agent/issues/62)). The network is a parameter (`DOICHAIN`, `BITCOIN` in `networks.js`): address prefixes, the fee floor, the payment URI's scheme, the explorer, and for Doichain the block that tells the valid chain from the old one.
+A plain payment on a Bitcoin-like chain, through an ElectrumX server: for paying the Eigenbeleg API in DOI ([#61](https://github.com/Le-Space/eigenbeleg-agent/issues/61); switched off until further notice, [docs/doi-payments.md](../../docs/doi-payments.md)), and by the same code in Bitcoin ([#62](https://github.com/Le-Space/eigenbeleg-agent/issues/62)). The network is a parameter (`DOICHAIN`, `BITCOIN` in `networks.js`): address prefixes, the fee floor, the payment URI's scheme, the explorer, and for Doichain the block that tells the valid chain from the old one.
 
 | Function | What it does |
 | --- | --- |

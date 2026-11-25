@@ -292,13 +292,22 @@ test('GET /ui/ serves the built PWA with the build\'s CSP; no UI, no route', asy
 	const { tmpdir } = await import('node:os');
 	const dir = await mkdtemp(`${tmpdir()}/eb-web-`);
 	await mkdir(`${dir}/assets`);
-	await writeFile(`${dir}/index.html`, '<script type="module" src="./assets/app.js"></script>');
+	await writeFile(`${dir}/index.html`, '<script type="module" src="./assets/app.js"></script><tr data-pay-doi hidden><td>Doichain</td></tr>');
 	await writeFile(`${dir}/assets/app.js`, 'export {};');
 	await writeFile(`${dir}/sw.js`, '// sw');
 	await writeFile(`${dir}/csp.txt`, "default-src 'self'; connect-src 'self' https://api.nearblocks.io\n");
 	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, log: () => {}, web: dir }));
 	try {
 		const a = await globalThis.fetch(base + '/ui/');
+		// Paying in DOI is switched off by default: its parts of the page stay hidden …
+		assert.match(await a.clone().text(), /<tr data-pay-doi hidden>/);
+		// … and show only where this instance offers DOI (PAY_DOI=on).
+		const doi = await serve(createApp({ paywall: { middleware: null, info: { mode: 'x402', accepts: [], coins: [{ asset: 'DOI', name: 'Doichain', price: '0.25 DOI', servers: [] }] } }, deps, log: () => {}, web: dir }));
+		try {
+			assert.match(await (await globalThis.fetch(doi.base + '/ui/')).text(), /<tr data-pay-doi><td>Doichain/);
+		} finally {
+			doi.close();
+		}
 		assert.equal(a.status, 200);
 		assert.equal(a.headers.get('content-security-policy'), "default-src 'self'; connect-src 'self' https://api.nearblocks.io; frame-ancestors 'none'");
 		assert.equal(a.headers.get('referrer-policy'), 'no-referrer');

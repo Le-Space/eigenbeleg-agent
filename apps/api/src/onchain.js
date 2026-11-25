@@ -32,7 +32,7 @@
 // body; and of an order its address, that hash and when it was given out. No body, no name, no address of the customer.
 
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { PaymentError, UNREACHABLE, broadcast, checkPayment, explorerTx, fromUnits, inspectPayment, isAddress, paymentUri, receiveAddresses, scriptOf, scripthashOf, toUnits, withServer } from '@eigenbeleg/onchain-pay';
@@ -220,8 +220,10 @@ export const bodyHash = (body) => createHash('sha256').update(canonical(body)).d
  * @param {<T>(fn: (server: import('@eigenbeleg/onchain-pay').ElectrumServer) => Promise<T>) => Promise<T>} [o.open] runs fn with a server (a test's fake)
  * @param {() => Date} [o.now]
  * @param {number} [o.limit] judged payments per minute per IP; default 30
+ * @param {boolean} [o.redeemOnly] the payment is switched off: offered nowhere, no new order, no new
+ *   transaction; only a payment already seen here (or one to an order given out before) is still redeemed
  */
-export function createOnchain({ network, payTo, xpub, orders = memoryOrders(), gap = GAP, price, confirmations = 1, store, servers, open, now = () => new Date(), limit = 30 }) {
+export function createOnchain({ network, payTo, xpub, orders = memoryOrders(), gap = GAP, price, confirmations = 1, store, servers, open, now = () => new Date(), limit = 30, redeemOnly = false }) {
 	const sym = network.symbol;
 	if (Boolean(payTo) === Boolean(xpub)) throw new Error(`name either ${sym}_PAY_TO (one address) or ${sym}_XPUB (an address per order)`);
 	/** @type {((index: number) => string) | null} */
@@ -371,7 +373,8 @@ export function createOnchain({ network, payTo, xpub, orders = memoryOrders(), g
 	const offered = async (context) => {
 		const body = context?.adapter?.getBody?.();
 		const wants = String(context?.adapter?.getHeader?.(ORDER_HEADER.toLowerCase()) ?? '').toLowerCase() === network.id;
-		return wants ? openOrder(body) : orderOf(body);
+		// Switched off, no address is given out any more; an order of before is still found.
+		return wants && !redeemOnly ? openOrder(body) : orderOf(body);
 	};
 
 	/** The offer in a route's accepts; with an extended public key, address and details per request. */
@@ -516,7 +519,8 @@ export function createOnchain({ network, payTo, xpub, orders = memoryOrders(), g
 		// The header the x402 middleware will read, under the name it reads it by.
 		const name = req.get('payment-signature') ? 'payment-signature' : 'x-payment';
 		const header = req.get(name);
-		if (!header) return next();
+		const wantsOrder = req.get(ORDER_HEADER) !== undefined;
+		if (!header) return redeemOnly && wantsOrder ? notOffered(res, network) : next();
 		/** @type {any} */
 		let payment;
 		try {
@@ -531,9 +535,12 @@ export function createOnchain({ network, payTo, xpub, orders = memoryOrders(), g
 			res.status(429).json({ error: 'too many payment attempts; try again in a minute' });
 			return;
 		}
+		const given = payment.payload && typeof payment.payload === 'object' ? payment.payload : {};
+		// Switched off: only what was paid before is redeemed; nothing new is sent to the network.
+		if (redeemOnly && !(await redeemable(given, req.body))) return notOffered(res, network);
 		let judged;
 		try {
-			judged = await judge(payment.payload && typeof payment.payload === 'object' ? payment.payload : {}, req.body);
+			judged = await judge(given, req.body);
 		} catch (e) {
 			if (e instanceof PaymentError && UNREACHABLE.includes(e.code)) {
 				// Nothing is lost: a payment already seen stays tied to this request.
@@ -559,10 +566,37 @@ export function createOnchain({ network, payTo, xpub, orders = memoryOrders(), g
 			});
 			return;
 		}
+		if (redeemOnly && judged.verdict !== 'ok') {
+			// No 402: that would offer the payment again.
+			res.status(409).json({ error: `onchain_${judged.verdict}: ${/** @type {Record<string, string>} */ (REASONS)[judged.verdict] ?? 'refused'}`, note: SWITCHED_OFF });
+			return;
+		}
 		payment.payload = { txid: judged.txid, request: judged.request, verdict: judged.verdict, stamp };
 		req.headers[name] = Buffer.from(JSON.stringify(payment)).toString('base64');
+		// The paywall lets it through to the one middleware that still knows the scheme (paywall.js).
+		if (redeemOnly) res.locals.onchainRedeem = true;
 		next();
 	};
+
+	/**
+	 * Paid before the payment was switched off: a transaction this server has seen, or a request
+	 * with an order of its own that is paid or still open. Asks the network nothing.
+	 * @param {Record<string, unknown>} given @param {unknown} body
+	 */
+	async function redeemable(given, body) {
+		let txid = typeof given.txid === 'string' && TXID.test(given.txid) ? given.txid : '';
+		if (!txid && typeof given.transaction === 'string') {
+			try {
+				txid = inspectPayment(network, given.transaction).txid;
+			} catch {
+				return false;
+			}
+		}
+		if (txid && (await store.get(txid))) return true;
+		// An order paid within its time is found at its address later too; no address is given out again now.
+		const order = await orderOf(body);
+		return Boolean(order && (order.txid || (now().getTime() - Date.parse(order.at)) / 1000 <= ORDER_SECONDS + REDEEM_SECONDS));
+	}
 
 	/** What the x402 resource server needs of a scheme: the price as it stands in the route. */
 	const serverScheme = {
@@ -632,4 +666,75 @@ export function createOnchain({ network, payTo, xpub, orders = memoryOrders(), g
 			servers: (servers?.length ? servers : network.electrum).map((u) => new URL(u).host)
 		}
 	};
+}
+
+/** What a request hears where a payment in a chain's own coin is not offered. */
+export const SWITCHED_OFF = 'Payments in DOI are switched off until further notice. Pay in USDC: send the request without X-Eigenbeleg-Order and PAYMENT-SIGNATURE, and the 402 names the ways this instance takes (also in /llms.txt).';
+
+/**
+ * 410: this instance does not take the coin (any more, or not yet).
+ * @param {import('express').Response} res
+ * @param {{ caip2: string }} [network]
+ */
+export function notOffered(res, network) {
+	res.status(410).json({ error: 'not offered: payments in DOI are switched off until further notice', ...(network ? { network: network.caip2 } : {}), note: SWITCHED_OFF });
+}
+
+/**
+ * In front of the paywall where no coin is offered at all: an order (X-Eigenbeleg-Order) or a
+ * payment in the `onchain` scheme gets a clear 410 instead of a 402 that does not know it.
+ * @type {import('express').RequestHandler}
+ */
+export const coinsOff = (req, res, next) => {
+	if (req.get('X-Eigenbeleg-Order') !== undefined) return notOffered(res);
+	const header = req.get('payment-signature') ?? req.get('x-payment');
+	if (header) {
+		try {
+			const p = JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
+			if ((p?.accepted?.scheme ?? p?.scheme) === SCHEME) return notOffered(res);
+		} catch {
+			// not ours to judge
+		}
+	}
+	next();
+};
+
+/**
+ * What is still to be redeemed in PAYMENTS_DIR once the payment is switched off: payments seen
+ * within REDEEM_SECONDS (they are redeemable, and deliverable again, that long) and orders given
+ * out that are still open. Reads the files only; asks no network.
+ *
+ * @param {{ dir: string, now?: Date }} o
+ * @returns {Promise<{ payments: number, unredeemed: number, orders: number, until: string | null }>}
+ */
+export async function pendingPayments({ dir, now = new Date() }) {
+	let names = [];
+	try {
+		names = await readdir(dir);
+	} catch (e) {
+		if (/** @type {any} */ (e)?.code === 'ENOENT') return { payments: 0, unredeemed: 0, orders: 0, until: null };
+		throw e;
+	}
+	const t = now.getTime();
+	let payments = 0;
+	let unredeemed = 0;
+	let last = 0;
+	for (const n of names) {
+		const m = /^([0-9a-f]{64})\.json$/.exec(n);
+		if (!m) continue;
+		try {
+			const r = JSON.parse(await readFile(join(dir, n), 'utf8'));
+			const seen = Date.parse(r.seenAt);
+			if (!(t - seen <= REDEEM_SECONDS * 1000)) continue;
+			payments += 1;
+			if (!r.spentAt) unredeemed += 1;
+			last = Math.max(last, seen + REDEEM_SECONDS * 1000);
+		} catch {
+			// not a payment record
+		}
+	}
+	const book = await createOrderStore({ dir }).load();
+	const open = book.orders.filter((o) => !o.txid && !o.used && t - Date.parse(o.at) <= (ORDER_SECONDS + REDEEM_SECONDS) * 1000);
+	for (const o of open) last = Math.max(last, Date.parse(o.at) + ORDER_SECONDS * 1000 + REDEEM_SECONDS * 1000);
+	return { payments, unredeemed, orders: open.length, until: last ? new Date(last).toISOString() : null };
 }

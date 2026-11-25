@@ -35,7 +35,7 @@ eigenbeleg.example.com {
 
 ## Storage
 
-The API keeps nothing beyond the request, except what it was asked to keep: a subscription's details (encrypted), a preview's logo for 24 hours (encrypted), and of a payment in DOI its txid, amount, time and a hash of the request (`PAYMENTS_DIR`). It reads its fonts and colour profile from the image, and the relayer's key file if one is mounted. The only in-memory state is short-lived: the live check of a building block (10 min), the x402 duplicate-settlement guard (until a payment's block window has passed), and the day's EUR rates during one request.
+The API keeps nothing beyond the request, except what it was asked to keep: a subscription's details (encrypted), a preview's logo for 24 hours (encrypted), and of a payment in DOI made before they were switched off its txid, amount, time and a hash of the request (`PAYMENTS_DIR`). It reads its fonts and colour profile from the image, and the relayer's key file if one is mounted. The only in-memory state is short-lived: the live check of a building block (10 min), the x402 duplicate-settlement guard (until a payment's block window has passed), and the day's EUR rates during one request.
 
 ## Environment
 
@@ -66,9 +66,7 @@ The API keeps nothing beyond the request, except what it was asked to keep: a su
 | `PING_FACILITATOR_URL`, `PING_AMOUNT_OUT` | PingPay facilitator, destination amount in USDC base units (≥ 200000) | no |
 | `NEARBLOCKS_API_KEY` | optional, for NearBlocks' higher rate limits | **yes** |
 | `ALCHEMY_KEY` | optional: with it the API also serves Ethereum and Base (ETH, USDC, ALEPH and the gas) through Alchemy; without it, it does not offer them. The key goes to Alchemy only, never into an answer, a document or a log. The web UI never gets this key: there, people enter their own | **yes** |
-| `DOI_XPUB` | optional: the extended public key (xpub… or zpub…, BIP84) of the account that receives payments in DOI; with it a request can ask for an address of its own (`X-Eigenbeleg-Order: doichain`), so a wallet pays from a QR code. Who knows it sees every payment of the account: it is in no answer or log | **yes** |
-| `DOI_PAY_TO` | optional, instead of `DOI_XPUB`: one Doichain address (dc1…) for every payment, signed transactions through this server only. Both empty: DOI is not offered | no |
-| `DOI_CONFIRMATIONS`, `DOI_ELECTRUM`, `PAYMENTS_DIR` | confirmations before the documents (default 1; a production build refuses 0), an ElectrumX server other than the public ones, where the payment records are kept (txid, amount, time, a hash of the request) | no |
+| `PAY_DOI` | off (unset, the default): payments in DOI are switched off until further notice; [doi-payments.md](doi-payments.md) has the switch and its settings | no |
 | `SOURCE_URL` | where users of this instance get its source (AGPL-3.0-or-later section 13); your fork if you changed it | no |
 | `PUBLIC_URL` | this instance's public origin, e.g. `https://eigenbeleg.le-space.de`, for the share cards (Open Graph, X) on `/ui/`; unset: taken from the request's Host and `X-Forwarded-Proto` | no |
 | `TRUST_PROXY` | behind a proxy: whose `X-Forwarded-*` to trust (Express syntax, e.g. `uniquelocal`), so the x402 resource URL is https | no |
@@ -104,7 +102,7 @@ The API calls these hosts (HTTPS only):
 | `filfox.info` | Filecoin history and balance (`@le-space/chains/filecoin`) |
 | `api.goldsky.com`, `filecoin.blockscout.com` | Filecoin Pay: settlements and balance from the makers' index, what was paid in and taken out from the contract's events (`@le-space/chains/filecoin-pay`) |
 | `api2.aleph.im` | Aleph Cloud credit history and balance (`@le-space/chains/aleph`) |
-| the ElectrumX servers at `*.doi.works` (or `DOI_ELECTRUM`) | Doichain history and balance (`@le-space/chains/doichain`); for a payment in DOI also checking and broadcasting it |
+| the ElectrumX servers at `*.doi.works` (or `DOI_ELECTRUM`) | Doichain history and balance (`@le-space/chains/doichain`) |
 | `mempool.space` | Bitcoin history and balance, the Esplora API (`@le-space/chains/bitcoin-address`) |
 | `data-api.ecb.europa.eu` | EUR per USD, for Aleph credits; the euro in the document's currency when it is not EUR (`currency`) |
 | `www.cbr.ru` | only for documents in RUB: the Bank of Russia's official EUR/RUB rate of the day |

@@ -1,8 +1,8 @@
 ---
 name: eigenbeleg-api
-description: Buys Eigenbelege (self-issued German proofs of payment, never invoices) and Kontoauszüge for a person's own blockchain addresses from the Eigenbeleg API at eigenbeleg.le-space.de, paying per request with x402 (USDC on NEAR, or DOI on Doichain; USDC on Base and Ethereum where offered). Use when someone asks for Eigenbelege, Belege, a Kontoauszug or Verbrauchsauszug, receipts for network fees, storage deposits or transfers on NEAR, Akash, Filecoin, Doichain, Bitcoin, Filecoin Pay or Aleph Cloud, or for documents their German bookkeeping needs for crypto payments.
+description: Buys Eigenbelege (self-issued German proofs of payment, never invoices) and Kontoauszüge for a person's own blockchain addresses from the Eigenbeleg API at eigenbeleg.le-space.de, paying per request with x402 (USDC on NEAR; on Base and Ethereum where offered). Use when someone asks for Eigenbelege, Belege, a Kontoauszug or Verbrauchsauszug, receipts for network fees, storage deposits or transfers on NEAR, Akash, Filecoin, Doichain, Bitcoin, Filecoin Pay or Aleph Cloud, or for documents their German bookkeeping needs for crypto payments.
 license: CC-BY-4.0 (this text); the scripts of the repository are AGPL-3.0-or-later
-compatibility: Needs network access to eigenbeleg.le-space.de and, to pay, an x402 client with a USDC wallet (NEAR; Base or Ethereum where offered), or a DOI key or a Doichain wallet that scans a QR code. The free preview needs no wallet.
+compatibility: Needs network access to eigenbeleg.le-space.de and, to pay, an x402 client with a USDC wallet (NEAR; Base or Ethereum where offered). The free preview needs no wallet.
 metadata:
   author: Le Space UG
   version: "0.4"
@@ -23,7 +23,7 @@ The API makes these documents from public chain data and the EUR rate of each
 payment's day (CoinGecko, else Kraken; the ECB's reference rates for another
 currency), as PDF/A-2b and CSV. It keeps nothing of a single request beyond the
 answer, except: a logo sent with the free preview for 24 hours, a subscription's
-details until its end, and what a payment in DOI needs (see `GET /`).
+details until its end (see `GET /`).
 
 ## When to use this skill, and when not
 
@@ -58,7 +58,7 @@ details until its end, and what a payment in DOI needs (see `GET /`).
 1. **Read the current terms first:** `GET https://eigenbeleg.le-space.de/llms.txt`.
    It names the chains the running instance serves, the payment networks and the
    price per request, and whether mailing the files is offered. Payment is in real
-   USDC or DOI on mainnet networks; take the networks and prices from that file, not from here.
+   USDC on mainnet networks; take the networks and prices from that file, not from here.
    The price depends on `document`: the Eigenbelege cost less than the Kontoauszug, and
    `beide` costs the sum of the two. Buy only the document the person needs.
 2. **Build the request body** (below). `GET https://eigenbeleg.le-space.de/blocks`
@@ -89,34 +89,6 @@ details until its end, and what a payment in DOI needs (see `GET /`).
    hash, to eigenbeleg@le-space.de. Never present the documents as checked. The
    answer's `notice` field (or the `X-Eigenbeleg-Notice` header) says the same.
 
-**If the 402 also lists an offer with scheme `onchain`** (DOI on Doichain; only
-where the instance offers it, see `payment.coins` in `GET /`), the person can pay
-in that coin instead. It is final only after a block, so tell them up front that
-the documents come about ten minutes after the payment:
-
-1. Sign a plain transaction that pays at least the offer's `amount` (smallest
-   unit) to its `payTo`, with final sequence numbers. Do not broadcast it.
-2. Send the same request with `PAYMENT-SIGNATURE`: base64 JSON
-   `{ "x402Version": 2, "accepted": <the offer, unchanged>, "payload": { "transaction": "<hex>" } }`.
-   The API ties the transaction to this request and broadcasts it.
-3. The answer is `202` with the txid, an explorer link, the confirmations and
-   `Retry-After`. Repeat the same request (payload `{ "txid": "…" }` is enough)
-   at that pace until it is `200` with the files.
-
-The payment belongs to that one request, unchanged, and stays redeemable for it
-for seven days, also after a `502`. Keep the body and the txid until the files
-are there.
-
-**From a wallet instead** (the person scans a QR code with DoiWallet; only where
-`payment.coins[].perOrder` is true): send the request with the header
-`X-Eigenbeleg-Order: doichain`. The offer in that 402 then has a `payTo` that is
-this request's alone, the payment URI in `extra.uri` (show it as a QR code; in
-DoiWallet it is scanned from the send screen) and `extra.payBefore`. After the
-person paid, send the same request, with that header, with `PAYMENT-SIGNATURE`
-and payload `{}`, using that offer unchanged as `accepted`, until it is `200`;
-the payment is found at the address. Without that header a payment a wallet
-sends by itself is not taken.
-
 If reading the chain fails, the API answers `502` and nothing is charged. A `402`
 after you paid means the payment was not accepted; do not pay again blindly, read
 the body.
@@ -129,10 +101,7 @@ the body.
   budget, and keeps a receipt: `npm run agent -- --help` in a checkout of
   https://github.com/Le-Space/eigenbeleg-agent (settings from `.env`:
   `API_URL`, `AGENT_ACCOUNT_ID` and `AGENT_SECRET_KEY` or `AGENT_EVM_KEY`,
-  `AGENT_BUDGET`). In DOI: `--pay doi` (the agent's DOI key, from `AGENT_DOI_KEY`,
-  `AGENT_DOI_KEY_FILE` or `AGENT_DOI_KEYCHAIN`, budget `AGENT_BUDGET_DOI`) or
-  `--pay qr` (a person pays from a wallet); it waits for the block and can be
-  continued with `--resume <txid>`.
+  `AGENT_BUDGET`).
 
 ## Choices to settle with the person
 

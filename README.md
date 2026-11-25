@@ -41,8 +41,8 @@ npm run local -- --chain near --network mainnet --address own-account.near --mon
 | | |
 | --- | --- |
 | **Chains read** | NEAR, Akash, Filecoin, Filecoin Pay, Aleph Cloud credits, Doichain, Bitcoin; Ethereum and Base with an Alchemy key ([building blocks](docs/building-blocks.md)) |
-| **Paying the API** | x402: USDC on NEAR (gasless for the payer), DOI on Doichain, and USDC on Base and Ethereum where the instance offers them ([docs/x402.md](docs/x402.md)) |
-| **Prices** | by the document asked for: the Eigenbelege 0.005 USDC per request on NEAR (and Base), 0.10 USDC on Ethereum, 0.25 DOI on Doichain; the Kontoauszug 0.10 USDC, 1.00 USDC on Ethereum, 5 DOI; both (`beide`) the sum. A year's subscription is 12 × that, in USDC (a Kontoauszug, the default: 1.20 USDC, on Ethereum 12.00 USDC) ([`packages/pipeline/src/prices.js`](packages/pipeline/src/prices.js)) |
+| **Paying the API** | x402: USDC on NEAR (gasless for the payer), and on Base and Ethereum where the instance offers them ([docs/x402.md](docs/x402.md)) |
+| **Prices** | by the document asked for: the Eigenbelege 0.005 USDC per request on NEAR (and Base), 0.10 USDC on Ethereum; the Kontoauszug 0.10 USDC, 1.00 USDC on Ethereum; both (`beide`) the sum. A year's subscription is 12 × that, in USDC (a Kontoauszug, the default: 1.20 USDC, on Ethereum 12.00 USDC) ([`packages/pipeline/src/prices.js`](packages/pipeline/src/prices.js)) |
 
 It consists of open **building blocks** (AGPL-3.0-or-later: chain readers, a neutral booking format, EUR day rates, the documents), an **HTTP API** that sells them per request, and a minimal **agent** that takes a job, checks the building block is current, pays the API within its budget, checks the result and keeps a receipt of what it bought. For a chain it cannot serve, it drafts the missing building block as a pull request with tests instead of buying anything.
 
@@ -52,7 +52,7 @@ It consists of open **building blocks** (AGPL-3.0-or-later: chain readers, a neu
 - [docs/web-ui.md](docs/web-ui.md): the web UI, how to use it and how it is built.
 - [docs/local-run.md](docs/local-run.md): the local run in the terminal, with its options.
 - [docs/api.md](docs/api.md): the hosted API, every route, the request body, mail and the subscription.
-- [docs/x402.md](docs/x402.md): paying with x402 on NEAR, Base and Ethereum, DOI on Doichain, PingPay; your own API on NEAR testnet.
+- [docs/x402.md](docs/x402.md): paying with x402 on NEAR, Base and Ethereum, PingPay; your own API on NEAR testnet.
 - [docs/delegate-actions.md](docs/delegate-actions.md): the NEP-366 delegate action, who delegates what to whom.
 - [docs/agent.md](docs/agent.md): the agent, the skills for Claude Code and other agents, the NEAR AI Agent Market, the offline demo.
 - [docs/components.md](docs/components.md): what runs where, and what it talks to.

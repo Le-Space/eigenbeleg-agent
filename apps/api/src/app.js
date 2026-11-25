@@ -192,7 +192,7 @@ export function createApp({
 		});
 	});
 	const hasUi = Boolean(web && existsSync(`${web}/index.html`));
-	if (hasUi) mountUi(app, /** @type {string} */ (web), publicUrl);
+	if (hasUi) mountUi(app, /** @type {string} */ (web), publicUrl, { doi: coins.some((c) => c.asset === 'DOI') });
 	// For tools and agents that read a description instead of prose (describe.js).
 	app.get('/openapi.json', (req, res) => {
 		res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -606,16 +606,22 @@ export const WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url)
  * The share-card meta tags need absolute URLs: __PUBLIC_URL__ becomes `publicUrl`,
  * or else the request's origin, taken only if the Host is a plain host name.
  *
+ * What the page says of paying in DOI ([data-pay-doi], hidden in the build) shows only where this
+ * instance offers it (PAY_DOI=on): a static host without the API shows none of it.
+ *
  * @param {import('express').Express} app
  * @param {string} dir
  * @param {string} [publicUrl]
+ * @param {{ doi?: boolean }} [o]
  */
-function mountUi(app, dir, publicUrl) {
+function mountUi(app, dir, publicUrl, { doi = false } = {}) {
 	const html = readFileSync(`${dir}/index.html`, 'utf8');
 	// Each language under its own address, for search engines and shared links (apps/web/seo.js):
 	// ?lang=en is the English markup, ?lang=de the German one with its own canonical.
 	const variant = (/** @type {string} */ l) => (existsSync(`${dir}/index.${l}.html`) ? readFileSync(`${dir}/index.${l}.html`, 'utf8') : html);
-	const pages = /** @type {Record<string, string>} */ ({ de: variant('de'), en: variant('en') });
+	const shown = (/** @type {string} */ h) => (doi ? h.replaceAll(' data-pay-doi hidden', ' data-pay-doi') : h);
+	const pages = /** @type {Record<string, string>} */ ({ de: shown(variant('de')), en: shown(variant('en')) });
+	const page = shown(html);
 	const csp = existsSync(`${dir}/csp.txt`) ? readFileSync(`${dir}/csp.txt`, 'utf8').trim() : "default-src 'self'";
 	app.get('/ui', (_req, res) => res.redirect(301, '/ui/'));
 	app.get('/ui/', (req, res) => {
@@ -624,7 +630,7 @@ function mountUi(app, dir, publicUrl) {
 		res.setHeader('Cache-Control', 'no-cache');
 		const lang = req.query.lang === 'en' || req.query.lang === 'de' ? req.query.lang : null;
 		res.setHeader('Content-Language', lang ?? 'de');
-		res.type('html').send((lang ? pages[lang] : html).replaceAll('__PUBLIC_URL__', origin(req, publicUrl)));
+		res.type('html').send((lang ? pages[lang] : page).replaceAll('__PUBLIC_URL__', origin(req, publicUrl)));
 	});
 	// For crawlers: what may be read, and the page's addresses. Cancel links of subscriptions stay out.
 	app.get('/robots.txt', (req, res) => {

@@ -36,7 +36,7 @@ async function setup() {
 		payTo: 'wolkenfabrik.testnet',
 		relayerId: 'relayer.testnet',
 		relayerKey: KeyPair.fromRandom('ed25519').toString(),
-		onchain: { network: chain.network, xpub: ZPUB, orders: memoryOrders(), price: '2.5', store: memoryPaymentStore(), open }
+		onchain: { offered: true, network: chain.network, xpub: ZPUB, orders: memoryOrders(), price: '2.5', store: memoryPaymentStore(), open }
 	});
 	const server = createApp({ paywall, deps: { fetch: recordedNear(raw), rates: fixedRates({ NEAR: '2' }), probeDay: '2026-11-01', now: () => new Date('2026-11-06T10:00:00Z') }, log: () => {}, web: null }).listen(0, '127.0.0.1');
 	await new Promise((r) => server.once('listening', r));

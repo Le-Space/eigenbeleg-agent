@@ -16,7 +16,7 @@ import { DOICHAIN, PaymentError, addressOfKey, broadcast, buildPayment, receiveA
 import { fakeChain, fakeKey } from '@eigenbeleg/onchain-pay/testing';
 
 import { createApp } from '../src/app.js';
-import { ORDER_SECONDS, REDEEM_SECONDS, SCHEME, createOnchain, createOrderStore, createPaymentStore, memoryOrders, memoryPaymentStore, requestHash } from '../src/onchain.js';
+import { ORDER_SECONDS, REDEEM_SECONDS, SCHEME, SWITCHED_OFF, createOnchain, pendingPayments, createOrderStore, createPaymentStore, memoryOrders, memoryPaymentStore, requestHash } from '../src/onchain.js';
 import { createPaywall } from '../src/paywall.js';
 import { checkOnchain } from '../src/release.js';
 import { recordedNear } from '../../agent/src/recorded.js';
@@ -50,29 +50,36 @@ async function setup({ deps = reads, xpub, gap, price = '2.5' } = {}) {
 	const store = memoryPaymentStore();
 	const clock = { now: new Date('2026-11-06T10:00:00Z') };
 	/** The chain the server asks; a test can swap it, or make it unreachable. */
-	const net = { chain, down: false };
-	const paywall = await createPaywall({
-		mode: 'x402',
-		networks: ['near:testnet'],
-		allowTestnet: true,
-		payTo: 'wolkenfabrik.testnet',
-		relayerId: 'relayer.testnet',
-		relayerKey: KeyPair.fromRandom('ed25519').toString(),
-		onchain: {
-			network: chain.network,
-			...(xpub ? { xpub, orders: memoryOrders(), gap } : { payTo }),
-			...(price === null ? {} : { price }),
-			store,
-			now: () => clock.now,
-			open: async (fn) => {
-				if (net.down) throw new PaymentError('no ElectrumX server answers', 'PAYMENT_SERVER');
-				return fn(/** @type {any} */ (net.chain.server));
+	const net = { chain, down: false, asked: 0 };
+	const orders = memoryOrders();
+	/** An API on this chain, store and clock; `offered` false: the payment switched off (PAY_DOI unset). */
+	const start = async (/** @type {boolean} */ offered) => {
+		const paywall = await createPaywall({
+			mode: 'x402',
+			networks: ['near:testnet'],
+			allowTestnet: true,
+			payTo: 'wolkenfabrik.testnet',
+			relayerId: 'relayer.testnet',
+			relayerKey: KeyPair.fromRandom('ed25519').toString(),
+			onchain: {
+				offered,
+				network: chain.network,
+				...(xpub ? { xpub, orders, gap } : { payTo }),
+				...(price === null ? {} : { price }),
+				store,
+				now: () => clock.now,
+				open: async (fn) => {
+					net.asked += 1;
+					if (net.down) throw new PaymentError('no ElectrumX server answers', 'PAYMENT_SERVER');
+					return fn(/** @type {any} */ (net.chain.server));
+				}
 			}
-		}
-	});
-	const server = createApp({ paywall, deps, log: () => {}, web: null }).listen(0, '127.0.0.1');
-	await new Promise((r) => server.once('listening', r));
-	const base = `http://127.0.0.1:${/** @type {any} */ (server.address()).port}`;
+		});
+		const server = createApp({ paywall, deps, log: () => {}, web: null }).listen(0, '127.0.0.1');
+		await new Promise((r) => server.once('listening', r));
+		return { paywall, server, base: `http://127.0.0.1:${/** @type {any} */ (server.address()).port}` };
+	};
+	const { paywall, server, base } = await start(true);
 	const post = (/** @type {unknown} */ body, /** @type {Record<string, string>} */ headers = {}) =>
 		fetch(`${base}/eigenbeleg`, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
 	const required = async (/** @type {unknown} */ body = job, /** @type {Record<string, string>} */ headers = {}) => JSON.parse(Buffer.from((await post(body, headers)).headers.get('payment-required') ?? '', 'base64').toString());
@@ -85,7 +92,7 @@ async function setup({ deps = reads, xpub, gap, price = '2.5' } = {}) {
 	const sign = (amount = PRICE) => buildPayment({ network: chain.network, server: chain.server, key: payer, to: payTo, amount });
 	/** The reason of a 402. @param {Response} r */
 	const why = (r) => JSON.parse(Buffer.from(r.headers.get('payment-required') ?? '', 'base64').toString()).error;
-	return { chain, net, payTo, addressAt, payer, store, clock, paywall, base, post, offer, offerOf, pay, sign, why, required, close: () => server.close() };
+	return { chain, net, payTo, addressAt, payer, store, orders, clock, paywall, base, post, offer, offerOf, pay, sign, why, required, start, close: () => server.close() };
 }
 
 test('the 402 offers DOI beside USDC: its own scheme, the amount in swartz, how long it takes', async () => {
@@ -315,7 +322,7 @@ test('production: only the published price, at least one block, no server on thi
 	checkOnchain({ ...ok, production: false, price: '0.1', confirmations: 0 });
 	// A production build charges the published price (0.25 DOI) and no other; without PRICE_DOI it is the price anyway.
 	const chain = fakeChain(DOICHAIN);
-	const onchain = { network: chain.network, payTo: addressOfKey(chain.network, fakeKey('shop')), price: '2.5', store: memoryPaymentStore() };
+	const onchain = { offered: true, network: chain.network, payTo: addressOfKey(chain.network, fakeKey('shop')), price: '2.5', store: memoryPaymentStore() };
 	await assert.rejects(createPaywall({ production: true, mode: 'x402', networks: ['near:mainnet'], onchain }), /the price is 2\.5 DOI, the published one 0\.25 DOI/);
 	const pw = await createPaywall({ mode: 'x402', networks: ['near:testnet'], allowTestnet: true, payTo: 'wolkenfabrik.testnet', relayerId: 'relayer.testnet', relayerKey: KeyPair.fromRandom('ed25519').toString(), onchain: { ...onchain, price: undefined } });
 	assert.equal(/** @type {any} */ (pw.info).coins[0].price, '0.25 DOI');
@@ -433,4 +440,128 @@ test('the orders on disk; one address or an extended key, never both, never a pr
 	const info = createOnchain({ ...base, xpub: ZPUB }).info;
 	assert.deepEqual([info.perOrder, info.orderHeader, info.orderHours], [true, 'X-Eigenbeleg-Order: doichain', 2]);
 	assert.ok(!JSON.stringify(info).includes(ZPUB.slice(0, 20)));
+});
+
+// ---- Switched off (PAY_DOI unset, the default): docs/doi-payments.md ----
+
+/** What would offer the payment, in a 402 or a text; the chain reader for Doichain is another matter. */
+const PAYING = /onchain|bip122:|Paying in DOI|DOI on Doichain|X-Eigenbeleg-Order|\b0\.25 DOI|\b2\.5 DOI|ElectrumX; they see the transaction/;
+
+/** @param {{ post: Function }} api @param {string} base */
+async function served(api, base) {
+	const r = await api.post(job);
+	assert.equal(r.status, 402);
+	const required = JSON.parse(Buffer.from(r.headers.get('payment-required') ?? '', 'base64').toString());
+	return [JSON.stringify(required), await (await fetch(`${base}/llms.txt`)).text(), JSON.stringify(await (await fetch(`${base}/`)).json()), JSON.stringify(await (await fetch(`${base}/openapi.json`)).json())];
+}
+
+/** @param {string} base */
+const poster = (base) => ({ post: (/** @type {unknown} */ body, /** @type {Record<string, string>} */ headers = {}) => fetch(`${base}/eigenbeleg`, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) }) });
+
+test('switched off: no DOI in the 402, /llms.txt, GET / or /openapi.json; an order or a new payment gets 410, and no ElectrumX server is asked', async () => {
+	const t = await setup();
+	const off = await t.start(false);
+	try {
+		const api = poster(off.base);
+		const texts = await served(api, off.base);
+		for (const text of texts) assert.doesNotMatch(text, PAYING);
+		assert.equal(/** @type {any} */ (off.paywall.info).coins, undefined);
+		// the same instance with it on says it everywhere (the first test), so the texts follow the switch
+		for (const text of await served(t, t.base)) assert.match(text, /DOI/);
+
+		const asked = t.net.asked;
+		const order = await api.post(job, ORDER);
+		assert.equal(order.status, 410);
+		assert.deepEqual(await order.json(), { error: 'not offered: payments in DOI are switched off until further notice', network: DOICHAIN.caip2, note: SWITCHED_OFF });
+		const tx = await t.sign();
+		const fresh = await api.post(job, t.pay({ transaction: tx.hex }));
+		assert.equal(fresh.status, 410);
+		assert.equal(t.chain.outputsOf(tx.txid).length, 0, 'never broadcast');
+		assert.equal((await api.post(job, t.pay({ txid: 'ab'.repeat(32) }))).status, 410);
+		assert.equal(t.net.asked, asked, 'no ElectrumX server asked');
+		assert.equal(await t.store.get(tx.txid), null);
+	} finally {
+		t.close();
+		off.server.close();
+	}
+});
+
+test('switched off: a payment made before is still delivered, and delivered again, for its request only', async () => {
+	const t = await setup();
+	const tx = await t.sign();
+	assert.equal((await t.post(job, t.pay({ transaction: tx.hex }))).status, 202);
+	const off = await t.start(false);
+	try {
+		const api = poster(off.base);
+		// before its block: still waiting
+		assert.equal((await api.post(job, t.pay({ txid: tx.txid }))).status, 202);
+		t.chain.mine();
+		const done = await api.post(job, t.pay({ txid: tx.txid }));
+		assert.equal(done.status, 200);
+		assert.equal(done.headers.get('content-type'), 'application/pdf');
+		assert.equal(JSON.parse(Buffer.from(done.headers.get('payment-response') ?? '', 'base64').toString()).transaction, tx.txid);
+		assert.equal((await api.post(job, t.pay({ transaction: tx.hex }))).status, 200, 'the same files again');
+		// for another request: refused with the reason, and no 402 that would offer DOI
+		const other = await api.post({ ...job, number: 'EB-2026-043' }, t.pay({ txid: tx.txid }));
+		assert.equal(other.status, 409);
+		assert.match((await other.json()).error, /^onchain_other_request: /);
+		// a USDC 402 stays without DOI
+		for (const text of await served(api, off.base)) assert.doesNotMatch(text, PAYING);
+	} finally {
+		t.close();
+		off.server.close();
+	}
+});
+
+test('switched off: an order given out before can still be paid from a wallet and redeemed; no new address is given out', async () => {
+	const t = await setup({ xpub: ZPUB });
+	const at = /** @type {(i: number) => string} */ (t.addressAt);
+	const mine = await t.offerOf(job, ORDER);
+	assert.equal(mine.payTo, at(1));
+	const off = await t.start(false);
+	try {
+		const api = poster(off.base);
+		const txid = t.chain.fund(at(1), PRICE);
+		const done = await api.post(job, { ...ORDER, ...t.pay({}, mine) });
+		assert.equal(done.status, 200);
+		assert.equal(JSON.parse(Buffer.from(done.headers.get('payment-response') ?? '', 'base64').toString()).transaction, txid);
+		// another request asks for an order: none
+		const before = (await t.orders.load()).next;
+		assert.equal((await api.post({ ...job, number: 'EB-2026-043' }, ORDER)).status, 410);
+		assert.equal((await t.orders.load()).next, before);
+	} finally {
+		t.close();
+		off.server.close();
+	}
+});
+
+test('no coin configured at all: an order or an onchain payment gets 410, not a 402 that does not know it', async () => {
+	const paywall = await createPaywall({ mode: 'x402', networks: ['near:testnet'], allowTestnet: true, payTo: 'wolkenfabrik.testnet', relayerId: 'relayer.testnet', relayerKey: KeyPair.fromRandom('ed25519').toString() });
+	const server = createApp({ paywall, deps: reads, log: () => {}, web: null }).listen(0, '127.0.0.1');
+	await new Promise((r) => server.once('listening', r));
+	const base = `http://127.0.0.1:${/** @type {any} */ (server.address()).port}`;
+	try {
+		const api = poster(base);
+		for (const text of await served(api, base)) assert.doesNotMatch(text, PAYING);
+		const r = await api.post(job, ORDER);
+		assert.equal(r.status, 410);
+		assert.equal((await r.json()).note, SWITCHED_OFF);
+		const header = Buffer.from(JSON.stringify({ x402Version: 2, accepted: { scheme: SCHEME, network: DOICHAIN.caip2 }, payload: { txid: 'ab'.repeat(32) } })).toString('base64');
+		assert.equal((await api.post(job, { 'PAYMENT-SIGNATURE': header })).status, 410);
+	} finally {
+		server.close();
+	}
+});
+
+test('what is left to redeem once switched off: payments of the last 7 days and orders that may still be paid', async () => {
+	const dir = mkdtempSync(join(tmpdir(), 'eigenbeleg-pending-'));
+	const now = new Date('2026-11-25T12:00:00Z');
+	assert.deepEqual(await pendingPayments({ dir: join(dir, 'none'), now }), { payments: 0, unredeemed: 0, orders: 0, until: null });
+	const store = createPaymentStore({ dir });
+	const rec = (/** @type {string} */ c, /** @type {string} */ seenAt, /** @type {string | null} */ spentAt) => ({ v: /** @type {1} */ (1), txid: c.repeat(64), network: 'doichain', request: 'r', amount: '1', seenAt, spentAt });
+	await store.bind(rec('a', '2026-11-24T12:00:00Z', null));
+	await store.bind(rec('b', '2026-11-23T12:00:00Z', '2026-11-23T12:20:00Z'));
+	await store.bind(rec('c', '2026-11-10T12:00:00Z', null));
+	await createOrderStore({ dir }).save({ next: 3, orders: [{ index: 1, address: 'x', request: 'h', at: '2026-11-25T11:00:00Z', txid: null }, { index: 2, address: 'y', request: 'i', at: '2026-11-01T11:00:00Z', txid: null }] });
+	assert.deepEqual(await pendingPayments({ dir, now }), { payments: 2, unredeemed: 1, orders: 1, until: '2026-12-02T13:00:00.000Z' });
 });

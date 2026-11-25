@@ -118,20 +118,49 @@ export function rememberPayer(p) {
 	}
 }
 
-/** The chain, network and addresses kept in this browser, only when the user ticks their "remember". */
+/**
+ * The chain and network last chosen, and one address list per chain and network (#115), kept in this
+ * browser only while the user ticks their "remember". Unticking forgets all of them.
+ */
 const ACCOUNTS_KEY = 'accounts';
 
-/** @typedef {{ chain: string, network: string, addresses: string }} Accounts */
+/**
+ * @typedef {{ chain: string, network: string, addresses: string }} Accounts the form's chain, network and addresses
+ * @typedef {{ chain: string, network: string, lists: Record<string, string> }} KeptAccounts
+ *   lists: the addresses per `listKey(chain, network)`
+ */
 
-/** @returns {Accounts | null} */
+/** Where a chain's and network's addresses are kept. @param {string} chain @param {string} network */
+export const listKey = (chain, network) => `${chain}/${network}`;
+
+/** @param {unknown} lists @returns {Record<string, string>} only text lists under keys that name a chain and network */
+function cleanLists(lists) {
+	/** @type {Record<string, string>} */
+	const out = {};
+	if (lists && typeof lists === 'object' && !Array.isArray(lists)) {
+		for (const [k, v] of Object.entries(lists)) if (typeof v === 'string' && v.trim() && /^[^/]+\/[^/]+$/.test(k)) out[k] = v;
+	}
+	return out;
+}
+
+/**
+ * What this browser keeps. The single list of earlier versions ({ chain, network, addresses }) comes
+ * back as the list of the chain and network it was saved with, so no one loses addresses.
+ * @returns {KeptAccounts | null}
+ */
 export function rememberedAccounts() {
 	try {
 		const a = JSON.parse(globalThis.localStorage?.getItem(ACCOUNTS_KEY) ?? 'null');
-		return a && typeof a.chain === 'string' && typeof a.network === 'string' && typeof a.addresses === 'string' ? { chain: a.chain, network: a.network, addresses: a.addresses } : null;
+		if (!a || typeof a.chain !== 'string' || typeof a.network !== 'string') return null;
+		if (typeof a.addresses === 'string') return { chain: a.chain, network: a.network, lists: cleanLists({ [listKey(a.chain, a.network)]: a.addresses }) };
+		return { chain: a.chain, network: a.network, lists: cleanLists(a.lists) };
 	} catch {
 		return null;
 	}
 }
+
+/** The addresses kept for a chain and network, '' when none. @param {KeptAccounts | null} kept @param {string} chain @param {string} network */
+export const keptAddresses = (kept, chain, network) => kept?.lists[listKey(chain, network)] ?? '';
 
 /** The person's own Alchemy key, kept in this browser only when they tick its "remember" (#25). */
 const KEY_KEY = 'alchemyKey';
@@ -182,11 +211,16 @@ export function rememberNearblocksKey(k) {
 	}
 }
 
-/** @param {Accounts | null} a null forgets them */
+/**
+ * Keeps the chosen chain and network and this chain's and network's addresses, beside the lists of the
+ * others; an empty list is not kept.
+ * @param {Accounts | null} a null forgets them all, every chain's list with them
+ */
 export function rememberAccounts(a) {
 	try {
-		if (a) globalThis.localStorage?.setItem(ACCOUNTS_KEY, JSON.stringify({ chain: a.chain, network: a.network, addresses: a.addresses }));
-		else globalThis.localStorage?.removeItem(ACCOUNTS_KEY);
+		if (!a) return globalThis.localStorage?.removeItem(ACCOUNTS_KEY);
+		const lists = { ...(rememberedAccounts()?.lists ?? {}), [listKey(a.chain, a.network)]: a.addresses.trim() };
+		globalThis.localStorage?.setItem(ACCOUNTS_KEY, JSON.stringify({ chain: a.chain, network: a.network, lists: cleanLists(lists) }));
 	} catch {
 		// private mode or blocked storage: nothing is kept
 	}

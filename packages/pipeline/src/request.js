@@ -4,7 +4,7 @@
 // and dropped; it is never logged or stored.
 
 import { monthPeriod } from '@le-space/ledger';
-import { DEFAULT_KINDS, DOCUMENT_CURRENCIES } from '@le-space/eigenbeleg/document';
+import { DOCUMENT_CURRENCIES } from '@le-space/eigenbeleg/document';
 import { IMAGE_LIMITS, ImageError, pdfImage } from '@le-space/pdf/image';
 import { BLOCKS } from './blocks.js';
 
@@ -25,11 +25,53 @@ const MAX_LOGO_TEXT = Math.ceil(IMAGE_LIMITS.bytes / 3) * 4;
 
 export class RequestError extends Error {}
 
+/**
+ * The sentence a request for Eigenbelege gets when none is needed: every kind the chain has is
+ * documented by the account statement (#116). German first, as the documents are; then English.
+ */
+export const NO_EIGENBELEG = Object.freeze({
+	de: 'Für diesen Zeitraum ist kein Eigenbeleg nötig: Gebühren, Erträge, Depots und Tausch belegt der Kontoauszug.',
+	en: 'No Eigenbeleg is needed for this period: fees, rewards, deposits and swaps are documented by the account statement (Kontoauszug).'
+});
+
+/**
+ * A request for Eigenbelege where none can come out: no kind of the request goes on one (#116: an
+ * Eigenbeleg only where value was consumed and nobody invoices). Thrown before anything is paid or
+ * read; the API answers 422 with `code`, never a 402.
+ */
+export class NoEigenbelegNeeded extends RequestError {
+	/** @param {string} chain @param {string[]} kinds the chain's kinds, for the hint */
+	constructor(chain, kinds) {
+		super(
+			`${NO_EIGENBELEG.de} ${NO_EIGENBELEG.en} Ask for "document": "kontoauszug"` +
+				(kinds.length ? `, or name the kinds you want on an Eigenbeleg all the same in includeKinds (${chain}: ${kinds.join(', ')}).` : '.')
+		);
+		this.code = 'no-eigenbeleg-needed';
+	}
+}
+
 /** The currencies a document can be in (ISO 4217): EUR, the default, and those with an official rate against it (@le-space/eigenbeleg). */
 export const CURRENCIES = Object.freeze(Object.keys(DOCUMENT_CURRENCIES));
 
 /** Who a default reference value is by, as printed: "Referenzwert von eigenbeleg-agent (Standardwert), Stand …". */
 export const REFERENCE_DEFAULT_BY = 'eigenbeleg-agent (Standardwert)';
+
+/**
+ * The whole months of a period, oldest first: those a monthly consumption Eigenbeleg is made for (#116).
+ * A month only partly in the period gets none.
+ *
+ * @param {{ from: string, to: string }} period
+ */
+export function wholeMonths(period) {
+	const out = [];
+	for (let m = period.from.slice(0, 7); m <= period.to.slice(0, 7); ) {
+		const whole = monthPeriod(m);
+		if (whole.from >= period.from && whole.to <= period.to) out.push(m);
+		const [y, mo] = m.split('-').map(Number);
+		m = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
+	}
+	return out;
+}
 
 /** One mailbox: local part, @, a host with a dot; no spaces, brackets or display names. */
 const EMAIL = /^[^\s@<>,;"()[\]]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
@@ -93,7 +135,7 @@ export function issuerLogoImage(bytes) {
  *   machine; the API leaves it out, as the server would learn every past and future address of the wallet. today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
  *   must not get the payer's name and address (a body with `payer` is refused) and has no format; blocks: what this side serves
  *   (the API with an Alchemy key: `blocksFor(deps)`, keyed.js), the keyless BLOCKS when not given
- * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], logo: boolean, chart: boolean, issuerLogo: Uint8Array | null, email: string | null, language: 'de' | 'en', documentLanguage: 'de' | 'en', currency: string, reference: Record<string, { from: string, eur: string, by: string }[]>, tokens?: string[], addressType?: string }}
+ * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], noEigenbeleg?: string, logo: boolean, chart: boolean, issuerLogo: Uint8Array | null, email: string | null, language: 'de' | 'en', documentLanguage: 'de' | 'en', currency: string, reference: Record<string, { from: string, eur: string, by: string }[]>, tokens?: string[], addressType?: string }}
  */
 export function parseRequest(body, { preview = false, today, blocks = BLOCKS, keys = false } = {}) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
@@ -148,7 +190,7 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS, ke
 	// Kontoauszug per address, or both when asked for. Never both unasked.
 	// A block may give only some of them (Aleph: the statement); its first is the default.
 	const offered = block.documents ?? ['eigenbelege', 'kontoauszug', 'beide'];
-	const document = body.document ?? offered[0];
+	let document = body.document ?? offered[0];
 	if (!DOCUMENTS.has(document)) throw new RequestError('document: eigenbelege, kontoauszug or beide');
 	if (!offered.includes(document)) throw new RequestError(`document: ${chain} gives ${offered.join(', ')} only`);
 	if (format === 'pdf' && document === 'beide') throw new RequestError('a PDF is one document; ask for format json to get both');
@@ -193,13 +235,26 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS, ke
 	// currency is the euro rate of the day times that currency's official rate of the day, both named.
 	const currency = body.currency ?? 'EUR';
 	if (typeof currency !== 'string' || !CURRENCIES.includes(currency)) throw new RequestError(`currency: one of ${CURRENCIES.join(', ')} (ISO 4217, default EUR)`);
-	// Only the kinds the chain has (storage deposits are NEAR's); the default is what the chain has of fee
-	// and storage, or the block's own default (NEAR: its swaps too; Aleph: its credit purchases).
+	// Only the kinds the chain has (storage deposits are NEAR's). By default only consumption: value used up
+	// where nobody invoices (#116), the block's `defaultKinds`. Network fees (like bank fees), rewards (like
+	// interest), own transfers, swaps and refundable deposits are documented by the statement; `includeKinds`
+	// still puts any of them on an Eigenbeleg.
 	const kindsOffered = block.kinds ?? [...KINDS];
-	const includeKinds = body.includeKinds ?? (block.defaultKinds ?? DEFAULT_KINDS).filter((k) => kindsOffered.includes(k));
+	const includeKinds = body.includeKinds ?? (block.defaultKinds ?? []).filter((k) => kindsOffered.includes(k));
 	if (!Array.isArray(includeKinds) || includeKinds.some((k) => !KINDS.has(k))) throw new RequestError(`includeKinds: some of ${[...KINDS].join(', ')}`);
 	const foreign = includeKinds.filter((k) => !kindsOffered.includes(k));
 	if (foreign.length) throw new RequestError(`includeKinds: ${chain} has ${kindsOffered.join(', ') || 'no kinds (a statement only)'}, not ${foreign.join(', ')}`);
+	// No kind goes on an Eigenbeleg: asked for the Eigenbelege alone, nothing could come out, so the request is
+	// refused before anything is paid. Asked for both, the statement alone is made (and priced).
+	/** @type {string | null} */
+	let noEigenbeleg = null;
+	// A block with monthly consumption (#116 step 3) has an Eigenbeleg of its own for every whole month of the period.
+	const nothing = !includeKinds.length && !(block.consumption && wholeMonths(period).length);
+	if (nothing && document === 'eigenbelege') throw new NoEigenbelegNeeded(chain, kindsOffered);
+	if (nothing && document === 'beide') {
+		document = 'kontoauszug';
+		noEigenbeleg = NO_EIGENBELEG[language];
+	}
 
 	// A reference value for an asset no price source quotes (Doichain's DOI): the issuer's own figure, in EUR
 	// per unit, from a day on. It is printed as such ("Referenzwert von …, Stand …, kein Börsenkurs").
@@ -256,6 +311,7 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS, ke
 		payer: { name: payer.name, address: payer.address, addresses },
 		number: String(number),
 		includeKinds,
+		...(noEigenbeleg ? { noEigenbeleg } : {}),
 		logo,
 		chart,
 		issuerLogo,

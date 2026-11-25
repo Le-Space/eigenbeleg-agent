@@ -39,7 +39,8 @@ const HELP = `The Eigenbeleg agent: buys Eigenbelege and Kontoauszüge from the 
 
 Options: --chain, --network, --address (repeatable), --month YYYY-MM or --from/--to YYYY-MM-DD,
   --name and --postal (the payer, printed on the documents), --number, --statement,
-  --include fee,storage,transfer,call, --document eigenbelege|kontoauszug|beide,
+  --include fee,storage,transfer,call,swap (none by default: fees, rewards, deposits and swaps are documented by the
+  Kontoauszug, and the API refuses Eigenbelege alone with 422 before any payment), --document eigenbelege|kontoauszug|beide,
   --email belege@example.org (the API also mails the files, e.g. to a document management system),
   --language de (the mail's language, default en), --document-language en (the documents' language, default de),
   --api URL (else API_URL), --out DIR (else OUT_DIR, default ./out),

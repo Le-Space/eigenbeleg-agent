@@ -24,7 +24,7 @@ test('a market pass: start, deliver with the CSV, ask back when the brief has no
 	await new Promise((r) => server.once('listening', r));
 	const api = `http://127.0.0.1:${server.address().port}`;
 	const calls = [];
-	const brief = '```json\n' + JSON.stringify({ chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' }, payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' }, number: 'EB-2026-077' }) + '\n```';
+	const brief = '```json\n' + JSON.stringify({ chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' }, payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' }, number: 'EB-2026-077', includeKinds: ['fee', 'storage'] }) + '\n```';
 	const marketFetch = async (url, init = {}) => {
 		const u = String(url);
 		if (!u.startsWith('https://market.example')) return fetch(url, init);

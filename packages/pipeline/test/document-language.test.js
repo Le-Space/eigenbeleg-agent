@@ -14,7 +14,7 @@ const raw = JSON.parse(await readFile(new URL('./fixtures/relay-aurora-2026-11-0
 const NOW = Date.parse('2026-11-06T12:00:00Z');
 // Made-up payer, as everywhere in this repository.
 const payer = { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' };
-const body = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' }, format: 'json', document: 'beide', number: 'EB-2026-042', payer };
+const body = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' }, format: 'json', document: 'beide', includeKinds: ['fee', 'storage', 'swap'], number: 'EB-2026-042', payer };
 const run = (over) => generate(parseRequest({ ...body, ...over }, { today: '2026-11-06' }), { fetch: recordedNear(raw, { now: NOW }), rates: fixedRates({ NEAR: '2.5' }), now: () => new Date(NOW) });
 
 test('documentLanguage: de unless en is asked for, and independent of the mail’s language', () => {

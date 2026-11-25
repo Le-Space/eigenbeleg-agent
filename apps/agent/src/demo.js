@@ -41,6 +41,9 @@ await runJob({
 		number: 'EB-2026-001',
 		// both documents, asked for: the API delivers only what is asked
 		document: 'beide',
+		// The fees on Eigenbelege all the same: by default the Kontoauszug documents them (#116), and the demo
+		// shows (and CI checks with veraPDF) both kinds of document.
+		includeKinds: ['fee', 'storage'],
 		// the chain's mark beside the title (veraPDF checks this output in CI)
 		logo: true
 	}

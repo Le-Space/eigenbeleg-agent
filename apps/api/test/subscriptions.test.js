@@ -39,6 +39,10 @@ async function serve(app) {
 /** @param {string} base @param {unknown} b @param {Record<string, string>} [headers] @param {string} [months] the route per months, e.g. '/3' */
 const subscribe = (base, b, headers = {}, months = '') => globalThis.fetch(`${base}/eigenbeleg/subscribe${months}`, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(b) });
 const tick = () => new Promise((r) => setTimeout(r, 30));
+/** Waits until `check` holds (a store write after the answer, on a slow runner too), at most two seconds. @param {() => Promise<unknown>} check */
+const until = async (check) => {
+	for (let i = 0; i < 66 && !(await check()); i++) await tick();
+};
 const noPay = { middleware: null, info: { mode: 'none' } };
 
 test('the store: one encrypted file per subscription, nothing readable without the key, torn or foreign files left alone', async (t) => {
@@ -73,7 +77,7 @@ test('the request is checked like a paid one, without a period and with an e-mai
 	assert.ok(!('issuerLogo' in job));
 	const jpeg = Buffer.from(sampleJpeg()).toString('base64');
 	assert.ok(!('issuerLogo' in subscriptionJob({ ...body, issuerLogo: jpeg }, { today: '2026-11-12', blocks })), 'statements alone: none kept');
-	const withLogo = subscriptionJob({ ...body, document: 'beide', issuerLogo: jpeg }, { today: '2026-11-12', blocks });
+	const withLogo = subscriptionJob({ ...body, document: 'beide', includeKinds: ['fee', 'storage'], issuerLogo: jpeg }, { today: '2026-11-12', blocks });
 	assert.equal(typeof withLogo.issuerLogo, 'string');
 	assert.deepEqual([...Buffer.from(withLogo.issuerLogo ?? '', 'base64').subarray(0, 2)], [0xff, 0xd8], 'a JPEG, as the documents carry it');
 	assert.throws(() => subscriptionJob({ ...body, issuerLogo: 'iVBORw0KGgo=' }, { today: '2026-11-12', blocks }), /issuerLogo: the PNG file is damaged/);
@@ -91,7 +95,7 @@ test('the request is checked like a paid one, without a period and with an e-mai
 	assert.equal(subscriptionPriceOf('$0.005'), '$0.06');
 	assert.throws(() => subscriptionPriceOf('$0.0000001'), /6 decimals/);
 	assert.deepEqual(job, { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], payer, email: 'belege@example.org', includeKinds: ['fee'], logo: true, chart: true, document: 'kontoauszug', language: 'en' });
-	assert.equal(subscriptionJob({ ...body, document: 'beide' }, { today: '2026-11-12', blocks }).document, 'beide');
+	assert.equal(subscriptionJob({ ...body, document: 'beide', includeKinds: ['fee', 'storage'] }, { today: '2026-11-12', blocks }).document, 'beide');
 	for (const [bad, why] of [
 		[{ ...body, period: { month: '2026-10' } }, /period/],
 		[{ ...body, months: 6 }, /months/],
@@ -133,7 +137,7 @@ test('POST /eigenbeleg/subscribe: checked before a price, stored once answered, 
 	assert.deepEqual(await store.list(), [], 'a refused request stores nothing');
 	const three = await (await subscribe(base, { ...body, months: 3 }, {}, '/3')).json();
 	assert.equal(three.months, 3);
-	await tick();
+	await until(async () => (await store.list()).some((x) => x.id === three.subscription));
 	assert.equal((await store.list()).find((x) => x.id === three.subscription)?.monthsLeft, 3);
 	assert.equal((await globalThis.fetch(three.cancel.replace('https://eigenbeleg.example.org', base))).status, 200);
 
@@ -145,7 +149,7 @@ test('POST /eigenbeleg/subscribe: checked before a price, stored once answered, 
 	assert.equal(a.firstMailFrom, '2026-12-02');
 	assert.equal(a.document, 'kontoauszug');
 	assert.match(a.cancel, new RegExp(`^https://eigenbeleg\\.example\\.org/eigenbeleg/subscribe/${a.subscription}/cancel\\?token=[0-9a-f]{48}$`));
-	await tick();
+	await until(async () => (await store.list()).length > 0);
 	const [stored] = await store.list();
 	assert.equal(stored.id, a.subscription);
 	assert.equal(stored.job.email, 'belege@example.org');
@@ -217,7 +221,7 @@ test('when due, the month before is made and mailed with the cancel link; the la
 	const mailer = { send: async (/** @type {any} */ m) => void sent.push(m) };
 	/** @type {string[]} */
 	const lines = [];
-	const job = subscriptionJob({ ...body, document: 'beide' }, { today: '2026-11-12', blocks: blocksFor({}) });
+	const job = subscriptionJob({ ...body, document: 'beide', includeKinds: ['fee', 'storage'] }, { today: '2026-11-12', blocks: blocksFor({}) });
 	const s = { ...newSubscription(job, { now: NOV, origin: 'https://eigenbeleg.example.org' }), monthsLeft: 2 };
 	await store.put(s);
 
@@ -266,10 +270,10 @@ test('a subscription with the payer’s logo: kept encrypted with it, on every m
 	const issuerLogo = Buffer.from(samplePng()).toString('base64');
 	const { base, close } = await serve(createApp({ paywall: noPay, deps: depsAt(NOV), mailer, subscriptions: store, log: (l) => lines.push(l), web: null, publicUrl: 'https://eigenbeleg.example.org' }));
 	try {
-		const r = await subscribe(base, { ...body, document: 'beide', issuerLogo }, {}, '/1');
+		const r = await subscribe(base, { ...body, document: 'beide', includeKinds: ['fee', 'storage'], issuerLogo }, {}, '/1');
 		assert.equal(r.status, 200);
 		const { subscription: id } = await r.json();
-		await tick();
+		await until(async () => (await readdir(dir)).length > 0);
 		// On disk: one sealed file, the picture not readable in it.
 		const [name] = await readdir(dir);
 		const onDisk = await readFile(join(dir, name), 'utf8');
@@ -283,7 +287,7 @@ test('a subscription with the payer’s logo: kept encrypted with it, on every m
 		assert.equal((await store.list()).length, 1);
 
 		// The month's Eigenbelege carry the picture, its statement none (@le-space/eigenbeleg 0.6.0); the same subscription without one carries none.
-		await store.put(newSubscription(subscriptionJob({ ...body, document: 'beide' }, { today: '2026-11-12', blocks: blocksFor({}) }), { now: NOV, origin: 'https://eigenbeleg.example.org', months: 1 }));
+		await store.put(newSubscription(subscriptionJob({ ...body, document: 'beide', includeKinds: ['fee', 'storage'] }, { today: '2026-11-12', blocks: blocksFor({}) }), { now: NOV, origin: 'https://eigenbeleg.example.org', months: 1 }));
 		await runDue({ store, deps: depsAt(DEC2), mailer, log: (l) => lines.push(l) });
 		assert.equal(sent.length, 2);
 		const pictures = (/** @type {RegExp} */ file) => sent.map((m) => (m.attachments.find((/** @type {any} */ a) => file.test(a.filename)).content.toString('latin1').match(/\/Subtype\s*\/Image/g) ?? []).length);
@@ -330,4 +334,28 @@ test('a failed run is retried; after three days the subscriber hears about it on
 	assert.equal(after?.failingSince, null);
 	assert.equal(after?.reported, false);
 	assert.equal(after?.nextMonth, '2026-12');
+});
+
+test('#116: a subscription for Eigenbelege with no kind is refused; one for both becomes statements, and says so; one bought before keeps its kinds', async (t) => {
+	const dir = await mkdtemp(join(tmpdir(), 'eigenbeleg-subs-'));
+	t.after(() => rm(dir, { recursive: true, force: true }));
+	const store = createStore({ dir, key: KEY });
+	const { base, close } = await serve(createApp({ paywall: noPay, deps: depsAt(NOV), mailer: { send: async () => {} }, subscriptions: store, log: () => {}, web: null, publicUrl: 'https://eigenbeleg.example.org' }));
+	try {
+		const refused = await subscribe(base, { ...body, document: 'eigenbelege' });
+		assert.equal(refused.status, 422);
+		assert.equal((await refused.json()).code, 'no-eigenbeleg-needed');
+		const r = await subscribe(base, { ...body, document: 'beide', language: 'de' }, {}, '/1');
+		assert.equal(r.status, 200);
+		const answer = await r.json();
+		assert.equal(answer.document, 'kontoauszug');
+		assert.equal(answer.noEigenbeleg, 'Für diesen Zeitraum ist kein Eigenbeleg nötig: Gebühren, Erträge, Depots und Tausch belegt der Kontoauszug.');
+		assert.ok(!('noEigenbeleg' in (await (await subscribe(base, body, {}, '/1')).json())), 'statements asked for: nothing to say');
+		await tick();
+	} finally {
+		close();
+	}
+	// Stored before #116, with the kinds of that time: each month goes on with them.
+	const before = { ...subscriptionJob({ ...body, document: 'eigenbelege', includeKinds: ['fee', 'storage'] }, { today: '2026-11-12', blocks: blocksFor({}) }) };
+	assert.deepEqual([before.document, before.includeKinds], ['eigenbelege', ['fee', 'storage']]);
 });

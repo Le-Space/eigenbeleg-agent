@@ -28,7 +28,8 @@ Options: --chain near|akash|filecoin|doichain|bitcoin|filecoin-pay|aleph (ethere
   --address (repeatable, up to ten; Bitcoin: also a wallet's zpub, ypub or xpub, read here, one Kontoauszug for the wallet;
   an xpub with --address-type p2wpkh|p2pkh), --month YYYY-MM or --from/--to YYYY-MM-DD (finished days, at most 92),
   --name and --postal (the issuer, printed on the documents; they stay on this machine),
-  --document eigenbelege|kontoauszug|beide, --include fee,storage,transfer,call,swap, --number EB-2026-001,
+  --document eigenbelege|kontoauszug|beide, --include fee,storage,transfer,call,swap (none by default: fees, rewards,
+  deposits and swaps are documented by the Kontoauszug; name kinds to put them on an Eigenbeleg all the same), --number EB-2026-001,
   --statement KA-2026-10, --logo (the chain's mark), --issuer-logo FILE (your own logo, a PNG or JPEG file, top right on
   every Eigenbeleg, not on a statement; it stays on this machine), --no-chart (a statement without its diagram),
   --reference DOI=0.05@2026-01-01 (Doichain: your own euro value per DOI and the day it holds from, repeatable;

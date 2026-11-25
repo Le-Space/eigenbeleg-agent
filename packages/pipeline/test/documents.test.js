@@ -21,7 +21,7 @@ const NOW = Date.parse('2026-11-06T12:00:00Z');
 const payer = { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' };
 
 const req = parseRequest(
-	{ chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' }, format: 'json', document: 'beide', number: 'EB-2026-042', payer },
+	{ chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' }, format: 'json', document: 'beide', includeKinds: ['fee', 'storage', 'swap'], number: 'EB-2026-042', payer },
 	{ today: '2026-11-06' }
 );
 const out = await generate(req, { fetch: recordedNear(raw, { now: NOW }), rates: fixedRates({ NEAR: '2.5' }), now: () => new Date(NOW) });

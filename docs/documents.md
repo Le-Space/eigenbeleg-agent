@@ -66,7 +66,23 @@ docker run --rm -v "$PWD/out/demo:/data" verapdf/cli:latest --flavour 2b --forma
 
 ## What goes on it
 
-By default only payments to the network itself: network fees, and storage deposits to protocol contracts. On NEAR a swap at a DEX is on it too (NEAR wrapped, wNEAR given for a token): nobody writes an invoice for it. A transfer to another account may well be to a company that does invoice, so it stays off unless you add it (`includeKinds: ["fee","storage","transfer"]`; each block lists the kinds its chain has as `kinds` in `GET /blocks` – storage deposits exist on NEAR only). Some movements are never on it: transfers between your own addresses, incoming payments, failed transactions (only their fee counts), staking, escrow deposits that are not a final amount yet, and tokens without a trusted price (airdropped spam tokens are common). All of these are in the CSV, with the reason. Consumption from a prepaid balance (Aleph credits, Filecoin Pay, Akash leases) is on the month's consumption receipt, never on a receipt of its own.
+A self-issued receipt only where bookkeeping needs one: where value was **consumed** and nobody invoices it ([#116](https://github.com/Le-Space/eigenbeleg-agent/issues/116)). Everything else is documented by the account statement, as a bank statement documents a bank's fees and interest:
+
+| Kind | Document | Why |
+|---|---|---|
+| Network fee (gas, miner fee) | statement only | like a bank fee |
+| Staking or mining reward | statement only | like interest |
+| Own transfer | statement only | no expense |
+| Swap, wrap, bridge (and Aleph's purchase of credits) | statement only | an exchange of assets, or a prepayment |
+| Refundable deposit (storage deposit, escrow) | statement only | it comes back |
+| Payment for a service consumed, nobody invoices | **self-issued receipt** | no invoice exists |
+| Payment to someone who invoices | statement only | the invoice is the document |
+
+So **by default no kind of payment goes on a self-issued receipt**: only the month's consumption of Aleph credits, Filecoin Pay and Akash leases does (above, for whole finished months); payments to contracts that consume come later ([#116](https://github.com/Le-Space/eigenbeleg-agent/issues/116) step 5). Where there is no consumption – every other chain, or no whole month in the period – a request for `document: "eigenbelege"` alone is refused before anything is paid (the API answers 422 with `"code": "no-eigenbeleg-needed"`, no 402): *Für diesen Zeitraum ist kein Eigenbeleg nötig: Gebühren, Erträge, Depots und Tausch belegt der Kontoauszug.* A request for `beide` gives the account statement alone, at the statement's price, and says so (`noEigenbeleg` in the JSON). Asked for kinds that have no movement in the period, the paid route answers 422 (`"code": "no-eigenbeleg-in-period"`) before the payment is settled: nothing is charged for an empty result.
+
+Whoever wants receipts for these kinds all the same (a tax adviser who asks for them, say) names them: `includeKinds: ["fee","storage","swap","transfer"]`; each block lists the kinds its chain has as `kinds` in `GET /blocks` (storage deposits exist on NEAR only). A transfer to another account may well be to a company that invoices, so include it only for payments that have no invoice. Some movements are never on it: transfers between your own addresses, incoming payments, failed transactions (only their fee counts), and tokens without a trusted price (airdropped spam tokens are common).
+
+Every movement is in the CSV, with the reason it is not on a self-issued receipt: *Netzwerkgebühr – belegt durch den Kontoauszug*, *Speicherhinterlegung (erstattbar) – belegt durch den Kontoauszug*, *Tausch – belegt durch den Kontoauszug*, *Staking-Ertrag (wie Zinsen) – belegt durch den Kontoauszug*, *Kauf von Credits (Vorauszahlung) – …*, or the reasons above (own transfer, incoming, failed, payment to an account).
 
 ## The CSV
 

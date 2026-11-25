@@ -25,7 +25,9 @@ export const CHAINS_VERSION = '0.13.0';
  * @property {string[]} networks where payments can be read
  * @property {string[]} assets what the chain's fees and deposits are paid in
  * @property {string[]} kinds the kinds of payment the chain has for an Eigenbeleg, of fee, storage, transfer, call, swap (storage deposits exist on NEAR only; swap: a swap at a DEX on NEAR, Aleph's credit purchases); empty: no Eigenbeleg
- * @property {string[]} [defaultKinds] the kinds on the Eigenbeleg unless the request says (DEFAULT_KINDS when not given)
+ * @property {string[]} [defaultKinds] the kinds on the Eigenbeleg unless the request says: consumption only, value used up where
+ *   nobody invoices (#116). None when not given: fees, rewards, own transfers, swaps and refundable deposits are documented by
+ *   the statement, and a request for Eigenbelege alone is refused before payment (request.js, NoEigenbelegNeeded)
  * @property {string} source which API
  * @property {string} version
  * @property {(p: any) => Promise<import('@le-space/ledger').LedgerEntry[]>} read a period's entries, oldest first
@@ -64,9 +66,9 @@ export const BLOCKS = {
 		chain: 'near',
 		networks: ['mainnet', 'testnet'],
 		assets: ['NEAR', 'NEP-141 tokens (USDC, USDT, …)'],
-		// A swap at a DEX (NEAR wrapped, wNEAR for a token) has no invoice from anyone: on the Eigenbeleg by default.
+		// Gas, storage deposits (refundable) and swaps at a DEX are documented by the statement (#116); on an
+		// Eigenbeleg only when the request names them in includeKinds.
 		kinds: ['fee', 'storage', 'transfer', 'call', 'swap'],
-		defaultKinds: ['fee', 'storage', 'swap'],
 		source: 'NearBlocks API v3; balances from the FastNEAR archival RPC',
 		version: CHAINS_VERSION,
 		read: near.readNear,

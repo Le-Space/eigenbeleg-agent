@@ -5,10 +5,15 @@
 // the files. Nothing is kept afterwards. Runs in Node (the API) and in a
 // browser (the web UI) alike.
 
-import { monthPeriod, sortEntries } from '@le-space/ledger';
+import { sortEntries } from '@le-space/ledger';
 import { buildDocument, buildStatement, eigenbelegCsv, eigenbelegPdf, statementPdf, valueEntries } from '@le-space/eigenbeleg';
 import { dayRates, referenceRates } from './rates.js';
 import { BLOCKS } from './blocks.js';
+import { withStatementReasons } from './reasons.js';
+import { wholeMonths } from './request.js';
+
+// The whole months of a period: in request.js, which the page loads without this module.
+export { wholeMonths };
 
 /**
  * Whether opening balance plus bookings meet the chain's balance (null: the chain names none). A
@@ -18,23 +23,6 @@ import { BLOCKS } from './blocks.js';
  * @param {string | null} difference
  */
 export const reconciled = (difference) => (difference === null ? null : /^-?0(\.0+)?$/.test(difference) || /^-?0\.0{12}\d*$/.test(difference));
-
-/**
- * The whole months of a period, oldest first: those a monthly consumption Eigenbeleg is made for (#116).
- * A month only partly in the period gets none.
- *
- * @param {{ from: string, to: string }} period
- */
-export function wholeMonths(period) {
-	const out = [];
-	for (let m = period.from.slice(0, 7); m <= period.to.slice(0, 7); ) {
-		const whole = monthPeriod(m);
-		if (whole.from >= period.from && whole.to <= period.to) out.push(m);
-		const [y, mo] = m.split('-').map(Number);
-		m = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
-	}
-	return out;
-}
 
 /**
  * @typedef {{ step: 'read', account: string, index: number, count: number } | { step: 'rates' } | { step: 'draw' }} Progress
@@ -107,7 +95,8 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 			...(block.usage ? { entries: usageApart.filter((e) => e.account === account) } : {})
 		}))
 	);
-	const doc = buildDocument({ payer, dataSource, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single', currency, language: req.documentLanguage ?? 'de', consumption });
+	// Every movement not on an Eigenbeleg says why; those the statement documents say so (#116, reasons.js).
+	const doc = withStatementReasons(buildDocument({ payer, dataSource, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single', currency, language: req.documentLanguage ?? 'de', consumption }), req.includeKinds);
 	const belege = new Map(doc.transactions.map((t) => [t.hash, t.number]));
 	const statements = balances.map((b, i) =>
 		buildStatement({
@@ -145,6 +134,8 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 		currency,
 		documentLanguage: doc.language,
 		quantities: doc.totals.quantities,
+		// Asked for both, with no kind and no consumption on an Eigenbeleg: the statement alone, and why (request.js).
+		...(req.noEigenbeleg ? { noEigenbeleg: req.noEigenbeleg } : {}),
 		// The monthly consumption Eigenbelege (#116): per account and month, in sums per resource, rail or deployment.
 		consumption: doc.consumption.map((r) => ({
 			number: r.number,

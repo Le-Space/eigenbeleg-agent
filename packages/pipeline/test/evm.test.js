@@ -23,7 +23,7 @@ test('without an Alchemy key there are no EVM blocks: not in GET /blocks, not in
 	assert.deepEqual(Object.keys(blocksFor()), ['near', 'akash', 'filecoin', 'doichain', 'bitcoin', 'filecoin-pay', 'aleph']);
 	assert.throws(() => parseRequest({ chain: 'base', addresses: [OWN], period: { month: '2026-10' }, payer }, { today: '2026-11-06' }), RequestError);
 	assert.equal((await checkBlock('ethereum')).ok, false);
-	const req = parseRequest({ chain: 'near', addresses: ['relay.aurora'], period: { month: '2026-10' }, payer }, { today: '2026-11-06' });
+	const req = parseRequest({ chain: 'near', addresses: ['relay.aurora'], period: { month: '2026-10' }, includeKinds: ['fee'], payer }, { today: '2026-11-06' });
 	await assert.rejects(generate({ ...req, chain: 'base' }, { fetch }), /no building block/);
 	// A block that needs the key refuses without one, rather than ask Blockscout.
 	await assert.rejects(blocksFor({ alchemyKey: KEY }).base.read({ account: OWN, from: '2026-10-01', to: '2026-10-31', fetch }), /needs an Alchemy key/);
@@ -49,7 +49,7 @@ test('Ethereum with the server\'s key: the gas of every transaction sent as Eige
 	);
 	const blocks = blocksFor({ alchemyKey: KEY });
 	const deps = { fetch: viaFake, rates: fixedRates({ ETH: '2000', USDC: '0.9' }), alchemyKey: KEY, blocks, now: () => new Date('2026-11-06T12:00:00Z') };
-	const req = parseRequest({ chain: 'ethereum', addresses: [OWN], period: { month: '2026-09' }, format: 'json', document: 'beide', payer }, { today: '2026-11-06', blocks });
+	const req = parseRequest({ chain: 'ethereum', addresses: [OWN], period: { month: '2026-09' }, format: 'json', document: 'beide', includeKinds: ['fee'], payer }, { today: '2026-11-06', blocks });
 	const out = await generate(req, deps);
 	assert.ok(asked.length > 0 && asked.every((u) => u.startsWith('https://eth-mainnet.g.alchemy.com/v2/')), asked.join('\n'));
 	// The gas of the five transactions OWN sent (the failed one too): 0.00031 ETH × 2000 EUR.

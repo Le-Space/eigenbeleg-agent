@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { akashDeployment } from '@le-space/chains/testing/cosmos';
 import { moduleAddress } from '@le-space/chains/bech32';
 import { fixedRates } from '@le-space/eigenbeleg';
-import { BLOCKS, describeBlocks, generate, parseRequest } from '../src/index.js';
+import { BLOCKS, NoEigenbelegNeeded, describeBlocks, generate, parseRequest } from '../src/index.js';
 import { wholeMonths } from '../src/generate.js';
 
 const ACCOUNT = moduleAddress('akash', 'wolkenfabrik-example');
@@ -91,7 +91,10 @@ test('Akash: the lease payouts are on no Kontoauszug, and a period without a who
 	assert.equal(both.summary.consumption.length, 1);
 	assert.ok(both.summary.kontoauszuege[0].assets.every((/** @type {any} */ a) => a.asset !== 'ACT'), 'no ACT moved in the wallet');
 	asked = [];
-	const part = await generate(parseRequest({ chain: 'akash', addresses: [ACCOUNT], period: { from: '2026-07-05', to: '2026-07-31' }, format: 'json', payer }, { today: '2026-08-05' }), deps);
+	const partBody = { chain: 'akash', addresses: [ACCOUNT], period: { from: '2026-07-05', to: '2026-07-31' }, format: 'json', payer };
+	// No whole month and no kind named: nothing for an Eigenbeleg, refused before anything is read (#116).
+	assert.throws(() => parseRequest(partBody, { today: '2026-08-05' }), NoEigenbelegNeeded);
+	const part = await generate(parseRequest({ ...partBody, includeKinds: ['fee'] }, { today: '2026-08-05' }), deps);
 	assert.deepEqual(part.summary.consumption, []);
 	assert.deepEqual(asked, [], 'nothing read for a month that is not whole');
 	asked = [];

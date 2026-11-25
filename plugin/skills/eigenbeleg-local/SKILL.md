@@ -13,8 +13,9 @@ metadata:
 # Eigenbeleg, locally
 
 An **Eigenbeleg** is a receipt the payer writes for their own payment when nobody
-sends an invoice: a network fee, a storage deposit, a payment to a peer-to-peer
-network. It is never an invoice, and it counts only once the payer signs it.
+sends an invoice and value was consumed: storage or compute from a peer-to-peer
+network, say. Network fees, rewards, deposits and swaps need none: the
+**Kontoauszug** documents them, as a bank statement documents fees and interest. It is never an invoice, and it counts only once the payer signs it.
 Whether a tax adviser accepts it is theirs to decide. The documents are in German,
 as German bookkeeping needs them, or in English on request; the **Kontoauszug** is the account statement per
 address, for Aleph Cloud credits a **Verbrauchsauszug** (usage statement).
@@ -53,12 +54,12 @@ reference rates for another currency).
 
 The request has choices that change what the person gets. Take each from what the person said. Where they said nothing, tell them the default you will use – or ask, when the answer is not obvious – before anything is bought: once, in one message, not question by question. Never make up the payer's name or address.
 
-- **Which document** (`--document`): `eigenbelege` (the default: one Eigenbeleg per payment, for payments without a receipt from the other side), `kontoauszug` (the account's statement: opening balance, every booking, closing balance) or `beide`. "Receipts for my fees" means eigenbelege; "a statement", "the balance" or "what did the account do" means kontoauszug; "everything for my bookkeeping" means beide. For `aleph` and `filecoin-pay` the statement is a Verbrauchsauszug.
+- **Which document** (`--document`): `eigenbelege` (the default: one Eigenbeleg per payment, for value consumed without a receipt from the other side; see what goes on one below), `kontoauszug` (the account's statement: opening balance, every booking, closing balance) or `beide`. "Receipts for my fees" means the kontoauszug, which documents fees (eigenbelege with fee named, if the person insists); "a statement", "the balance" or "what did the account do" means kontoauszug; "everything for my bookkeeping" means beide. For `aleph` and `filecoin-pay` the statement is a Verbrauchsauszug.
 - **Currency** (`currency`, EUR by default): the currency the books are kept in, as an ISO 4217 code: EUR, USD, CHF, GBP, SEK, NOK, DKK, PLN, CZK, HUF, RON, ISK, TRY or RUB. A value in another currency than EUR is the euro rate of the payment's day times that currency's official rate of the day (the ECB's euro reference rate, USD too; for RUB the Bank of Russia's; only the crypto leg is CoinGecko's or Kraken's), and every position names both. One currency per document, no second EUR column. Ask only when the person's books are not in EUR (a company in Switzerland, say); never convert the figures yourself. Doichain's reference value stays in EUR per DOI; in another currency it is taken times the euro in that currency on the day, and both are named.
 - **The chain's logo** (`--logo`, off by default): the network's mark, small, beside the title, to tell the documents of several chains apart. There is one for NEAR, Akash, Filecoin and Aleph Cloud; the other chains get none, without an error. It is the chain's mark, not the person's company logo: that is the next choice. Switch it on when the person asks for a logo or for documents that are easy to tell apart; otherwise mention it only if they ask what can be changed.
 - **Their own logo** (`--issuer-logo FILE`, none by default): the logo of the person's company, top right in the head of every Eigenbeleg, beside or without the chain's mark; a Kontoauszug or Verbrauchsauszug carries none. Only a file on this machine that the person names (PNG or JPEG, at most 512 kB; no SVG): never download one or make one up. It stays on this machine. Ask for it once when the person wants their own documents to look like theirs or asks for "our logo"; otherwise mention it only if they ask what can be changed.
 - **The diagram** (on by default; `--no-chart` leaves it out): above a statement's bookings, the balance over the period or the consumption per day. Only on statements, and none for a period of one day or without bookings. Switch it off when the person wants a plain statement, tables only, or the fewest pages.
-- **What goes on an Eigenbeleg** (`--include`): network fees and, on NEAR, storage deposits by default. Transfers and contract calls are payments to someone who may have sent a receipt; include them only when the person says those payments have none.
+- **What goes on an Eigenbeleg** (`--include`, `includeKinds` in a job file): an Eigenbeleg is only for value consumed where nobody invoices. Network fees are like a bank's fees and staking or mining rewards like interest: the Kontoauszug documents them; own transfers, swaps, wraps, bridges and refundable deposits (storage deposits, escrow) are no expense. So **by default only the month's consumption** of Aleph credits, Filecoin Pay and Akash leases gets an Eigenbeleg (whole finished months), and **no kind of payment** does. Where there is none: `--document eigenbelege` is refused before anything is read ("Für diesen Zeitraum ist kein Eigenbeleg nötig: Gebühren, Erträge, Depots und Tausch belegt der Kontoauszug"), and `beide` gives the Kontoauszug alone (`noEigenbeleg` in the summary). Tell the person so and offer the Kontoauszug. Name kinds only when the person wants Eigenbelege for them all the same (their tax adviser asks for receipts for fees, say); transfers and contract calls are payments to someone who may have sent a receipt. The CSV says for every movement why it is not on an Eigenbeleg.
 - **Language of the documents** (`documentLanguage`, German by default): `de` for German
   bookkeeping, or `en`: the same documents with English words, a decimal point and ISO dates,
   English throughout, the names too (Self-Issued Receipt, Account Statement, Usage
@@ -115,7 +116,8 @@ passed as a file with `--job job.json`.
 - `--document`: `eigenbelege` (default), `kontoauszug` or `beide`.
 - `--include`: the chain's kinds, comma-separated: `fee`, `storage` (NEAR),
   `transfer`, `call`, `swap` (a swap at a DEX on NEAR, Aleph credit purchases).
-  Default: fee and storage, on NEAR swaps too.
+  Default: none (the Kontoauszug documents them); name kinds only to put them on
+  an Eigenbeleg all the same.
 - `--number`: the first Eigenbeleg number of the payer's own range; the others
   count up. `--statement`: the Kontoauszug's number.
 - `--logo`: the chain's mark beside the title. `--no-chart`: a statement without

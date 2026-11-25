@@ -29,7 +29,9 @@ const job = {
 	addresses: ['relay.aurora'],
 	period: { from: '2026-11-01', to: '2026-11-01' },
 	payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' },
-	number: 'EB-2026-042'
+	number: 'EB-2026-042',
+	// Fees and storage deposits on an Eigenbeleg all the same: by default the statement documents them (#116).
+	includeKinds: ['fee', 'storage']
 };
 const PRICE = 250_000_000n; // 2.5 DOI
 

@@ -121,7 +121,7 @@ test('the statement carries its diagram unless the request switches it off (bele
 });
 
 test('the chain’s mark is on the Eigenbeleg and the statement when the request asks for it, and only then', async () => {
-	const body = { chain: 'aleph', addresses: [ACCOUNT], period: { month: '2026-08' }, format: 'json', document: 'beide', payer };
+	const body = { chain: 'aleph', addresses: [ACCOUNT], period: { month: '2026-08' }, format: 'json', document: 'beide', includeKinds: ['swap'], payer };
 	const run = async (/** @type {object} */ more) => {
 		const out = await generate(parseRequest({ ...body, ...more }, { today: '2026-11-06' }), { fetch, now: () => new Date('2026-11-06T12:00:00Z') });
 		return [/** @type {Uint8Array} */ (out.pdf), out.statements[0].pdf];
@@ -137,7 +137,7 @@ test('the chain’s mark is on the Eigenbeleg and the statement when the request
 });
 
 test('the issuer’s own logo is on the Eigenbeleg when the request carries one, beside the chain’s mark or alone; the statement carries none', async () => {
-	const body = { chain: 'aleph', addresses: [ACCOUNT], period: { month: '2026-08' }, format: 'json', document: 'beide', payer };
+	const body = { chain: 'aleph', addresses: [ACCOUNT], period: { month: '2026-08' }, format: 'json', document: 'beide', includeKinds: ['swap'], payer };
 	const run = async (/** @type {object} */ more) => {
 		const out = await generate(parseRequest({ ...body, ...more }, { today: '2026-11-06' }), { fetch, now: () => new Date('2026-11-06T12:00:00Z') });
 		return [/** @type {Uint8Array} */ (out.pdf), out.statements[0].pdf];
@@ -181,7 +181,7 @@ test('Aleph: the month’s consumption is the Eigenbeleg, in sums per resource, 
 	const credits = lines.find((l) => l.includes(PURCHASE) && l.includes('ALEPH-CREDIT'));
 	assert.match(credits ?? '', /;nein;Eingang, keine Zahlung$/, 'the credits bought come into the balance');
 	const paid = lines.find((l) => l.includes(PURCHASE) && l.includes(';ALEPH;'));
-	assert.match(paid ?? '', /;nein;keine Zahlung an das Netzwerk$/, 'the payment for them is a prepayment, on no Eigenbeleg by default');
+	assert.match(paid ?? '', /;nein;Kauf von Credits \(Vorauszahlung\) – belegt durch den Kontoauszug, der Verbrauch durch den Verbrauchsauszug$/, 'the payment for them is a prepayment, on no Eigenbeleg by default');
 	assert.ok(out.pdf instanceof Uint8Array && out.pdf.length > 1000, 'the consumption Eigenbeleg is drawn (its text: @le-space/eigenbeleg\'s tests)');
 });
 

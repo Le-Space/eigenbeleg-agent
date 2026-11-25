@@ -26,7 +26,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 
-import { CURRENCIES, RequestError, blocksFor, checkBlock, describeBlocks, generate, issuerLogoImage, parseRequest } from '@eigenbeleg/pipeline';
+import { CURRENCIES, NO_EIGENBELEG, NoEigenbelegNeeded, RequestError, blocksFor, checkBlock, describeBlocks, generate, issuerLogoImage, parseRequest } from '@eigenbeleg/pipeline';
 import { VAT, byDocument } from '@eigenbeleg/pipeline/prices';
 import { composeMail } from './mail.js';
 import { apiBuild, buildFields } from './build.js';
@@ -159,7 +159,7 @@ export function createApp({
 				document: 'eigenbelege (default; one per transaction) | kontoauszug (per address) | beide (format json only)',
 				payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' },
 				number: 'EB-2026-001 (optional, from your own range)',
-				includeKinds: ['fee', 'storage'],
+				includeKinds: 'optional, none by default: kinds to put on an Eigenbeleg all the same, of the chain\'s kinds in GET /blocks (e.g. ["fee", "storage"]). By default an Eigenbeleg only for value consumed where nobody invoices; fees, rewards, own transfers, swaps and refundable deposits are documented by the Kontoauszug. With no kind (and no whole month of consumption on aleph, filecoin-pay, akash), document eigenbelege is refused (422, code no-eigenbeleg-needed) before any payment, and beide gives the Kontoauszug alone at its price',
 				logo: 'true | false (optional: the chain\'s mark, small, beside the title)',
 				chart: 'true | false (optional, default true: the diagram above a statement\'s bookings – the balance, or the consumption per day)',
 				currency: `${CURRENCIES.join(' | ')} (optional, default EUR: the currency of the documents, ISO 4217)`,
@@ -225,7 +225,7 @@ export function createApp({
 		const stamp = [build.version ? `version ${build.version}` : '', build.commit ? `commit ${build.commit.slice(0, 12)} of ${build.date.slice(0, 10)}` : ''].filter(Boolean).join(', ');
 		res.type('text/plain; charset=utf-8').send(`# Eigenbeleg API
 ${stamp ? `\nThis instance: ${stamp}.\n` : ''}
-> Eigenbelege (self-issued proofs of payment for German bookkeeping; never invoices) for the payments of a person's own blockchain addresses: network fees, storage deposits, transfers. PDF/A-2b and CSV, with the EUR rate of each payment's day and its source. Paid per request with x402.
+> Eigenbelege (self-issued proofs of payment for German bookkeeping; never invoices) and account statements (Kontoauszüge) for a person's own blockchain addresses: an Eigenbeleg only where value was consumed and nobody invoices; network fees, rewards, own transfers, swaps and deposits are documented by the Kontoauszug. PDF/A-2b and CSV, with the EUR rate of each payment's day and its source. Paid per request with x402.
 
 People use the web UI at ${base}/ui/ instead: it does everything in their browser, for free, and sends nothing here. This API is for agents acting for someone.
 
@@ -264,7 +264,7 @@ The same for tools: GET ${base}/openapi.json (OpenAPI 3.1); every 402 of POST /e
   "document": "eigenbelege" | "kontoauszug" | "beide",
   "payer": { "name": "…", "address": "street, postcode town" }   printed on the documents; used for this response only, never stored or logged,
   "number": "EB-2026-001",                    optional, first number of the payer's own range,
-  "includeKinds": ["fee", "storage"],         optional: of the chain's kinds in GET /blocks (fee, storage, transfer, call, swap; storage is NEAR's; NEAR's default has its swaps at a DEX too)
+  "includeKinds": ["fee", "storage"],         optional, none by default: kinds to put on an Eigenbeleg all the same, of the chain's kinds in GET /blocks (fee, storage, transfer, call, swap; storage is NEAR's); see the choices below
   "logo": false,                              optional: the chain's mark, small, beside the title
   "tokens": ["0x…"],                         optional, ethereum and base only: contracts of tokens not in the chain's list to put on the Kontoauszug although only received; see the choices below
   "chart": true,                              optional, default true: the diagram above a statement's bookings (the balance, or the consumption per day)
@@ -280,13 +280,13 @@ ${logos ? '  "issuerLogoId": "…",                        optional, instead of 
 
 The request has choices that change what the person gets. Take each from what the person said. Where they said nothing, tell them the default you will use – or ask, when the answer is not obvious – before anything is bought: once, in one message, not question by question. Never make up the payer's name or address.
 
-- **Which document** (\`document\`): \`eigenbelege\` (the default: one Eigenbeleg per payment, for payments without a receipt from the other side), \`kontoauszug\` (the account's statement: opening balance, every booking, closing balance) or \`beide\`. "Receipts for my fees" means eigenbelege; "a statement", "the balance" or "what did the account do" means kontoauszug; "everything for my bookkeeping" means beide. For \`aleph\` and \`filecoin-pay\` the statement is a Verbrauchsauszug.
+- **Which document** (\`document\`): \`eigenbelege\` (the default: one Eigenbeleg per payment, for value consumed without a receipt from the other side; see what goes on one below), \`kontoauszug\` (the account's statement: opening balance, every booking, closing balance) or \`beide\`. "Receipts for my fees" means the kontoauszug, which documents fees (or eigenbelege with includeKinds fee, if the person insists); "a statement", "the balance" or "what did the account do" means kontoauszug; "everything for my bookkeeping" means beide. For \`aleph\` and \`filecoin-pay\` the statement is a Verbrauchsauszug.
 - **Currency** (\`currency\`, EUR by default): the currency the books are kept in, as an ISO 4217 code: EUR, USD, CHF, GBP, SEK, NOK, DKK, PLN, CZK, HUF, RON, ISK, TRY or RUB. A value in another currency than EUR is the euro rate of the payment's day times that currency's official rate of the day (the ECB's euro reference rate, USD too; for RUB the Bank of Russia's; only the crypto leg is CoinGecko's or Kraken's), and every position names both. One currency per document, no second EUR column. Ask only when the person's books are not in EUR (a company in Switzerland, say); never convert the figures yourself. Doichain's reference value stays in EUR per DOI; in another currency it is taken times the euro in that currency on the day, and both are named.
 - **The chain's logo** (\`logo\`, off by default): the network's mark, small, beside the title, to tell the documents of several chains apart. There is one for NEAR, Akash, Filecoin and Aleph Cloud; the other chains get none, without an error. It is the chain's mark, not the person's company logo: that is the next choice. Switch it on when the person asks for a logo or for documents that are easy to tell apart; otherwise mention it only if they ask what can be changed.
 - **Their own logo** (\`issuerLogo\`, none by default): the logo of the person's company, top right in the head of every Eigenbeleg, beside or without the chain's mark; a Kontoauszug or Verbrauchsauszug carries none. Only a file the person gives you (PNG or JPEG, at most 512 kB; no SVG): never take one from the web or make one up. Ask for it once when the person wants their own documents to look like theirs or asks for "our logo"; otherwise mention it only if they ask what can be changed. Tell them before buying that a subscription with Eigenbelege keeps the picture until it ends (one of statements alone keeps none, as no statement draws it), and a preview keeps it for 24 hours.
 - **Other tokens on Ethereum and Base** (\`tokens\`): the Kontoauszug has ETH and the listed tokens (GET /blocks), and every other ERC-20 token the address sent on, each in a section of its own named by its contract – the symbol is the token's own claim. A token the address only received (an airdrop, often spam) is left out unless the person names its contract here (up to 50). Such a token is valued by its contract only, CoinGecko or its Uniswap pool at the booking's block, else not at all. Ask only when the person mentions a token that is missing; never pick contracts yourself.
 - **The diagram** (\`chart\`, on by default): above a statement's bookings, the balance over the period or the consumption per day. Only on statements, and none for a period of one day or without bookings. Switch it off when the person wants a plain statement, tables only, or the fewest pages.
-- **What goes on an Eigenbeleg** (\`includeKinds\`): network fees and, on NEAR, storage deposits by default. Transfers and contract calls are payments to someone who may have sent a receipt; include them only when the person says those payments have none.
+- **What goes on an Eigenbeleg** (\`includeKinds\`): an Eigenbeleg is only for value consumed where nobody invoices. Network fees are like a bank's fees and staking or mining rewards like interest: the Kontoauszug documents them; own transfers, swaps, wraps, bridges and refundable deposits (storage deposits, escrow) are no expense. So by default only the month's consumption of Aleph credits, Filecoin Pay and Akash leases gets an Eigenbeleg (for whole finished months), and no kind of payment does. Where there is none – every other chain, or no whole month in the period – \`document\` eigenbelege is refused before any payment with 422 and \`code\` no-eigenbeleg-needed – "Für diesen Zeitraum ist kein Eigenbeleg nötig: Gebühren, Erträge, Depots und Tausch belegt der Kontoauszug" – and \`beide\` gives the Kontoauszug alone, at its price, with \`noEigenbeleg\` in the answer. Tell the person so and offer the Kontoauszug. Name kinds in \`includeKinds\` only when the person wants Eigenbelege for them all the same (their tax adviser asks for receipts for fees, say); transfers and contract calls are payments to someone who may have sent a receipt. With kinds named and none of them in the period, POST /eigenbeleg answers 422 (\`code\` no-eigenbeleg-in-period) and nothing is charged; the CSV names for every movement why it is or is not on an Eigenbeleg.
 - **Language of the documents** (\`documentLanguage\`, German by default): \`de\` for German bookkeeping, or \`en\`: the same documents with English words, a decimal point and ISO dates, English throughout, the names too (Self-Issued Receipt, Account Statement, Usage Statement). Choose \`en\` when the person's books are kept in English or they cannot read German; a German tax office may ask for a translation of a document in another language (§ 87 AO), so for German books keep \`de\`. \`language\` is only the mail's.
 
 After the preview, say what you are about to buy – document, period, these choices, the price – and buy only then.
@@ -334,6 +334,25 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 	});
 	app.get('/health', (_req, res) => res.json({ ok: true, paywall: paywall.info.mode, ...buildFields(build) }));
 
+	/**
+	 * A request that is not taken: 400, or 422 with a `code` for one that is well-formed but asks for
+	 * Eigenbelege where none is needed (#116). Either way before the 402: nothing is paid.
+	 * @param {import('express').Response} res @param {RequestError} e
+	 */
+	const refuse = (res, e) => {
+		if (e instanceof NoEigenbelegNeeded) res.status(422).json({ error: e.message, code: e.code });
+		else res.status(400).json({ error: e.message });
+	};
+	/**
+	 * The paywall prices the body's `document`; asked for both with no kind on an Eigenbeleg, the statement
+	 * alone is made (request.js), so the body is made to say so and the 402 names the statement's price.
+	 * @param {import('express').Request} req @param {import('express').Response} res @param {string} document what the checked request makes
+	 */
+	const pricedAs = (req, res, document) => {
+		if (req.body?.document === undefined || req.body.document === document) return;
+		res.locals.asked = req.body.document;
+		req.body.document = document;
+	};
 	// The subscription (#20): checked like a paid request before a price is named; stored only once the
 	// payment is settled (the x402 middleware turns an unsettled 200 into a 402 after this handler).
 	/** @type {import('express').RequestHandler} */
@@ -345,9 +364,10 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 			if (!Number.isInteger(months) || months < 1 || months > MONTHS) throw new RequestError(`months: 1 to ${MONTHS} (POST /eigenbeleg/subscribe/<months>)`);
 			res.locals.months = months;
 			res.locals.subJob = subscriptionJob(await withKeptLogo(req.body), { today: today(), blocks, months });
+			pricedAs(req, res, res.locals.subJob.document);
 			next();
 		} catch (e) {
-			if (e instanceof RequestError) res.status(400).json({ error: e.message });
+			if (e instanceof RequestError) refuse(res, e);
 			else next(e);
 		}
 	};
@@ -364,6 +384,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 			firstMonth: s.nextMonth,
 			firstMailFrom: dueDate(s.nextMonth),
 			document: s.job.document,
+			...(res.locals.asked ? { noEigenbeleg: NO_EIGENBELEG[s.job.language === 'de' ? 'de' : 'en'] } : {}),
 			cancel: cancelUrl(s),
 			note: 'The cancel link deletes every detail; the remaining months are not refunded. Keep it: it is in every mail as well.'
 		});
@@ -384,9 +405,10 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 		try {
 			res.locals.job = parseRequest(await withKeptLogo(req.body), { blocks });
 			if (res.locals.job.email && !mailer) throw new RequestError('email: this instance sends no mail; leave it out and take the files from the response');
+			pricedAs(req, res, res.locals.job.document);
 			next();
 		} catch (e) {
-			if (e instanceof RequestError) res.status(400).json({ error: e.message });
+			if (e instanceof RequestError) refuse(res, e);
 			else next(e);
 		}
 	};
@@ -402,7 +424,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 		try {
 			job = parseRequest(await withKeptLogo(req.body), { preview: true, blocks });
 		} catch (e) {
-			if (e instanceof RequestError) res.status(400).json({ error: e.message });
+			if (e instanceof RequestError) refuse(res, e);
 			else res.status(500).json({ error: 'internal error' });
 			return;
 		}
@@ -417,6 +439,22 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 			failed(res, e);
 		}
 	});
+
+	/**
+	 * Eigenbelege alone asked for, and the period has no movement of the kinds asked for and no consumption: nothing to deliver,
+	 * so 422 before anything is settled (x402 and PingPay settle only below 400; #116). A payment already made
+	 * on a chain (DOI) is not refused: it gets the empty Eigenbeleg, as it paid for the reading.
+	 * @param {import('express').Response} res @param {{ summary: { eigenbelege: string[] } }} out
+	 */
+	const emptyEigenbeleg = (res, out) => {
+		const job = res.locals.job;
+		if (job.document !== 'eigenbelege' || out.summary.eigenbelege.length > 0 || res.locals.paidOnchain) return false;
+		res.status(422).json({
+			error: `Kein Eigenbeleg in diesem Zeitraum: keine Bewegung der Arten ${job.includeKinds.join(', ')}; nichts berechnet. No movement of the kinds ${job.includeKinds.join(', ')} in this period: no Eigenbeleg, nothing charged. The free POST /eigenbeleg/preview shows a period's positions first; "document": "kontoauszug" gives the statement.`,
+			code: 'no-eigenbeleg-in-period'
+		});
+		return true;
+	};
 
 	/** @type {import('express').RequestHandler} */
 	const pay = paywall.middleware ?? ((_req, _res, next) => next());
@@ -436,6 +474,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 						failed(res, e);
 						return;
 					}
+					if (emptyEigenbeleg(res, res.locals.out)) return;
 					next();
 				}
 			: (_req, _res, next) => next();
@@ -455,6 +494,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 				return;
 			}
 		}
+		if (emptyEigenbeleg(res, out)) return;
 		if (!test && paywall.info.mode === 'none') res.setHeader('X-Eigenbeleg-Paywall', 'none (development)');
 		// The mail goes out once the response is settled (the x402 middleware turns an
 		// unsettled 200 into a 402 after this handler), so it cannot be awaited here:

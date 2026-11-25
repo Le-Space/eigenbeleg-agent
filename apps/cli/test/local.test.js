@@ -20,7 +20,7 @@ const raw = JSON.parse(await readFile(new URL('../../../packages/pipeline/test/f
 const NOW = Date.parse('2026-11-06T12:00:00Z');
 // Made-up payer, as everywhere in this repository.
 const payer = { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' };
-const body = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' }, document: 'beide', number: 'EB-2026-042', payer };
+const body = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' }, document: 'beide', includeKinds: ['fee', 'storage'], number: 'EB-2026-042', payer };
 
 /** The recorded chain, and a note of every host asked. @param {string[]} asked */
 const recorded = (asked) => {

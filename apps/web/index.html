@@ -70,7 +70,7 @@
 				<h1 data-i18n="title">Eigenbeleg für Blockchain-Zahlungen</h1>
 				<p class="tagline" data-i18n="tagline">Kostenlos und quelloffen. Alles in Ihrem Browser, nichts auf unseren Servern.</p>
 				<p class="lead">
-					<span data-i18n="lead1">Ein Eigenbeleg ist ein Beleg, den Sie selbst für Ihre eigenen Zahlungen ausstellen, wenn niemand eine Rechnung schickt: Netzwerkgebühren, Storage-Deposits, Zahlungen an Peer-to-Peer-Netzwerke. Er ist </span><strong data-i18n="lead2">keine Rechnung</strong><span data-i18n="lead3">. Ob Ihr Steuerberater ihn annimmt, entscheidet er.</span>
+					<span data-i18n="lead1">Ein Eigenbeleg ist ein Beleg, den Sie selbst für Ihre eigenen Zahlungen ausstellen, wenn niemand eine Rechnung schickt: für Leistungen, die Sie verbraucht haben, etwa Speicher oder Rechenzeit aus Peer-to-Peer-Netzwerken (Netzwerkgebühren, Erträge, Depots und Tausch belegt der Kontoauszug, den die Seite ebenso erstellt). Er ist </span><strong data-i18n="lead2">keine Rechnung</strong><span data-i18n="lead3">. Ob Ihr Steuerberater ihn annimmt, entscheidet er.</span>
 				</p>
 			</div>
 
@@ -153,11 +153,12 @@
 						<summary data-i18n="moreSettings">Mehr Einstellungen: Belegnummern und was auf den Beleg kommt</summary>
 					<fieldset id="kinds">
 						<legend data-i18n="kinds">Was auf den Eigenbeleg kommt</legend>
-						<label class="inline"><input type="checkbox" name="includeKinds" value="fee" checked /> <span data-i18n="kindFee">Netzwerkgebühren</span></label>
-						<label class="inline"><input type="checkbox" name="includeKinds" value="storage" checked /> <span data-i18n="kindStorage">Storage-Deposits</span></label>
+						<p class="note" data-i18n="kindsNote">Ein Eigenbeleg nur, wo Wert verbraucht wurde und niemand eine Rechnung schreibt. Netzwerkgebühren (wie Bankgebühren), Erträge (wie Zinsen), eigene Umbuchungen, Tausch und erstattbare Hinterlegungen belegt der Kontoauszug; deshalb ist hier nichts vorgewählt. Kreuzen Sie eine Art nur an, wenn Sie dafür trotzdem einen Eigenbeleg wollen.</p>
+						<label class="inline"><input type="checkbox" name="includeKinds" value="fee" /> <span data-i18n="kindFee">Netzwerkgebühren</span></label>
+						<label class="inline"><input type="checkbox" name="includeKinds" value="storage" /> <span data-i18n="kindStorage">Storage-Deposits</span></label>
 						<label class="inline"><input type="checkbox" name="includeKinds" value="transfer" /> <span data-i18n="kindTransfer">Überweisungen</span></label>
 						<label class="inline"><input type="checkbox" name="includeKinds" value="call" /> <span data-i18n="kindCall">Vertragsaufrufe mit Deposit</span></label>
-						<label class="inline"><input type="checkbox" name="includeKinds" value="swap" checked /> <span id="kind-swap" data-i18n="kindSwap">Käufe von Aleph-Credits</span></label>
+						<label class="inline"><input type="checkbox" name="includeKinds" value="swap" /> <span id="kind-swap" data-i18n="kindSwap">Käufe von Aleph-Credits</span></label>
 					</fieldset>
 					<div class="row">
 						<label id="l-number"><span data-i18n="number">Erste Belegnummer (optional, die weiteren zählen hoch)</span> <input name="number" id="number" maxlength="40" placeholder="EB-2026-001" autocomplete="off" /></label>

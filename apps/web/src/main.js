@@ -12,7 +12,7 @@ import '@fontsource-variable/sora';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 // Only the request check, the list of chains and the data sources load with the page.
-import { CURRENCIES, ISSUER_LOGO_MAX_BYTES, RequestError, issuerLogoImage, parseRequest } from '@eigenbeleg/pipeline/request';
+import { CURRENCIES, ISSUER_LOGO_MAX_BYTES, NoEigenbelegNeeded, RequestError, issuerLogoImage, parseRequest } from '@eigenbeleg/pipeline/request';
 import { BLOCKS, describeBlocks } from '@eigenbeleg/pipeline/blocks';
 import { KEYED_BLOCKS, blocksFor, isAlchemyKey, keyedSources } from '@eigenbeleg/pipeline/keyed';
 import { dataSources } from '@eigenbeleg/pipeline/sources';
@@ -283,7 +283,6 @@ async function onCreate(e) {
 	say('form-error', '');
 	clearResult();
 	const f = values();
-	if (f.includeKinds.length === 0 && (blocks.find((x) => x.chain === f.chain)?.kinds ?? []).length > 0) return say('form-error', t('pickKind'));
 	if (f.referenceAsset) {
 		const given = f.referenceEur.trim();
 		// Empty: the default value (0.04 EUR per DOI), named as such on the documents.
@@ -306,6 +305,8 @@ async function onCreate(e) {
 	try {
 		req = parseRequest(requestBody(f), { blocks: served, keys: true });
 	} catch (err) {
+		// No kind on an Eigenbeleg (#116): fees, rewards, deposits and swaps are documented by the statement.
+		if (err instanceof NoEigenbelegNeeded) return say('form-error', t('noEigenbelegForm'));
 		return say('form-error', t('refused', { error: String(/** @type {Error} */ (err).message) }));
 	}
 	const btn = /** @type {HTMLButtonElement} */ ($('btn-create'));
@@ -321,7 +322,8 @@ async function onCreate(e) {
 				btn.textContent = p.step === 'read' ? t('progressRead', { account: short(p.account), n: String(p.index + 1), of: String(p.count) }) : p.step === 'rates' ? t('progressRates') : t('progressDraw');
 			}
 		});
-		shown = { out, which: f.document };
+		// Asked for both with no kind on an Eigenbeleg, the statement alone comes out (req.document).
+		shown = { out, which: req.document };
 		showResult();
 		setStep('4');
 		$('step-result').scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
@@ -364,6 +366,7 @@ function showResult() {
 	const s = out.summary;
 	const rows = [
 		...(which === 'kontoauszug' ? [] : [[t('sumEigenbelege'), `${s.eigenbelege.length} (${s.number})`]]),
+		...(s.noEigenbeleg ? [[t('sumEigenbelege'), t('noEigenbeleg')]] : []),
 		[t('sumChain'), `${s.chain} (${s.network})`],
 		[t('sumPeriod'), t('sumPeriodValue', { from: s.period.from, to: s.period.to })],
 		[t('sumPositions'), String(s.positions)],

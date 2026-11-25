@@ -22,6 +22,8 @@ export async function fixtureRun(raw) {
 			period: { from: '2026-11-01', to: '2026-11-01' },
 			format: 'json',
 			document: 'beide',
+			// Fees and storage deposits on an Eigenbeleg all the same (#116: by default the statement documents them).
+			includeKinds: ['fee', 'storage', 'swap'],
 			number: 'EB-2026-042',
 			logo: true,
 			// Made-up payer, as everywhere in this repository; in the web UI it never leaves the page.

@@ -35,7 +35,7 @@ test('the example passes the check, and the schema names what the check takes', 
 		assert.throws(() => parseRequest(rest, { today: '2026-11-06' }), undefined, key);
 	}
 	// The enums are the check's own.
-	for (const format of REQUEST_SCHEMA.properties.format.enum) assert.doesNotThrow(() => parseRequest({ ...REQUEST_EXAMPLE, format, document: 'eigenbelege' }, { today: '2026-11-06' }));
+	for (const format of REQUEST_SCHEMA.properties.format.enum) assert.doesNotThrow(() => parseRequest({ ...REQUEST_EXAMPLE, format, document: 'eigenbelege', includeKinds: ['fee'] }, { today: '2026-11-06' }));
 	assert.throws(() => parseRequest({ ...REQUEST_EXAMPLE, format: 'docx' }, { today: '2026-11-06' }));
 	assert.deepEqual(REQUEST_SCHEMA.properties.currency.enum, CURRENCIES);
 	for (const currency of REQUEST_SCHEMA.properties.currency.enum) assert.equal(parseRequest({ ...REQUEST_EXAMPLE, currency }, { today: '2026-11-06' }).currency, currency);
@@ -92,7 +92,7 @@ test('GET /openapi.json: the routes, the body, the price of this instance; the e
 		assert.match(await (await fetch(base + '/llms.txt')).text(), /openapi\.json/);
 
 		// What the example promises is in a real answer.
-		const answer = await (await fetch(base + '/eigenbeleg', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ chain: 'near', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' }, format: 'json', payer: REQUEST_EXAMPLE.payer }) })).json();
+		const answer = await (await fetch(base + '/eigenbeleg', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ chain: 'near', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' }, format: 'json', document: REQUEST_EXAMPLE.document, payer: REQUEST_EXAMPLE.payer }) })).json();
 		for (const key of Object.keys(RESPONSE_EXAMPLE)) assert.ok(key in answer, key);
 	} finally {
 		close();

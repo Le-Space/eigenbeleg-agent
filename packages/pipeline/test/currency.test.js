@@ -19,7 +19,7 @@ const NOW = Date.parse('2026-11-06T12:00:00Z');
 const DAY = '2026-11-01';
 // Made-up payer, as everywhere in this repository.
 const payer = { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' };
-const base = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: DAY, to: DAY }, format: 'json', document: 'beide', number: 'EB-2026-042', payer };
+const base = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: DAY, to: DAY }, format: 'json', document: 'beide', includeKinds: ['fee', 'storage', 'swap'], number: 'EB-2026-042', payer };
 
 /**
  * The rate hosts, made up: CoinGecko's NEAR snapshot (EUR and USD), the ECB's CHF and USD of the Friday before
@@ -69,7 +69,7 @@ test('currency: EUR by default, one of the documents’ currencies, anything els
 });
 
 test('currency: Doichain takes any currency, its reference value in EUR with it; without one, the default', () => {
-	const doi = { chain: 'doichain', network: 'mainnet', addresses: [fakeDoichainAddress('own')], period: { month: '2026-10' }, format: 'json', payer };
+	const doi = { chain: 'doichain', includeKinds: ['fee', 'transfer'], network: 'mainnet', addresses: [fakeDoichainAddress('own')], period: { month: '2026-10' }, format: 'json', payer };
 	const reference = { DOI: { eur: '0.05', from: '2026-01-01' } };
 	assert.equal(parseRequest({ ...doi, reference }, { today: '2026-11-06' }).currency, 'EUR');
 	const chf = parseRequest({ ...doi, reference, currency: 'CHF' }, { today: '2026-11-06' });

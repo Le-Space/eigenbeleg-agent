@@ -9,6 +9,7 @@ import { sampleJpeg, samplePng } from '@le-space/pdf/testing/sample-images';
 
 import { CURRENCIES } from '@eigenbeleg/pipeline';
 import { createApp } from '../src/app.js';
+import { documentIn } from '../src/paywall.js';
 import { recordedNear } from '../../agent/src/recorded.js';
 
 const raw = JSON.parse(await readFile(new URL('../../../packages/pipeline/test/fixtures/relay-aurora-2026-11-01.json', import.meta.url), 'utf8'));
@@ -21,7 +22,9 @@ const job = {
 	addresses: ['relay.aurora'],
 	period: { from: '2026-11-01', to: '2026-11-01' },
 	payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' },
-	number: 'EB-2026-042'
+	number: 'EB-2026-042',
+	// Fees and storage deposits on an Eigenbeleg all the same: by default the statement documents them (#116).
+	includeKinds: ['fee', 'storage']
 };
 
 /** @param {import('express').Express} app */
@@ -476,7 +479,7 @@ test('GET /llms.txt tells agents what is sold, the price and the x402 steps', as
 test('Ethereum and Base only with ALCHEMY_KEY; the key is in no answer and no log line', async () => {
 	const key = 'wolkenfabrik-test-key-0001';
 	const own = `0x${'7a'.repeat(20)}`;
-	const body = { chain: 'base', addresses: [own], period: { month: '2026-10' } };
+	const body = { chain: 'base', addresses: [own], period: { month: '2026-10' }, document: 'kontoauszug' };
 	const preview = (/** @type {string} */ base) => globalThis.fetch(`${base}/eigenbeleg/preview`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 	const info = { mode: 'none' };
 	const without = await serve(createApp({ paywall: { middleware: null, info }, deps, log: () => {}, web: null }));
@@ -795,6 +798,80 @@ test('documentLanguage: English documents on request, named in llms.txt and the 
 		assert.equal((await post(base, { ...job, documentLanguage: 'fr' })).status, 400);
 		const openapi = await (await globalThis.fetch(base + '/openapi.json')).json();
 		assert.ok(JSON.stringify(openapi).includes('"documentLanguage":{"type":"string","enum":["de","en"]'));
+	} finally {
+		close();
+	}
+});
+
+test('no Eigenbeleg needed (#116): refused before the 402 and never charged; both give the statement at its price', async () => {
+	const settled = [];
+	const facilitator = {
+		verify: async () => ({ isValid: true, payer: 'agent.testnet' }),
+		settle: async (/** @type {any} */ payload) => {
+			settled.push(payload);
+			return { success: true, transaction: 'TXHASH', network: 'near:testnet', payer: 'agent.testnet' };
+		},
+		getSupported: async () => ({ kinds: [{ x402Version: 2, scheme: 'exact', network: 'near:testnet' }], extensions: [], signers: {} })
+	};
+	const server = new x402ResourceServer(/** @type {any} */ (facilitator)).register('near:testnet', new ExactNearScheme());
+	// Priced by the document, as paywall.js does: the statement $0.10, the Eigenbelege $0.005, both the sum.
+	const price = (/** @type {any} */ context) => ({ kontoauszug: '$0.10', eigenbelege: '$0.005', beide: '$0.105' })[documentIn(context)];
+	const middleware = paymentMiddleware(
+		/** @type {any} */ ({ 'POST /eigenbeleg': { accepts: [{ scheme: 'exact', price, network: 'near:testnet', payTo: 'eigenbeleg.testnet', maxTimeoutSeconds: 120 }], description: 'Eigenbeleg' } }),
+		server
+	);
+	const { base, close } = await serve(createApp({ paywall: { middleware, info: { mode: 'near' } }, deps, log: () => {} }));
+	const { includeKinds: _, ...plain } = job;
+	const sign = (/** @type {Response} */ r) => {
+		const required = JSON.parse(Buffer.from(r.headers.get('payment-required') ?? '', 'base64').toString());
+		return { 'PAYMENT-SIGNATURE': Buffer.from(JSON.stringify({ x402Version: 2, resource: required.resource, accepted: required.accepts[0], payload: { signedDelegateAction: 'AAAA' } })).toString('base64') };
+	};
+	try {
+		// The Eigenbelege alone, no kind: 422 with the sentence, no price named, nothing settled – also with a payment sent along.
+		for (const headers of [{}, { 'PAYMENT-SIGNATURE': 'e30=' }]) {
+			const r = await post(base, plain, headers);
+			assert.equal(r.status, 422);
+			assert.equal(r.headers.get('payment-required'), null);
+			const answer = await r.json();
+			assert.equal(answer.code, 'no-eigenbeleg-needed');
+			assert.match(answer.error, /^Für diesen Zeitraum ist kein Eigenbeleg nötig: Gebühren, Erträge, Depots und Tausch belegt der Kontoauszug\./);
+		}
+		// The free preview says the same.
+		const preview = await globalThis.fetch(`${base}/eigenbeleg/preview`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...plain, payer: undefined }) });
+		assert.equal(preview.status, 422);
+		assert.equal((await preview.json()).code, 'no-eigenbeleg-needed');
+
+		// Both, no kind: the 402 names the statement's price, and the answer is the statement alone, with why.
+		const both = { ...plain, format: 'json', document: 'beide', language: 'de' };
+		const unpaid = await post(base, both);
+		assert.equal(unpaid.status, 402);
+		assert.equal(JSON.parse(Buffer.from(unpaid.headers.get('payment-required') ?? '', 'base64').toString()).accepts[0].amount, '100000', '$0.10, the statement');
+		const paid = await post(base, both, sign(unpaid));
+		assert.equal(paid.status, 200);
+		const answer = await paid.json();
+		assert.equal(answer.noEigenbeleg, 'Für diesen Zeitraum ist kein Eigenbeleg nötig: Gebühren, Erträge, Depots und Tausch belegt der Kontoauszug.');
+		assert.deepEqual(answer.eigenbelege, []);
+		assert.ok(!answer.pdf && answer.kontoauszuegePdf.length === 1);
+		assert.match(answer.csv, /;nein;Netzwerkgebühr – belegt durch den Kontoauszug\r\n/);
+		assert.equal(settled.length, 1);
+
+		// Kinds named, none of them in the period: 422 once read, and the payment is not settled.
+		const none = { ...plain, includeKinds: ['swap'] };
+		const asked = await post(base, none);
+		assert.equal(asked.status, 402);
+		const empty = await post(base, none, sign(asked));
+		assert.equal(empty.status, 422);
+		assert.equal((await empty.json()).code, 'no-eigenbeleg-in-period');
+		assert.equal(settled.length, 1, 'nothing more settled');
+
+		// includeKinds keeps working: the fees on Eigenbelege, at the Eigenbelege' price.
+		const fees = { ...plain, includeKinds: ['fee'] };
+		const feesUnpaid = await post(base, fees);
+		assert.equal(JSON.parse(Buffer.from(feesUnpaid.headers.get('payment-required') ?? '', 'base64').toString()).accepts[0].amount, '5000');
+		const feesPaid = await post(base, fees, sign(feesUnpaid));
+		assert.equal(feesPaid.status, 200);
+		assert.equal(feesPaid.headers.get('content-type'), 'application/pdf');
+		assert.equal(settled.length, 2);
 	} finally {
 		close();
 	}

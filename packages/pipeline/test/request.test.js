@@ -8,7 +8,7 @@ import { sampleJpeg, samplePng } from '@le-space/pdf/testing/sample-images';
 
 import { ISSUER_LOGO_MAX_BYTES, RequestError, issuerLogoImage, parseRequest } from '../src/request.js';
 
-const ok = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-10-01', to: '2026-10-31' }, payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' } };
+const ok = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-10-01', to: '2026-10-31' }, includeKinds: ['fee'], payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' } };
 const refused = (over) => assert.throws(() => parseRequest({ ...ok, ...over }), RequestError);
 
 test('chains are looked up as own keys only', () => {
@@ -33,7 +33,7 @@ test('addresses are trimmed and read once', () => {
 });
 
 test('the preview mode takes no payer and needs none', () => {
-	const body = { chain: 'near', network: 'testnet', addresses: ['own.testnet'], period: { from: '2026-10-01', to: '2026-10-31' } };
+	const body = { chain: 'near', network: 'testnet', addresses: ['own.testnet'], period: { from: '2026-10-01', to: '2026-10-31' }, includeKinds: ['fee'] };
 	const job = parseRequest(body, { preview: true });
 	assert.equal(job.format, 'json');
 	assert.throws(() => parseRequest({ ...body, payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1' } }, { preview: true }), RequestError);
@@ -54,13 +54,16 @@ test('the logo is off unless asked for, and only true or false', () => {
 	refused({ language: 'fr' });
 });
 
-test('a chain offers only its own kinds; the default is what it has of fee and storage, on NEAR its swaps too', () => {
-	assert.deepEqual(parseRequest(ok).includeKinds, ['fee', 'storage', 'swap']);
-	const akash = { ...ok, chain: 'akash', addresses: [moduleAddress('akash', 'wolkenfabrik-example')] };
-	assert.deepEqual(parseRequest(akash).includeKinds, ['fee']);
+test('a chain offers only its own kinds; by default none, only consumption goes on an Eigenbeleg (#116)', () => {
+	const { includeKinds: _, ...plain } = ok;
+	const statement = { ...plain, document: 'kontoauszug' };
+	assert.deepEqual(parseRequest(statement).includeKinds, []);
+	const akash = { ...statement, chain: 'akash', addresses: [moduleAddress('akash', 'wolkenfabrik-example')] };
+	assert.deepEqual(parseRequest(akash).includeKinds, []);
+	assert.deepEqual(parseRequest({ ...akash, includeKinds: ['fee'] }).includeKinds, ['fee'], 'named, a kind goes on the Eigenbeleg all the same');
 	refused({ ...akash, includeKinds: ['fee', 'storage'] });
-	assert.deepEqual(parseRequest({ ...ok, chain: 'aleph', addresses: ['0x4EA28E630990a9e7A5De367107C2b804498238E2'], period: { month: '2026-09' }, document: 'kontoauszug' }).includeKinds, [], 'a purchase of Aleph credits is a prepayment: its Eigenbeleg only when asked for (#116)');
-	assert.deepEqual(parseRequest({ ...ok, chain: 'aleph', addresses: ['0x4EA28E630990a9e7A5De367107C2b804498238E2'], period: { month: '2026-09' }, document: 'beide', format: 'json', includeKinds: ['swap'] }).includeKinds, ['swap']);
+	assert.deepEqual(parseRequest({ ...statement, chain: 'aleph', addresses: ['0x4EA28E630990a9e7A5De367107C2b804498238E2'], period: { month: '2026-09' } }).includeKinds, []);
+	assert.deepEqual(parseRequest({ ...plain, includeKinds: ['fee', 'storage', 'swap'] }).includeKinds, ['fee', 'storage', 'swap']);
 });
 
 test('email: one mailbox, optional, never in the preview', () => {
@@ -100,7 +103,7 @@ test('the issuer’s own logo: a PNG or JPEG file as base64 or as bytes, checked
 	assert.match(why('A'.repeat(Math.ceil(ISSUER_LOGO_MAX_BYTES / 3) * 4 + 4)), /^issuerLogo: the file has more than 512 kB/);
 	assert.match(why(new Uint8Array(ISSUER_LOGO_MAX_BYTES + 1)), /^issuerLogo: the file has 513 kB; at most 512 kB/);
 	// The preview draws nothing, and checks the picture all the same: a bad one is known before the payment.
-	const preview = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: ok.period };
+	const preview = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: ok.period, includeKinds: ['fee'] };
 	assert.deepEqual(parseRequest({ ...preview, issuerLogo: base64(samplePng()) }, { preview: true }).issuerLogo, samplePng());
 	assert.throws(() => parseRequest({ ...preview, issuerLogo: base64(samplePng().subarray(0, 60)) }, { preview: true }), /issuerLogo: the PNG file/);
 	// What the page shows and keeps: the picture as the documents carry it.

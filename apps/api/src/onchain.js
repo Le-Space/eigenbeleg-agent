@@ -575,6 +575,8 @@ export function createOnchain({ network, payTo, xpub, orders = memoryOrders(), g
 		req.headers[name] = Buffer.from(JSON.stringify(payment)).toString('base64');
 		// The paywall lets it through to the one middleware that still knows the scheme (paywall.js).
 		if (redeemOnly) res.locals.onchainRedeem = true;
+		// Paid already, on the chain: whatever the period holds is delivered (app.js, emptyEigenbeleg).
+		if (res.locals) res.locals.paidOnchain = true;
 		next();
 	};
 

@@ -40,7 +40,7 @@ test('a wrong --reference is refused with what it should look like', () => {
 });
 
 test('the pipeline takes the option’s field for Doichain Eigenbelege, as from --job', () => {
-	const body = { chain: 'doichain', network: 'mainnet', addresses: [fakeDoichainAddress('own')], period: { month: '2026-10' }, format: 'json', payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' } };
+	const body = { chain: 'doichain', network: 'mainnet', addresses: [fakeDoichainAddress('own')], period: { month: '2026-10' }, format: 'json', includeKinds: ['fee', 'transfer'], payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' } };
 	const fromOption = parseRequest({ ...body, reference: parseReference(['DOI=0.05@2026-01-01']) }, { today: '2026-11-22' });
 	const fromJob = parseRequest({ ...body, reference: { DOI: { eur: '0.05', from: '2026-01-01' } } }, { today: '2026-11-22' });
 	assert.deepEqual(fromOption.reference, fromJob.reference);

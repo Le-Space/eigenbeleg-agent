@@ -28,7 +28,7 @@ test('a request names token contracts on Ethereum and Base only, up to fifty, ea
 	assert.throws(() => request({ tokens: ['0x1234'] }), /tokens: a contract is 0x and 40 hex digits/);
 	assert.throws(() => request({ tokens: DROP }), RequestError);
 	assert.throws(() => request({ tokens: Array.from({ length: MAX_TOKENS + 1 }, (_, i) => `0x${String(i).padStart(40, '0')}`) }), /up to 50/);
-	assert.throws(() => parseRequest({ chain: 'near', addresses: ['relay.aurora'], period: { month: '2026-10' }, payer, tokens: [DROP] }, { today, blocks }), /near takes no token contracts/);
+	assert.throws(() => parseRequest({ chain: 'near', addresses: ['relay.aurora'], period: { month: '2026-10' }, document: 'kontoauszug', payer, tokens: [DROP] }, { today, blocks }), /near takes no token contracts/);
 	const ethereum = describeBlocks(blocks).find((b) => b.chain === 'ethereum');
 	assert.equal(ethereum?.tokens, true, 'GET /blocks says which chains take them');
 });

@@ -30,7 +30,7 @@ export const REQUEST_SCHEMA = /** @type {const} */ ({
 			properties: { month: { type: 'string', pattern: '^\\d{4}-\\d{2}$' }, from: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' }, to: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' } }
 		},
 		format: { type: 'string', enum: ['pdf', 'csv', 'json'], description: 'pdf (default), csv, or json: every file, PDFs as base64.' },
-		document: { type: 'string', enum: ['eigenbelege', 'kontoauszug', 'beide'], description: 'One Eigenbeleg per transaction (default), the Kontoauszug per address, or both (format json only).' },
+		document: { type: 'string', enum: ['eigenbelege', 'kontoauszug', 'beide'], description: 'One Eigenbeleg per transaction (default; only for the kinds in includeKinds), the Kontoauszug per address, or both (format json only).' },
 		payer: {
 			type: 'object',
 			description: 'Printed on the documents; used for this response only, never stored or logged.',
@@ -39,7 +39,7 @@ export const REQUEST_SCHEMA = /** @type {const} */ ({
 		},
 		number: { type: 'string', maxLength: 40, description: 'Optional: the first number of the payer\'s own range, e.g. EB-2026-001.' },
 		statementNumber: { type: 'string', maxLength: 40, description: 'Optional: the number of the Kontoauszug.' },
-		includeKinds: { type: 'array', items: { type: 'string', enum: ['fee', 'storage', 'transfer', 'call', 'swap'] }, description: 'Optional: the kinds of payment to write receipts for, of those the chain has (GET /blocks).' },
+		includeKinds: { type: 'array', items: { type: 'string', enum: ['fee', 'storage', 'transfer', 'call', 'swap'] }, description: 'Optional, none by default: the kinds to put on an Eigenbeleg all the same, of those the chain has (GET /blocks). By default an Eigenbeleg only for value consumed where nobody invoices; network fees, rewards, own transfers, swaps and refundable deposits are documented by the Kontoauszug. With no kind and no whole month of consumption (aleph, filecoin-pay, akash), document eigenbelege is refused before any payment (422, code no-eigenbeleg-needed) and beide gives the Kontoauszug alone, at its price.' },
 		logo: { type: 'boolean', description: 'Optional: the chain\'s mark, small, beside the title.' },
 		reference: { type: 'object', description: 'Only for a chain whose asset has no published rate (doichain: DOI): the payer\'s own euro value per unit, e.g. { "DOI": { "eur": "0.05", "from": "2026-01-01" } }. Printed as the payer\'s reference value, not an exchange rate. Without it: 0.04 EUR per DOI for the whole period, printed as the default (eigenbeleg-agent).' },
 		tokens: { type: 'array', maxItems: 50, items: { type: 'string', pattern: '^0x[0-9a-fA-F]{40}$' }, description: 'Optional, only for ethereum and base: contracts of ERC-20 tokens not in the chain\'s list (GET /blocks) to put on the Kontoauszug although the address only received them. A token the address sent on is on it anyway, in a section of its own named by its contract; one only received (often an airdrop or spam) only when named here. Such a token is valued by its contract (CoinGecko, else its Uniswap pool at the booking\'s block) or not at all; a token calling itself like a listed one (USDC, ETH, …) never.' },
@@ -61,15 +61,19 @@ export const REQUEST_EXAMPLE = /** @type {const} */ ({
 	addresses: ['wolkenfabrik.near'],
 	period: { month: '2026-10' },
 	format: 'json',
-	document: 'eigenbelege',
+	// Fees, rewards, deposits and swaps need no Eigenbeleg (#116): the statement documents them.
+	document: 'kontoauszug',
 	payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1, 12345 Beispielstadt' }
 });
 
-/** What `format: json` answers with, in outline: the numbers given out, the PDF as base64, the CSV as text. */
+/**
+ * What `format: json` answers with for the example's Kontoauszug, in outline: the statements, their PDFs as base64,
+ * the CSV as text. Asked for Eigenbelege, `eigenbelege` names their numbers and `pdf` carries them.
+ */
 export const RESPONSE_EXAMPLE = /** @type {const} */ ({
 	number: 'EB-2026-001',
-	eigenbelege: ['EB-2026-001', 'EB-2026-002'],
-	pdf: '<base64 of the PDF/A-2b>',
+	kontoauszuege: [{ number: 'KA-2026-10-01', account: 'wolkenfabrik.near' }],
+	kontoauszuegePdf: [{ account: 'wolkenfabrik.near', number: 'KA-2026-10-01', pdf: '<base64 of the PDF/A-2b>' }],
 	csv: 'Belegnummer;…'
 });
 
@@ -105,6 +109,10 @@ export function openapi({ base, payment, chains, terms, source, subscriptions = 
 	const priced = accepts.map((a) => `${perDoc(a)} in ${a.asset} on ${a.name} (${a.network})`).join('; ');
 	const body = { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Request' }, example: REQUEST_EXAMPLE } } };
 	const error = { description: 'The body did not pass the check; nothing was charged.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } };
+	const none = {
+		description: 'No Eigenbeleg to deliver; nothing was charged. code no-eigenbeleg-needed: no kind of the request goes on an Eigenbeleg (before the 402); no-eigenbeleg-in-period: none of the kinds asked for in the period (before settlement). Ask for document kontoauszug, or name kinds in includeKinds.',
+		content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } }
+	};
 	const pay = {
 		description: `Payment required (x402 v2, scheme exact): ${priced || 'see GET /'}. The PAYMENT-REQUIRED header carries the requirements as base64 JSON; send the same request again with PAYMENT-SIGNATURE.${coined}`,
 		headers: { 'PAYMENT-REQUIRED': { schema: { type: 'string' }, description: 'base64 JSON: x402Version, resource, accepts, extensions' } }
@@ -117,7 +125,7 @@ export function openapi({ base, payment, chains, terms, source, subscriptions = 
 			...(build.commit ? { 'x-commit': build.commit, 'x-built': build.date } : {}),
 			summary: 'Eigenbelege and Kontoauszüge for the payments of own blockchain addresses, paid per request with x402.',
 			description:
-				'Eigenbelege (self-issued proofs of payment for German bookkeeping; never invoices) for network fees, storage deposits and transfers of a person\'s own blockchain addresses, as PDF/A-2b and CSV with the EUR rate of each payment\'s day. The paid routes sell to businesses only (§ 14 BGB) under the terms of business. People use the web UI at /ui/ instead, free, in their browser.',
+				'Kontoauszüge (account statements) and Eigenbelege (self-issued proofs of payment for German bookkeeping; never invoices) for a person\'s own blockchain addresses: an Eigenbeleg only where value was consumed and nobody invoices, since network fees, rewards, own transfers, swaps and deposits are documented by the Kontoauszug; as PDF/A-2b and CSV with the EUR rate of each payment\'s day. The paid routes sell to businesses only (§ 14 BGB) under the terms of business. People use the web UI at /ui/ instead, free, in their browser.',
 			termsOfService: `${base}${terms}`,
 			contact: { name: 'Le Space UG (haftungsbeschränkt)', email: 'eigenbeleg@le-space.de', url: 'https://le-space.de' },
 			license: { name: 'AGPL-3.0-or-later', identifier: 'AGPL-3.0-or-later' }
@@ -130,7 +138,7 @@ export function openapi({ base, payment, chains, terms, source, subscriptions = 
 					operationId: 'preview',
 					summary: 'Free: counts and totals for the same body without `payer`; no files. Check here first.',
 					requestBody: body,
-					responses: { 200: { description: 'What the paid request would deliver, in numbers.', content: { 'application/json': { schema: { type: 'object' } } } }, 400: error }
+					responses: { 200: { description: 'What the paid request would deliver, in numbers.', content: { 'application/json': { schema: { type: 'object' } } } }, 400: error, 422: none }
 				}
 			},
 			'/eigenbeleg': {
@@ -145,7 +153,8 @@ export function openapi({ base, payment, chains, terms, source, subscriptions = 
 							content: { 'application/pdf': { schema: { type: 'string', format: 'binary' } }, 'text/csv': { schema: { type: 'string' } }, 'application/json': { schema: { type: 'object' }, example: RESPONSE_EXAMPLE } }
 						},
 						400: error,
-						...(paid ? { 402: pay } : {})
+						...(paid ? { 402: pay } : {}),
+						422: none
 					}
 				}
 			},
@@ -156,7 +165,7 @@ export function openapi({ base, payment, chains, terms, source, subscriptions = 
 								operationId: 'subscribe',
 								summary: 'A subscription: monthly Kontoauszüge by mail, paid once. The same body with `email` and without `period`.',
 								requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
-								responses: { 200: { description: 'The subscription and its cancel link.', content: { 'application/json': { schema: { type: 'object' } } } }, 400: error, ...(paid ? { 402: pay } : {}) }
+								responses: { 200: { description: 'The subscription and its cancel link.', content: { 'application/json': { schema: { type: 'object' } } } }, 400: error, ...(paid ? { 402: pay } : {}), 422: none }
 							}
 						}
 					}
@@ -167,7 +176,7 @@ export function openapi({ base, payment, chains, terms, source, subscriptions = 
 		components: {
 			schemas: {
 				Request: { ...REQUEST_SCHEMA, properties: { ...REQUEST_SCHEMA.properties, chain: { ...REQUEST_SCHEMA.properties.chain, enum: chains } } },
-				Error: { type: 'object', properties: { error: { type: 'string' } }, required: ['error'] }
+				Error: { type: 'object', properties: { error: { type: 'string' }, code: { type: 'string', enum: ['no-eigenbeleg-needed', 'no-eigenbeleg-in-period'] } }, required: ['error'] }
 			}
 		}
 	};

@@ -88,7 +88,7 @@ test('the preview keeps a picture for 24 hours; the paid request and the subscri
 	const post = (/** @type {string} */ path, /** @type {unknown} */ body) => globalThis.fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 	const text = (/** @type {Uint8Array} */ b) => Buffer.from(b).toString('base64');
 	const images = (/** @type {Buffer} */ pdf) => (pdf.toString('latin1').match(/\/Subtype\s*\/Image/g) ?? []).length;
-	const request = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' } };
+	const request = { chain: 'near', network: 'mainnet', addresses: ['relay.aurora'], period: { from: '2026-11-01', to: '2026-11-01' }, includeKinds: ['fee', 'storage'] };
 	const payer = { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' };
 
 	// Without a picture the preview keeps nothing and names no id.

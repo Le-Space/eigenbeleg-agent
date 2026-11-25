@@ -39,6 +39,10 @@ async function serve(app) {
 /** @param {string} base @param {unknown} b @param {Record<string, string>} [headers] @param {string} [months] the route per months, e.g. '/3' */
 const subscribe = (base, b, headers = {}, months = '') => globalThis.fetch(`${base}/eigenbeleg/subscribe${months}`, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(b) });
 const tick = () => new Promise((r) => setTimeout(r, 30));
+/** Waits until `check` holds (a store write after the answer, on a slow runner too), at most two seconds. @param {() => Promise<unknown>} check */
+const until = async (check) => {
+	for (let i = 0; i < 66 && !(await check()); i++) await tick();
+};
 const noPay = { middleware: null, info: { mode: 'none' } };
 
 test('the store: one encrypted file per subscription, nothing readable without the key, torn or foreign files left alone', async (t) => {
@@ -133,7 +137,7 @@ test('POST /eigenbeleg/subscribe: checked before a price, stored once answered, 
 	assert.deepEqual(await store.list(), [], 'a refused request stores nothing');
 	const three = await (await subscribe(base, { ...body, months: 3 }, {}, '/3')).json();
 	assert.equal(three.months, 3);
-	await tick();
+	await until(async () => (await store.list()).some((x) => x.id === three.subscription));
 	assert.equal((await store.list()).find((x) => x.id === three.subscription)?.monthsLeft, 3);
 	assert.equal((await globalThis.fetch(three.cancel.replace('https://eigenbeleg.example.org', base))).status, 200);
 
@@ -145,7 +149,7 @@ test('POST /eigenbeleg/subscribe: checked before a price, stored once answered, 
 	assert.equal(a.firstMailFrom, '2026-12-02');
 	assert.equal(a.document, 'kontoauszug');
 	assert.match(a.cancel, new RegExp(`^https://eigenbeleg\\.example\\.org/eigenbeleg/subscribe/${a.subscription}/cancel\\?token=[0-9a-f]{48}$`));
-	await tick();
+	await until(async () => (await store.list()).length > 0);
 	const [stored] = await store.list();
 	assert.equal(stored.id, a.subscription);
 	assert.equal(stored.job.email, 'belege@example.org');
@@ -269,7 +273,7 @@ test('a subscription with the payer’s logo: kept encrypted with it, on every m
 		const r = await subscribe(base, { ...body, document: 'beide', includeKinds: ['fee', 'storage'], issuerLogo }, {}, '/1');
 		assert.equal(r.status, 200);
 		const { subscription: id } = await r.json();
-		await tick();
+		await until(async () => (await readdir(dir)).length > 0);
 		// On disk: one sealed file, the picture not readable in it.
 		const [name] = await readdir(dir);
 		const onDisk = await readFile(join(dir, name), 'utf8');

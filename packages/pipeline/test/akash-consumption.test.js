@@ -99,3 +99,12 @@ test('Akash: the lease payouts are on no Kontoauszug, and a period without a who
 	assert.deepEqual([statementOnly.summary.consumption, asked], [[], []], 'the statement alone reads no deployments');
 	assert.match(String(describeBlocks().find((b) => b.chain === 'akash')?.consumption), /lease payouts/);
 });
+
+test('Akash: without the indexer’s block times, no consumption Eigenbeleg rather than one that leaves out what was paid', async () => {
+	const body = { chain: 'akash', addresses: [ACCOUNT], period: { month: '2026-07' }, format: 'json', document: 'eigenbelege', payer };
+	// A browser without the CORS proxy: no indexer at all.
+	await assert.rejects(generate(parseRequest(body, { today: '2026-08-05' }), { ...deps, endpoints: { akash: { rest: REST, indexer: '' } } }), /Akash Console indexer, which is not set here/);
+	// The indexer does not answer.
+	const silent = /** @type {typeof globalThis.fetch} */ (async (input) => (String(input).startsWith(INDEXER) ? Response.json({}, { status: 503 }) : fetch(input)));
+	await assert.rejects(generate(parseRequest(body, { today: '2026-08-05' }), { ...deps, fetch: silent }), /indexer did not answer/);
+});

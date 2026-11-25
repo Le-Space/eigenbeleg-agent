@@ -34,6 +34,16 @@ import { akashUsageEntries, createAkashDeploymentsClient } from '@le-space/chain
 export async function akashUsage({ account, months, fetch = globalThis.fetch, endpoints }) {
 	if (!months.length) return [];
 	const { rest, indexer } = { ...AKASH_CHAIN.endpoints, ...endpoints };
-	const deployments = await createAkashDeploymentsClient({ fetch }).deployments({ address: account, rest, indexer });
+	const client = createAkashDeploymentsClient({ fetch });
+	// The block times come from the indexer. Without it (a browser without the CORS proxy) or when it does not
+	// answer, a deployment has no times and usageInMonth would leave it out: a month's consumption would be
+	// missing without a word. No Eigenbeleg rather than one that leaves out what was paid.
+	if (!indexer) {
+		const paid = (await client.deployments({ address: account, rest, indexer: 'http://indexer.invalid' }).catch(() => [])).some((d) => Number(d.transferred) > 0);
+		if (paid) throw new Error('Akash: the deployments’ times come from the Akash Console indexer, which is not set here (in a browser: its CORS proxy); ask the API instead');
+		return [];
+	}
+	const deployments = await client.deployments({ address: account, rest, indexer });
+	if (deployments.some((d) => Number(d.transferred) > 0 && (!d.createdAt || !d.settledAt))) throw new Error('Akash: the Akash Console indexer did not answer for every deployment’s time; try again in a few minutes');
 	return months.flatMap((month) => akashUsageEntries({ address: account, month, deployments }));
 }

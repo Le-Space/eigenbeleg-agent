@@ -13,9 +13,10 @@ import * as doichain from '@le-space/chains/doichain';
 import * as bitcoin from '@le-space/chains/bitcoin-address';
 import * as aleph from './readers/aleph.js';
 import * as filecoinPay from './readers/filecoin-pay.js';
+import { akashUsage } from './readers/akash-usage.js';
 
 /** The version of @le-space/chains the blocks are built on (a test holds it against the installed package). */
-export const CHAINS_VERSION = '0.10.0';
+export const CHAINS_VERSION = '0.13.0';
 
 /**
  * @typedef {object} Block
@@ -48,6 +49,12 @@ export const CHAINS_VERSION = '0.10.0';
  * @property {true} [tokens] takes a request's `tokens`: contracts of tokens not in the chain's list to put on the
  *   statement although only received (EVM, #93); a token the address sent on is on it anyway
  * @property {'alchemyKey'} [needs] a key only the server has (keyed.js); such a block is never in BLOCKS
+ * @property {string} [consumption] what is consumed from a prepaid balance, for the monthly consumption Eigenbeleg
+ *   (#116): one per account and whole finished month of the period, its usage in sums per resource, rail or deployment,
+ *   numbered after the payments' own Eigenbelege, the usage statement named. Given with `document` eigenbelege or beide
+ * @property {(p: any) => Promise<import('@le-space/ledger').LedgerEntry[]>} [usage] where the usage is no movement of the
+ *   account, so neither in `read` nor on its statement (Akash: lease payouts from a deployment's escrow): read apart, for
+ *   the given months (`months`)
  */
 
 /** @type {Record<string, Block>} */
@@ -73,8 +80,11 @@ export const BLOCKS = {
 		networks: ['mainnet'],
 		assets: ['AKT'],
 		kinds: ['fee', 'transfer'],
-		source: 'Akash RPC (PublicNode) + Akash Console indexer',
+		source: 'Akash RPC (PublicNode) + Akash Console indexer; the deployments from an Akash node\'s REST API (PublicNode)',
 		version: CHAINS_VERSION,
+		// The escrow deposit is a prepayment (on the Kontoauszug); what the escrow paid the providers is consumed.
+		consumption: 'lease payouts of the deployments (ACT at 1 USD; spread over each deployment\'s time up to its last settlement)',
+		usage: akashUsage,
 		read: akash.readAkash,
 		statement: akash.statementAkash,
 		probe: akash.probe,
@@ -133,12 +143,15 @@ export const BLOCKS = {
 		chain: 'filecoin-pay',
 		networks: ['mainnet'],
 		assets: ["USDFC (the balance in the Filecoin Pay contract of Filecoin Onchain Cloud, by the payer's address)"],
-		// A settlement is consumption from a prepaid balance, no payment of its own: no Eigenbeleg.
+		// A settlement is consumption from a prepaid balance, no payment of its own: the month's consumption
+		// Eigenbeleg (#116), no Eigenbeleg per settlement. A deposit into the contract is a prepayment.
 		kinds: [],
 		source: "Filecoin Pay index (Goldsky subgraph), Blockscout, Filfox; no key. EUR at the day's USDC rate",
 		version: CHAINS_VERSION,
-		// One whole finished month: the Verbrauchsauszug (VA-…) of what the contract settled with which provider.
-		documents: ['kontoauszug'],
+		consumption: 'settlements with the storage providers, in sums per rail',
+		// One whole finished month: the Verbrauchsauszug (VA-…) of what the contract settled with which provider,
+		// and the month's consumption Eigenbeleg.
+		documents: ['kontoauszug', 'eigenbelege', 'beide'],
 		period: 'month',
 		statementPrefix: 'VA',
 		read: filecoinPay.readFilecoinPay,
@@ -152,12 +165,14 @@ export const BLOCKS = {
 		chain: 'aleph',
 		networks: ['mainnet'],
 		assets: ['ALEPH-CREDIT (Aleph Cloud credits, by the Ethereum address)', 'ALEPH or USD (what a credit purchase was paid with)'],
-		// The purchase of credits with a token: a payment of its own, so an Eigenbeleg (issue #23). Usage has none.
+		// The purchase of credits is a prepayment into a balance (#116): its Eigenbeleg (#23) only when asked for
+		// (`includeKinds: ["swap"]`, for books that take the purchase as the expense); the consumption has its own.
 		kinds: ['swap'],
-		defaultKinds: ['swap'],
+		defaultKinds: [],
 		source: 'Aleph API, no key; EUR per USD from the ECB',
 		version: CHAINS_VERSION,
-		// One whole finished month: the Verbrauchsauszug (VA-…) first, an Eigenbeleg per credit purchase too.
+		consumption: 'credits used, in sums per resource',
+		// One whole finished month: the Verbrauchsauszug (VA-…) first, the month's consumption Eigenbeleg too.
 		documents: ['kontoauszug', 'eigenbelege', 'beide'],
 		period: 'month',
 		statementPrefix: 'VA',

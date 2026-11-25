@@ -58,7 +58,7 @@ test('a month of Filecoin Pay is a Verbrauchsauszug: opening, each settlement, w
 	assert.equal(req.statementNumber, 'VA-2026-08-01');
 	assert.deepEqual(req.includeKinds, []);
 	const out = await generate(req, { fetch: fetchWith(chain(), asked), now: () => new Date('2026-11-06T12:00:00Z') });
-	assert.equal(out.pdf, null, 'no Eigenbeleg for consumption from a prepaid balance');
+	assert.equal(out.pdf, null, 'the statement was asked for: no Eigenbeleg');
 	assert.equal(out.statements.length, 1);
 	assert.deepEqual(out.summary.eigenbelege, []);
 	const [k] = out.summary.kontoauszuege;
@@ -75,7 +75,7 @@ test('a month of Filecoin Pay is a Verbrauchsauszug: opening, each settlement, w
 	const lines = /** @type {string} */ (out.csv).split('\r\n');
 	const settled = lines.filter((l) => l.includes('Verbrauch (aus Guthaben abgerechnet)'));
 	assert.equal(settled.length, 2);
-	assert.ok(settled.every((l) => l.endsWith(';nein;Verbrauch aus Guthaben: steht im Verbrauchsauszug')), 'a settlement is never on an Eigenbeleg');
+	assert.ok(settled.every((l) => l.endsWith(';nein;Verbrauch aus Guthaben: steht im Verbrauchsauszug')), 'without the Eigenbelege, a settlement is on none');
 	assert.match(settled[0], /Filecoin Warm Storage \(Rail 7\)/);
 	const pdf = new TextDecoder('latin1').decode(out.statements[0].pdf);
 	assert.match(pdf, /Verbrauchsauszug VA-2026-08-01/, 'the title in the metadata');
@@ -96,16 +96,35 @@ test('Filecoin Pay: Blockscout down, no statement – paid in by another address
 	await assert.rejects(generate(req, { fetch: fetchWith(chain({ blockscout: true }), []), now: () => new Date('2026-11-06T12:00:00Z') }, { preview: true }), /Blockscout did not answer.*try again/);
 });
 
-test('Filecoin Pay: whole finished months, the statement only, payers only', () => {
+test('Filecoin Pay: the month’s settlements are the consumption Eigenbeleg, in sums per rail, the Verbrauchsauszug named (#116)', async () => {
+	const req = parseRequest({ chain: 'filecoin-pay', addresses: [PAYER], period: { month: '2026-08' }, format: 'json', document: 'beide', payer }, { today: '2026-11-06' });
+	const out = await generate(req, { fetch: fetchWith(chain(), []), now: () => new Date('2026-11-06T12:00:00Z') });
+	assert.deepEqual(out.summary.eigenbelege, ['EB-2026-001']);
+	const [c] = out.summary.consumption;
+	assert.deepEqual([c.account, c.month, c.statement], [PAYER, '2026-08', 'VA-2026-08-01']);
+	// The settlement and the one-off payment over rail 7: 1.7 USDFC × 0.8 EUR, as the statement sums it.
+	assert.deepEqual(c.lines.map((/** @type {any} */ l) => [l.label, l.recipient, l.entries, l.quantities, l.value]), [['Filecoin Warm Storage (Rail 7)', PROVIDER, 2, { USDFC: '1.7' }, '1.36']]);
+	assert.equal(c.total, '1.36');
+	assert.equal(out.summary.kontoauszuege[0].assets[0].monthly.usageTotal.eur, c.total);
+	assert.equal(out.summary.totalEur, '1.36');
+	const lines = /** @type {string} */ (out.csv).split('\r\n');
+	const settled = lines.filter((l) => l.includes('Verbrauch (aus Guthaben abgerechnet)'));
+	assert.ok(settled.length === 2 && settled.every((l) => l.startsWith('EB-2026-001;1;') && l.endsWith(';ja;')), settled.join('\n'));
+	const out2 = lines.find((l) => l.includes('Auszahlung aus Filecoin Pay'));
+	assert.match(out2 ?? '', /;nein;/, 'taken out of the balance: no consumption');
+	assert.ok(out.pdf instanceof Uint8Array && out.pdf.length > 1000);
+});
+
+test('Filecoin Pay: whole finished months, payers only; the Eigenbeleg is the month’s consumption', () => {
 	const d = describeBlocks().find((b) => b.chain === 'filecoin-pay');
-	assert.deepEqual([d?.documents, d?.period, d?.statementPrefix, d?.kinds, d?.networks], [['kontoauszug'], 'month', 'VA', [], ['mainnet']]);
+	assert.deepEqual([d?.documents, d?.period, d?.statementPrefix, d?.kinds, d?.networks], [['kontoauszug', 'eigenbelege', 'beide'], 'month', 'VA', [], ['mainnet']]);
+	assert.match(String(d?.consumption), /per rail/);
 	assert.deepEqual([isUsageStatement('filecoin-pay'), isUsageStatement('aleph'), isUsageStatement('filecoin'), isUsageStatement('constructor')], [true, true, false, false]);
 	const body = { chain: 'filecoin-pay', addresses: [PAYER], period: { month: '2026-08' }, format: 'json', payer };
 	const refused = (/** @type {any} */ over) => assert.throws(() => parseRequest({ ...body, ...over }, { today: '2026-11-06' }), RequestError);
 	refused({ period: { from: '2026-08-01', to: '2026-08-31' } });
 	refused({ period: { month: '2026-11' } });
-	refused({ document: 'eigenbelege' });
-	refused({ document: 'beide' });
+	refused({ format: 'pdf', document: 'beide' });
 	refused({ includeKinds: ['fee'] });
 	// An f1 address has no account in a contract; nor has a NEAR name.
 	refused({ addresses: ['f1abjxfbp274xpdqcpuaykwkfb43omjotacm2p3za'] });

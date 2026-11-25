@@ -5,8 +5,10 @@ The web UI reads every chain from the browser. The Akash Console indexer
 browser may not read it; this Cloudflare Worker forwards exactly what the Akash
 reader needs and adds CORS for the UI's origins.
 
-- **Forwards** only `GET /v1/addresses/<akash1…>/transactions/<skip>/<limit>`
-  and `GET /v1/transactions/<hash>`, no query string; everything else is 404
+- **Forwards** only `GET /v1/addresses/<akash1…>/transactions/<skip>/<limit>`,
+  `GET /v1/transactions/<hash>` and `GET /v1/blocks/<height>` (a block's time,
+  for the deployments of the monthly consumption Eigenbeleg), no query string;
+  everything else is 404
   without a request upstream.
 - **Answers** only the origins in `ALLOWED_ORIGINS` (`wrangler.toml`).
 - **Keeps nothing:** no logs (observability off), `cache-control: no-store`,

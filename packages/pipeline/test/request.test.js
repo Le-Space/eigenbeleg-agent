@@ -59,7 +59,8 @@ test('a chain offers only its own kinds; the default is what it has of fee and s
 	const akash = { ...ok, chain: 'akash', addresses: [moduleAddress('akash', 'wolkenfabrik-example')] };
 	assert.deepEqual(parseRequest(akash).includeKinds, ['fee']);
 	refused({ ...akash, includeKinds: ['fee', 'storage'] });
-	assert.deepEqual(parseRequest({ ...ok, chain: 'aleph', addresses: ['0x4EA28E630990a9e7A5De367107C2b804498238E2'], period: { month: '2026-09' }, document: 'kontoauszug' }).includeKinds, ['swap']);
+	assert.deepEqual(parseRequest({ ...ok, chain: 'aleph', addresses: ['0x4EA28E630990a9e7A5De367107C2b804498238E2'], period: { month: '2026-09' }, document: 'kontoauszug' }).includeKinds, [], 'a purchase of Aleph credits is a prepayment: its Eigenbeleg only when asked for (#116)');
+	assert.deepEqual(parseRequest({ ...ok, chain: 'aleph', addresses: ['0x4EA28E630990a9e7A5De367107C2b804498238E2'], period: { month: '2026-09' }, document: 'beide', format: 'json', includeKinds: ['swap'] }).includeKinds, ['swap']);
 });
 
 test('email: one mailbox, optional, never in the preview', () => {

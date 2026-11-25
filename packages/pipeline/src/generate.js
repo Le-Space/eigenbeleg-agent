@@ -5,7 +5,7 @@
 // the files. Nothing is kept afterwards. Runs in Node (the API) and in a
 // browser (the web UI) alike.
 
-import { sortEntries } from '@le-space/ledger';
+import { monthPeriod, sortEntries } from '@le-space/ledger';
 import { buildDocument, buildStatement, eigenbelegCsv, eigenbelegPdf, statementPdf, valueEntries } from '@le-space/eigenbeleg';
 import { dayRates, referenceRates } from './rates.js';
 import { BLOCKS } from './blocks.js';
@@ -18,6 +18,23 @@ import { BLOCKS } from './blocks.js';
  * @param {string | null} difference
  */
 export const reconciled = (difference) => (difference === null ? null : /^-?0(\.0+)?$/.test(difference) || /^-?0\.0{12}\d*$/.test(difference));
+
+/**
+ * The whole months of a period, oldest first: those a monthly consumption Eigenbeleg is made for (#116).
+ * A month only partly in the period gets none.
+ *
+ * @param {{ from: string, to: string }} period
+ */
+export function wholeMonths(period) {
+	const out = [];
+	for (let m = period.from.slice(0, 7); m <= period.to.slice(0, 7); ) {
+		const whole = monthPeriod(m);
+		if (whole.from >= period.from && whole.to <= period.to) out.push(m);
+		const [y, mo] = m.split('-').map(Number);
+		m = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
+	}
+	return out;
+}
 
 /**
  * @typedef {{ step: 'read', account: string, index: number, count: number } | { step: 'rates' } | { step: 'draw' }} Progress
@@ -49,8 +66,14 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	const entries = [];
 	/** @type {{ account: string, opening: Record<string, string>, closing: Record<string, string>, method: 'archive' | 'derived', at: any, contracts?: Record<string, string> }[]} */
 	const balances = [];
+	// The monthly consumption Eigenbelege (#116): per account and whole month of the period, with the Eigenbelege.
+	const months = wantBelege && block.consumption ? wholeMonths(req.period) : [];
+	// Usage that is no movement of the account (Akash's lease payouts): valued with the rest, on no statement.
+	/** @type {import('@le-space/ledger').LedgerEntry[]} */
+	const apart = [];
 	for (const [index, account] of req.addresses.entries()) {
 		onProgress?.({ step: 'read', account: accountOf(account), index, count: req.addresses.length });
+		if (months.length && block.usage) apart.push(...(await block.usage({ ...read, account, months })));
 		if (wantStatement && block.statement) {
 			const st = await block.statement({ ...read, account });
 			entries.push(...st.entries);
@@ -68,9 +91,23 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	// read through Alchemy with the key the block reads with.
 	const priced = deps.rates ?? dayRates({ fetch: deps.fetch, currency, ...(block.needs === 'alchemyKey' && deps.alchemyKey ? { alchemyKey: deps.alchemyKey } : {}) });
 	const rates = block.referenceAssets?.length ? referenceRates(priced, Object.fromEntries(block.referenceAssets.map((a) => [a, req.reference?.[a] ?? []])), currency) : priced;
-	const valued = await valueEntries(sortEntries(entries), rates, { currency });
+	const all = await valueEntries(sortEntries([...entries, ...apart]), rates, { currency });
+	const apartIds = new Set(apart.map((e) => e.id));
+	const valued = all.filter((e) => !apartIds.has(e.id));
+	const usageApart = all.filter((e) => apartIds.has(e.id));
 	const issuedAt = (deps.now?.() ?? new Date()).toISOString();
-	const doc = buildDocument({ payer, dataSource, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single', currency, language: req.documentLanguage ?? 'de' });
+	// The statement each account's consumption Eigenbeleg names: the number its statement has (or would have, when only
+	// the Eigenbelege were asked for), as below.
+	const statementNumberOf = (/** @type {number} */ i) => (req.addresses.length > 1 ? `${req.statementNumber}-${i + 1}` : req.statementNumber);
+	const consumption = req.addresses.flatMap((account, i) =>
+		months.map((month) => ({
+			account: accountOf(account),
+			month,
+			statementNumber: statementNumberOf(i),
+			...(block.usage ? { entries: usageApart.filter((e) => e.account === account) } : {})
+		}))
+	);
+	const doc = buildDocument({ payer, dataSource, chain: req.chain, network: req.network, period: req.period, entries: valued, number: req.number, includeKinds: req.includeKinds, issuedAt, layout: 'single', currency, language: req.documentLanguage ?? 'de', consumption });
 	const belege = new Map(doc.transactions.map((t) => [t.hash, t.number]));
 	const statements = balances.map((b, i) =>
 		buildStatement({
@@ -86,7 +123,7 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 			method: b.method,
 			at: b.at,
 			belege,
-			number: balances.length > 1 ? `${req.statementNumber}-${i + 1}` : req.statementNumber,
+			number: statementNumberOf(i),
 			issuedAt,
 			currency,
 			language: req.documentLanguage ?? 'de',
@@ -95,7 +132,8 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 	);
 	const summary = {
 		number: doc.number,
-		eigenbelege: doc.transactions.map((t) => t.number),
+		// Every Eigenbeleg's number: the payments' own, then the months' consumption.
+		eigenbelege: [...doc.transactions.map((t) => t.number), ...doc.consumption.map((r) => r.number)],
 		chain: doc.chain,
 		network: doc.network,
 		period: doc.period,
@@ -107,6 +145,17 @@ export async function generate(req, deps = {}, { preview = false, onProgress } =
 		currency,
 		documentLanguage: doc.language,
 		quantities: doc.totals.quantities,
+		// The monthly consumption Eigenbelege (#116): per account and month, in sums per resource, rail or deployment.
+		consumption: doc.consumption.map((r) => ({
+			number: r.number,
+			account: r.account,
+			month: r.month,
+			statement: r.statementNumber,
+			lines: r.lines.map((l) => ({ label: l.label, recipient: l.recipient, entries: l.count, quantities: l.quantities, value: l.eurExact, ...(l.unvalued ? { unvalued: l.unvalued } : {}), ...(l.detail ? { detail: l.detail } : {}) })),
+			quantities: r.totals.quantities,
+			total: r.totals.eur,
+			...(r.unvalued ? { unvalued: r.unvalued } : {})
+		})),
 		kontoauszuege: statements.map((s) => ({
 			number: s.number,
 			account: s.account,

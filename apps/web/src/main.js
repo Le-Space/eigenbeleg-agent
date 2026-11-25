@@ -214,6 +214,9 @@ function swapAddresses() {
 }
 
 /** A block that gives only some documents, or reads whole months (Aleph): the form offers only those. */
+/** The chain the kind boxes were last set for: another chain sets them to its own default. */
+let kindsChain = '';
+
 function syncChain() {
 	const b = blocks.find((x) => x.chain === chainSel.value);
 	const docs = /** @type {NodeListOf<HTMLInputElement>} */ (form.querySelectorAll('input[name="document"]'));
@@ -247,10 +250,12 @@ function syncChain() {
 		const label = /** @type {HTMLElement} */ (c.closest('label'));
 		const on = kinds.includes(c.value);
 		if (!on) c.checked = false;
-		else if (label.hidden) c.checked = c.defaultChecked;
+		// The chain's own default where it has one (Aleph: no credit purchase, a prepayment, #116).
+		else if (label.hidden || chainSel.value !== kindsChain) c.checked = b?.defaultKinds ? b.defaultKinds.includes(c.value) : c.defaultChecked;
 		label.hidden = !on;
 	}
 	$('kinds').hidden = kinds.length === 0;
+	kindsChain = chainSel.value;
 	syncPeriod();
 }
 

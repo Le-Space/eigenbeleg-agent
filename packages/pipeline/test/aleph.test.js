@@ -102,7 +102,8 @@ test('a month of Aleph credits is a Verbrauchsauszug: opening, purchases, usage 
 	assert.match(storage ?? '', /;nein;Verbrauch aus Guthaben: steht im Verbrauchsauszug$/);
 	const pdf = new TextDecoder('latin1').decode(out.statements[0].pdf);
 	assert.match(pdf, /Verbrauchsauszug VA-2026-08-01/, 'the title in the metadata');
-	assert.deepEqual(out.summary.eigenbelege, ['EB-2026-001'], 'the August purchase would be one; the statement was asked for, so none is drawn');
+	assert.deepEqual(out.summary.eigenbelege, [], 'the statement was asked for: no Eigenbeleg, and the purchase is none by default (#116)');
+	assert.deepEqual(out.summary.consumption, [], 'the consumption Eigenbeleg comes with document eigenbelege or beide');
 	const statementCsv = lines.filter((l) => l.includes(PURCHASE));
 	assert.equal(statementCsv.length, 2, 'the credits bought and the payment for them, both excluded from a statement-only request');
 });
@@ -157,16 +158,42 @@ test('the issuer’s own logo is on the Eigenbeleg when the request carries one,
 	assert.deepEqual(sizes(both[1]), ['192x192 DeviceRGB']);
 });
 
-test('Aleph: an Eigenbeleg per purchase of credits, the ALEPH paid at the token’s rate of the day, with the paying transaction (#23)', async () => {
+test('Aleph: the month’s consumption is the Eigenbeleg, in sums per resource, the Verbrauchsauszug named; the purchase is a prepayment (#116)', async () => {
 	const req = parseRequest({ chain: 'aleph', addresses: [ACCOUNT], period: { month: '2026-08' }, format: 'json', document: 'beide', payer }, { today: '2026-11-06' });
-	assert.deepEqual(req.includeKinds, ['swap'], 'the purchase is on the Eigenbeleg by default');
+	assert.deepEqual(req.includeKinds, [], 'no Eigenbeleg per purchase unless asked for');
 	const out = await generate(req, { fetch, now: () => new Date('2026-11-06T12:00:00Z') });
-	assert.deepEqual(out.summary.eigenbelege, ['EB-2026-001'], 'the July purchase is not in August; the August one is');
+	assert.deepEqual(out.summary.eigenbelege, ['EB-2026-001']);
+	assert.equal(out.summary.transactions, 0, 'no payment on an Eigenbeleg of its own');
+	const [c] = out.summary.consumption;
+	assert.deepEqual([c.number, c.account, c.month, c.statement], ['EB-2026-001', toChecksumAddress(ACCOUNT), '2026-08', 'VA-2026-08-01']);
+	// The same sums as the Verbrauchsauszug's month (#24): storage 200 credits on one day, the instance 2,000, valued alike.
+	assert.deepEqual(c.lines.map((/** @type {any} */ l) => [l.label, l.entries, l.quantities, l.value]), [
+		['Aleph Cloud (storage)', 1, { 'ALEPH-CREDIT': '200' }, '0.00016'],
+		['Aleph Cloud (wolkenfabrik-web)', 1, { 'ALEPH-CREDIT': '2000' }, '0.0016']
+	]);
+	assert.deepEqual([c.quantities, c.total], [{ 'ALEPH-CREDIT': '2200' }, '0']);
+	const [{ monthly }] = out.summary.kontoauszuege[0].assets;
+	assert.equal(monthly.usageTotal.eur, '0.00176', 'the statement says the same');
+	assert.equal(out.summary.totalEur, '0', 'below a cent');
+	const lines = /** @type {string} */ (out.csv).split('\r\n');
+	const usage = lines.filter((l) => l.includes('Verbrauch (aus Guthaben abgerechnet)'));
+	assert.ok(usage.length === 2 && usage.every((l) => l.startsWith('EB-2026-001;') && l.endsWith(';ja;')), usage.join('\n'));
+	const credits = lines.find((l) => l.includes(PURCHASE) && l.includes('ALEPH-CREDIT'));
+	assert.match(credits ?? '', /;nein;Eingang, keine Zahlung$/, 'the credits bought come into the balance');
+	const paid = lines.find((l) => l.includes(PURCHASE) && l.includes(';ALEPH;'));
+	assert.match(paid ?? '', /;nein;keine Zahlung an das Netzwerk$/, 'the payment for them is a prepayment, on no Eigenbeleg by default');
+	assert.ok(out.pdf instanceof Uint8Array && out.pdf.length > 1000, 'the consumption Eigenbeleg is drawn (its text: @le-space/eigenbeleg\'s tests)');
+});
+
+test('Aleph: an Eigenbeleg per purchase of credits when asked for (includeKinds swap), the ALEPH paid at the token’s rate of the day, with the paying transaction (#23)', async () => {
+	const req = parseRequest({ chain: 'aleph', addresses: [ACCOUNT], period: { month: '2026-08' }, format: 'json', document: 'beide', includeKinds: ['swap'], payer }, { today: '2026-11-06' });
+	const out = await generate(req, { fetch, now: () => new Date('2026-11-06T12:00:00Z') });
+	assert.deepEqual(out.summary.eigenbelege, ['EB-2026-001', 'EB-2026-002'], 'the July purchase is not in August; the August one is, then the consumption');
 	assert.equal(out.summary.transactions, 1);
 	// 500,000 credits × 0.0001 ALEPH per credit = 50 ALEPH paid, × 0.02 EUR, the token's rate of that day
-	// = 1.00 EUR. Never the 50 taken for dollars, as the document once did.
+	// = 1.00 EUR. Never the 50 taken for dollars, as the document once did. The consumption adds 0.00176 EUR.
 	assert.equal(out.summary.totalEur, '1');
-	assert.deepEqual(out.summary.quantities, { ALEPH: '50' });
+	assert.deepEqual(out.summary.quantities, { ALEPH: '50', 'ALEPH-CREDIT': '2200' });
 	assert.ok(out.pdf instanceof Uint8Array && out.pdf.length > 1000, 'the Eigenbeleg is drawn');
 	assert.deepEqual(out.summary.kontoauszuege[0].assets.map((a) => a.asset), ['ALEPH-CREDIT'], 'no USD section on the Verbrauchsauszug');
 	const lines = /** @type {string} */ (out.csv).split('\r\n');
@@ -176,7 +203,7 @@ test('Aleph: an Eigenbeleg per purchase of credits, the ALEPH paid at the token�
 	const credits = lines.find((l) => l.includes(PURCHASE) && l.includes('ALEPH-CREDIT'));
 	assert.match(credits ?? '', /;Überweisung;Eingang;.*;500000;.*;nein;Eingang, keine Zahlung$/, 'the credits bought: the incoming movement of the same transaction');
 	const usage = lines.filter((l) => l.includes('Verbrauch (aus Guthaben abgerechnet)'));
-	assert.ok(usage.length >= 2 && usage.every((l) => l.endsWith(';nein;Verbrauch aus Guthaben: steht im Verbrauchsauszug')), 'usage never is');
+	assert.ok(usage.length === 2 && usage.every((l) => l.startsWith('EB-2026-002;')), 'the usage is on the consumption Eigenbeleg');
 });
 
 test('Aleph: whole finished months, every document, Ethereum addresses', () => {

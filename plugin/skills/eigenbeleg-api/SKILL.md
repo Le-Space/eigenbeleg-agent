@@ -197,8 +197,18 @@ person; it is also in every mail.
 - **Aleph Cloud** is keyed by the Ethereum address and takes one finished month
   (`period.month`). `document: "kontoauszug"` (its default) is the
   Verbrauchsauszug: usage per day and resource, valued at the USD price per credit
-  and the ECB rate of the day. `document: "eigenbelege"` gives one Eigenbeleg per
-  purchase of credits. Usage itself gets no Eigenbeleg: it is no single payment.
+  and the ECB rate of the day. `document: "eigenbelege"` (or `beide`) gives the
+  month's **consumption Eigenbeleg** ("Verbrauch <month> – kein Rechnungssteller"):
+  the credits used in sums per resource, the Verbrauchsauszug named. Buying credits
+  is a prepayment, documented by the statement; an Eigenbeleg per purchase only with
+  `includeKinds: ["swap"]` (for books that take the purchase as the expense – then
+  not the consumption as well).
+- **Filecoin Pay and Akash** get the same monthly consumption Eigenbeleg with
+  `document: "eigenbelege"` or `beide`, per account and whole finished month:
+  Filecoin Pay's settlements per rail, Akash's lease payouts per deployment (ACT
+  at 1 USD; spread over each deployment's time, as the chain keeps only totals).
+  A deposit into Filecoin Pay or an Akash escrow is a prepayment on the statement.
+  A month only partly in the period gets none.
 - **Doichain** (`chain: "doichain"`, by the own DOI address) has no published
   rate, and no price feed is asked for it. Without `reference` the documents
   use the default of 0.04 EUR per DOI for the whole period, named as the

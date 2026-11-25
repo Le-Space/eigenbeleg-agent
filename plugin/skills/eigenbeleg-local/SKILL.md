@@ -106,7 +106,7 @@ passed as a file with `--job job.json`.
 ## Options
 
 - `--chain`: `near`, `akash`, `filecoin`, `doichain`, `bitcoin`, `filecoin-pay` (a payer's balance in
-  the Filecoin Pay contract: one finished month, the statement only), `aleph`; `ethereum` and `base` only
+  the Filecoin Pay contract: one finished month), `aleph`; `ethereum` and `base` only
   with `--alchemy-key` (or `ALCHEMY_KEY` in the environment), the person's own.
 - `--network`: `mainnet` (default) or `testnet` (NEAR only).
 - `--address`: repeatable, up to ten own addresses of the chain.
@@ -144,8 +144,13 @@ passed as a file with `--job job.json`.
 
 - **Aleph Cloud** is keyed by the Ethereum address and takes one finished month
   (`--month`). The default document is the Verbrauchsauszug (usage per day and
-  resource); `--document eigenbelege` gives one Eigenbeleg per purchase of
-  credits. Usage itself gets no Eigenbeleg: it is no single payment.
+  resource); `--document eigenbelege` gives the month's consumption Eigenbeleg
+  ("Verbrauch <month> – kein Rechnungssteller", the credits used per resource).
+  Buying credits is a prepayment on the statement; an Eigenbeleg per purchase only
+  with `--include swap`.
+- **Filecoin Pay and Akash**: `--document eigenbelege` gives the same monthly
+  consumption Eigenbeleg per whole finished month – settlements per rail, lease
+  payouts per deployment (ACT at 1 USD, spread over each deployment's time).
 - **Doichain** has no published rate. Without a value of the person's own, the
   documents use the default of 0.04 EUR per DOI for the whole period, named as
   the default, not as an exchange rate. Where the person has their own euro

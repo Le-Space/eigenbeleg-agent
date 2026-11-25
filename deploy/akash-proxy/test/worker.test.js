@@ -19,7 +19,7 @@ const req = (/** @type {string} */ path, /** @type {RequestInit & { origin?: str
 
 test('forwards the two read paths, with CORS for our origin and nothing kept', async () => {
 	asked = [];
-	for (const path of [`/v1/addresses/${ADDR}/transactions/0/100`, `/v1/transactions/${HASH}`]) {
+	for (const path of [`/v1/addresses/${ADDR}/transactions/0/100`, `/v1/transactions/${HASH}`, '/v1/blocks/24680']) {
 		const r = await handle(req(path), env, null, upstream);
 		assert.equal(r.status, 200, path);
 		assert.equal(r.headers.get('access-control-allow-origin'), ORIGIN);
@@ -27,7 +27,7 @@ test('forwards the two read paths, with CORS for our origin and nothing kept', a
 		assert.equal(r.headers.get('set-cookie'), null, 'only the content type is passed on');
 		assert.deepEqual(await r.json(), { transactions: [] });
 	}
-	assert.deepEqual(asked, [`https://console-api.akash.network/v1/addresses/${ADDR}/transactions/0/100`, `https://console-api.akash.network/v1/transactions/${HASH}`]);
+	assert.deepEqual(asked, [`https://console-api.akash.network/v1/addresses/${ADDR}/transactions/0/100`, `https://console-api.akash.network/v1/transactions/${HASH}`, 'https://console-api.akash.network/v1/blocks/24680']);
 });
 
 test('refuses other origins, methods, paths and queries without asking upstream', async () => {
@@ -40,6 +40,7 @@ test('refuses other origins, methods, paths and queries without asking upstream'
 		[req(`/v1/addresses/${ADDR}/transactions/0/100?x=1`), 404],
 		[req('/v1/addresses/cosmos1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu/transactions/0/1'), 404],
 		[req(`/v1/transactions/${HASH}/../../graphql`), 404],
+		[req('/v1/blocks/latest'), 404],
 		[req('/'), 404]
 	];
 	for (const [r, status] of cases) assert.equal((await handle(/** @type {Request} */ (r), env, null, upstream)).status, status, /** @type {Request} */ (r).url);

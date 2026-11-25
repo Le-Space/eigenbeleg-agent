@@ -76,7 +76,7 @@ no other host. A test holds the list against every URL in the packages.
 | api.nearblocks.io, api-testnet.nearblocks.io | NEAR transactions | the addresses |
 | archival-rpc.mainnet/testnet.fastnear.com | NEAR balances (Kontoauszug) | the addresses |
 | akash-rpc / akash-rest.publicnode.com | Akash transactions and balances | the addresses |
-| the Akash proxy (`VITE_AKASH_INDEXER`) | older Akash history (Akash Console indexer) | the addresses |
+| the Akash proxy (`VITE_AKASH_INDEXER`) | older Akash history and block times (Akash Console indexer) | the addresses |
 | filfox.info | Filecoin; asked for Filecoin Pay too when Blockscout does not answer | the addresses |
 | api.goldsky.com | Filecoin Pay: settlements and balance (the makers' index) | the addresses |
 | filecoin.blockscout.com | Filecoin Pay: what was paid in and taken out | the addresses |

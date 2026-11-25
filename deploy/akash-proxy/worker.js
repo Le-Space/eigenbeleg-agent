@@ -3,15 +3,17 @@
 // one data source the web UI cannot read from a browser: it sends no
 // Access-Control-Allow-Origin. A Cloudflare Worker (issue #5).
 //
-// It forwards only the two read paths the Akash reader uses
-// (@le-space/chains, akash-console.js), only GET, only for the
+// It forwards only the read paths the Akash readers use (@le-space/chains:
+// an address's transactions and one transaction, akash-console.js; a block's
+// time, akash-deployments.js, for the deployments' lease payouts of the
+// monthly consumption Eigenbeleg, #116), only GET, only for the
 // origins in ALLOWED_ORIGINS. It keeps nothing: no logging, no cache
 // (`no-store`), observability off in wrangler.toml. The address in the path
 // passes through and is gone with the response. A rate limit per IP applies
 // when the LIMITER binding is there.
 
 const UPSTREAM = 'https://console-api.akash.network';
-const PATHS = [/^\/v1\/addresses\/akash1[02-9ac-hj-np-z]{38,58}\/transactions\/\d{1,6}\/\d{1,3}$/, /^\/v1\/transactions\/[0-9A-Fa-f]{64}$/];
+const PATHS = [/^\/v1\/addresses\/akash1[02-9ac-hj-np-z]{38,58}\/transactions\/\d{1,6}\/\d{1,3}$/, /^\/v1\/transactions\/[0-9A-Fa-f]{64}$/, /^\/v1\/blocks\/\d{1,12}$/];
 
 /**
  * @param {Request} request

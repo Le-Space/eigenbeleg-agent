@@ -208,15 +208,24 @@ test('the page shows the published prices and pays on mainnet only', async () =>
 	assert.ok(TEXTS.de.payNote.includes(usdc(priceFor('near:mainnet', 'beide'), 'de')));
 	// The example asks for both documents, so its ceiling is their sum.
 	assert.ok(TEXTS.en.prompt.includes(`Pay at most ${usdc(priceFor('near:mainnet', 'beide'), 'en')}.`));
-	// DOI on Doichain is a way to pay too, at its published price.
+	// DOI on Doichain, at its published price, only where the API offers it (PAY_DOI=on): the parts that say so
+	// are [data-pay-doi] and hidden in the build; the API unhides them (apps/api/src/app.js, mountUi).
 	assert.equal(TEXTS.de.payDoiPrice, `${String(coinPriceFor('doichain')).replace('.', ',')} DOI`);
 	assert.equal(TEXTS.en.payDoiPrice, `${coinPriceFor('doichain')} DOI`);
 	assert.equal(TEXTS.de.payDoiStatement, `${coinPriceFor('doichain', 'kontoauszug')} DOI`);
-	for (const lang of /** @type {const} */ (['de', 'en'])) assert.match(TEXTS[lang].agentsText, /DOI auf Doichain|DOI on Doichain/, lang);
+	for (const lang of /** @type {const} */ (['de', 'en'])) {
+		assert.match(TEXTS[lang].agentsDoi, /DOI auf Doichain|DOI on Doichain/, lang);
+		for (const key of ['agentsText', 'payNote', 'subscriptionNote']) assert.doesNotMatch(String(TEXTS[lang][/** @type {keyof typeof TEXTS.de} */ (key)]), /DOI/, `${lang}.${key}`);
+	}
 	// index.html's German text (what shows before the script runs) is the same as TEXTS.de.
 	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+	// Every element that says DOI can be paid with is hidden until the API shows it.
+	const doiParts = [...html.matchAll(/<(\w+)([^>]*)data-pay-doi([^>]*)>/g)];
+	assert.equal(doiParts.length, 2, 'the line in agentsText and the row of the table');
+	for (const m of doiParts) assert.match(m[0], / data-pay-doi hidden/);
+	assert.match(html, /<tr data-pay-doi hidden><td>Doichain/);
 	const unescape = (/** @type {string} */ s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-	for (const key of ['payNearPrice', 'payBasePrice', 'payEthPrice', 'payDoiPrice', 'payDoiHow', 'payNote', 'businessOnly', 'subscriptionNote', 'agentsPrompt', 'prompt']) {
+	for (const key of ['payNearPrice', 'payBasePrice', 'payEthPrice', 'payDoiPrice', 'payDoiHow', 'payNote', 'businessOnly', 'subscriptionNote', 'agentsPrompt', 'prompt', 'agentsText', 'agentsDoi']) {
 		const m = new RegExp(`data-i18n="${key}">([^<]*)<`).exec(html);
 		assert.ok(m, key);
 		assert.equal(unescape(m[1]), TEXTS.de[/** @type {keyof typeof TEXTS.de} */ (key)], key);
@@ -405,9 +414,10 @@ test('the test phase: the band says it, the form asks for it before creating, th
 	assert.match(html, /<h3>9a\. Kostenlose Seite und Vorschau \(Pilotbetrieb\)<\/h3>/);
 	assert.match(html, /<h3>9a\. Free page and preview \(pilot\)<\/h3>/);
 	assert.match(html, /für sie gilt nur Ziffer 9a\./);
-	// The terms (prices per document since 24 Nov 2026) and the privacy policy, in force.
-	assert.equal((html.match(/<p>Stand: 24\. November 2026<\/p>/g) ?? []).length, 1, 'the terms, in force');
-	assert.equal((html.match(/<p>Stand: 23\. November 2026<\/p>/g) ?? []).length, 1, 'the privacy policy, in force');
+	// The terms and the privacy policy, in force (both since 25 Nov 2026: payments in DOI switched off).
+	assert.equal((html.match(/<p>Stand: 25\. November 2026<\/p>/g) ?? []).length, 2, 'the terms and the privacy policy, in force');
+	assert.equal((html.match(/<p>Last updated: 25 November 2026<\/p>/g) ?? []).length, 2);
+	assert.doesNotMatch(html, /5a\. Zahlung in DOI|5a\. Payment in DOI|Ziffer 5a|section 5a/);
 	assert.match(html, /Der Preis richtet sich nach der angefragten Dokumentart: Eigenbelege, Kontoauszug oder beide; beide zusammen kosten die Summe der beiden Preise\./);
 	assert.match(html, /The price depends on the kind of document asked for: the self-issued receipts, the account statement, or both; both together cost the sum of the two prices\./);
 	assert.doesNotMatch(html, /noch nicht freigegeben|not yet approved/);

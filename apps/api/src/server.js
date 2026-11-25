@@ -5,7 +5,7 @@ import { blocksFor } from '@eigenbeleg/pipeline';
 import { createApp } from './app.js';
 import { createMailer } from './mail.js';
 import { DOICHAIN } from '@eigenbeleg/onchain-pay/networks';
-import { createOrderStore, createPaymentStore } from './onchain.js';
+import { createOrderStore, createPaymentStore, pendingPayments } from './onchain.js';
 import { createPaywall, createTestnetPaywall } from './paywall.js';
 import { DEV_TESTNET_FLAG, isProduction } from './release.js';
 import { join } from 'node:path';
@@ -32,6 +32,24 @@ const perNetwork = (/** @type {string} */ prefix) =>
 	);
 // A production build takes mainnet payments only and refuses to start otherwise (release.js).
 const production = isProduction(env);
+// Payments in DOI are switched off until further notice: only PAY_DOI=on offers them (with DOI_XPUB or
+// DOI_PAY_TO); an address alone no longer does. Off, the 402 and every text leave DOI out, and the
+// ElectrumX servers are asked only to redeem a payment made before (docs/doi-payments.md).
+const doi = (() => {
+	const v = (env.PAY_DOI ?? '').trim().toLowerCase();
+	if (v !== '' && v !== 'on' && v !== 'off') {
+		console.error(`eigenbeleg API not started: PAY_DOI is on or off (unset: off), not ${env.PAY_DOI}`);
+		process.exit(1);
+	}
+	return { on: v === 'on', address: Boolean(env.DOI_XPUB || env.DOI_PAY_TO), dir: env.PAYMENTS_DIR ?? '/var/lib/eigenbeleg/payments' };
+})();
+if (doi.on && !doi.address) {
+	console.error('eigenbeleg API not started: PAY_DOI=on needs DOI_XPUB (an address per order) or DOI_PAY_TO (one address)');
+	process.exit(1);
+}
+// Off, with an address still set: what was paid before stays redeemable, as long as there is any.
+const pending = !doi.on && doi.address ? await pendingPayments({ dir: doi.dir }) : null;
+const redeemDoi = Boolean(pending && (pending.payments || pending.orders));
 const paywall = await createPaywall({
 	production,
 	allowTestnet: env[DEV_TESTNET_FLAG] === '1',
@@ -53,18 +71,18 @@ const paywall = await createPaywall({
 	pingApiKey: env.PING_API_KEY,
 	pingUrl: env.PING_FACILITATOR_URL,
 	pingAmountOut: env.PING_AMOUNT_OUT,
-	// DOI beside USDC, only with DOI_XPUB (an address per order) or DOI_PAY_TO (one address), onchain.js:
-	// a production build takes the published price only.
-	onchain: env.DOI_XPUB || env.DOI_PAY_TO
+	// DOI beside USDC (onchain.js) only with PAY_DOI=on; a production build takes the published price only.
+	onchain: doi.address && (doi.on || redeemDoi)
 		? {
+				offered: doi.on,
 				network: DOICHAIN,
 				payTo: env.DOI_PAY_TO || undefined,
 				xpub: env.DOI_XPUB || undefined,
-				orders: createOrderStore({ dir: env.PAYMENTS_DIR ?? '/var/lib/eigenbeleg/payments' }),
+				orders: createOrderStore({ dir: doi.dir }),
 				price: env.PRICE_DOI || undefined,
 				confirmations: env.DOI_CONFIRMATIONS ? Number(env.DOI_CONFIRMATIONS) : undefined,
 				servers: (env.DOI_ELECTRUM ?? '').split(',').map((u) => u.trim()).filter(Boolean),
-				store: createPaymentStore({ dir: env.PAYMENTS_DIR ?? '/var/lib/eigenbeleg/payments' })
+				store: createPaymentStore({ dir: doi.dir })
 			}
 		: undefined
 }).catch((/** @type {Error} */ e) => {
@@ -99,7 +117,7 @@ if (env.TRUST_PROXY) app.set('trust proxy', env.TRUST_PROXY);
 const host = env.HOST ?? '127.0.0.1';
 const port = Number(env.PORT ?? 4402);
 app.listen(port, host, () => {
-	console.log(`eigenbeleg API on http://${host}:${port} – ${production ? 'production (mainnet payments only)' : 'development'}, paywall: ${JSON.stringify(paywall.info)}, mail: ${mailer ? 'on' : 'off'}, subscriptions: ${subscriptions ? 'on' : 'off'}, preview logos: ${logos ? 'kept 24 hours' : 'not kept'}, test route: ${testnet ? JSON.stringify(testnet.info.accepts) : 'off'}`);
+	console.log(`eigenbeleg API on http://${host}:${port} – ${production ? 'production (mainnet payments only)' : 'development'}, paywall: ${JSON.stringify(paywall.info)}, DOI payments: ${doi.on ? 'on' : redeemDoi && pending ? `off; still redeemed: ${pending.payments} payment(s) (${pending.unredeemed} not yet delivered) and ${pending.orders} open order(s), until ${pending.until}; restart after that, or unset DOI_XPUB/DOI_PAY_TO` : 'off'}, mail: ${mailer ? 'on' : 'off'}, subscriptions: ${subscriptions ? 'on' : 'off'}, preview logos: ${logos ? 'kept 24 hours' : 'not kept'}, test route: ${testnet ? JSON.stringify(testnet.info.accepts) : 'off'}`);
 	if (logos) startLogoSweep({ store: logos, log: (l) => console.log(l) });
 	if (subscriptions && mailer) startScheduler({ store: subscriptions, deps: { ...deps, blocks: blocksFor(deps) }, mailer, log: (l) => console.log(l), source: env.SOURCE_URL });
 });

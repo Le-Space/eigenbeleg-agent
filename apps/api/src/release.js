@@ -13,7 +13,7 @@
 //   - no PAY_NETWORKS at all (the development default is near:testnet),
 //   - a payment RPC (NEAR_RPC_URL, EVM_RPC_*) that names a test network,
 //   - the development flag EIGENBELEG_DEV_TESTNET,
-//   - a payment in a chain's own coin (DOI_XPUB or DOI_PAY_TO, onchain.js) at another price than the
+//   - a payment in a chain's own coin (PAY_DOI=on with DOI_XPUB or DOI_PAY_TO, onchain.js) at another price than the
 //     published one, with no confirmation, or through a server on this machine.
 // Outside production a testnet payment network needs EIGENBELEG_DEV_TESTNET=1.
 //

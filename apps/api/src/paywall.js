@@ -13,7 +13,8 @@
 //           gas, so the payer needs no ETH. Ethereum's gas costs more than a
 //           cheap document, so each network may have its own price.
 //         `near` is the old name of this mode with one NEAR network.
-//         - a chain's own coin (DOI on Doichain, onchain.js; DOI_PAY_TO): a plain
+//         - a chain's own coin (DOI on Doichain, onchain.js; only with PAY_DOI=on
+//           and DOI_PAY_TO or DOI_XPUB; switched off until further notice): a plain
 //           transaction the payer signs and this server broadcasts, scheme
 //           `onchain`, or (with DOI_XPUB) a wallet pays the address of its
 //           order. Final only after a block, so the answer is 202 first;
@@ -37,7 +38,7 @@ import { coinPriceFor, documentOf, perDocument, priceFor, timesMonths } from '@e
 
 import { nearSecretKey } from './keys.js';
 import { checkOnchain, checkPayments } from './release.js';
-import { createOnchain } from './onchain.js';
+import { coinsOff, createOnchain } from './onchain.js';
 import { MONTHS, MONTH_CHOICES, ROUTE as SUBSCRIBE_ROUTE, routeFor } from './subscriptions.js';
 import { discoveryExtensions } from './describe.js';
 
@@ -103,6 +104,8 @@ export const NETWORKS = {
  * @param {string} [c.pingUrl]
  * @param {string} [c.pingAmountOut] destination USDC base units (>= 200000)
  * @param {object} [c.onchain] a payment in a chain's own coin beside USDC (onchain.js); unset: not offered
+ * @param {boolean} [c.onchain.offered] true: offered in the 402 (PAY_DOI=on). Otherwise switched off: in no 402
+ *   and no text, an order gets 410, and only payments made before are still redeemed
  * @param {import('@eigenbeleg/onchain-pay/networks').Network} c.onchain.network
  * @param {string} [c.onchain.payTo] the one address that receives the coin; or
  * @param {string} [c.onchain.xpub] the account's extended public key: an address per order (never in an answer or a log)
@@ -133,7 +136,8 @@ export async function createPaywall(c) {
 		if (DOCS.some((d) => prices[d] === undefined)) throw new Error(`${network.symbol} payments are switched on, but there is no price: PRICE_${network.symbol} (development), or a published one in packages/pipeline/src/prices.js`);
 		const confirmations = c.onchain.confirmations ?? 1;
 		for (const d of DOCS) checkOnchain({ production: !!c.production, mode: c.mode, symbol: network.symbol, price: /** @type {string} */ (prices[d]), published: published[d], confirmations, servers: c.onchain.servers?.length ? c.onchain.servers : network.electrum });
-		onchain = createOnchain({ ...c.onchain, price: /** @type {Record<import('@eigenbeleg/pipeline/prices').Document, string>} */ (prices), confirmations });
+		const { offered: _offered, ...settings } = c.onchain;
+		onchain = createOnchain({ ...settings, price: /** @type {Record<import('@eigenbeleg/pipeline/prices').Document, string>} */ (prices), confirmations, redeemOnly: c.onchain.offered !== true });
 	}
 	if (c.mode === 'none') return { middleware: null, info: { mode: 'none', note: 'no payment: development mode' } };
 
@@ -143,6 +147,7 @@ export async function createPaywall(c) {
 		const amountOut = c.pingAmountOut ?? '200000';
 		const subscriptionOut = String(Number(amountOut) * MONTHS);
 		return {
+			step: coinsOff,
 			middleware: /** @type {any} */ (
 				agentPayX402({
 					apiKey: c.pingApiKey,
@@ -246,10 +251,15 @@ export async function createPaywall(c) {
 		facilitator.register(/** @type {any} */ (onchain.network.caip2), /** @type {any} */ (onchain.facilitatorScheme));
 		server.register(/** @type {any} */ (onchain.network.caip2), /** @type {any} */ (onchain.serverScheme));
 	}
-	const routes = { [ROUTE]: { accepts: onchain ? [...accepts, onchain.accept] : accepts, description: DESCRIPTION, mimeType: 'application/pdf', extensions }, [SUBSCRIBE_ROUTE]: { accepts: subscriptionAccepts, description: SUBSCRIBE_DESCRIPTION, mimeType: 'application/json' }, ...monthRoutes };
+	// Offered: the coin stands in the 402. Switched off (PAY_DOI unset) it stands in none; a payment made
+	// before is let through by the step (res.locals.onchainRedeem) to a second middleware that still knows it.
+	const offered = onchain && c.onchain?.offered === true;
+	const routesWith = (/** @type {boolean} */ coin) => ({ [ROUTE]: { accepts: coin && onchain ? [...accepts, onchain.accept] : accepts, description: DESCRIPTION, mimeType: 'application/pdf', extensions }, [SUBSCRIBE_ROUTE]: { accepts: subscriptionAccepts, description: SUBSCRIBE_DESCRIPTION, mimeType: 'application/json' }, ...monthRoutes });
+	const main = /** @type {import('express').RequestHandler} */ (paymentMiddleware(/** @type {any} */ (routesWith(Boolean(offered))), server));
+	const redeem = onchain && !offered ? /** @type {import('express').RequestHandler} */ (paymentMiddleware(/** @type {any} */ (routesWith(true)), server)) : null;
 	return {
-		middleware: /** @type {any} */ (paymentMiddleware(/** @type {any} */ (routes), server)),
-		...(onchain ? { step: onchain.step } : {}),
+		middleware: redeem ? (req, res, next) => (res.locals.onchainRedeem ? redeem : main)(req, res, next) : main,
+		step: onchain ? onchain.step : coinsOff,
 		info: {
 			mode: 'x402',
 			scheme: 'exact',
@@ -266,7 +276,7 @@ export async function createPaywall(c) {
 				return { network: o.network, name: meta.name, asset: meta.asset, price: priceOf(o.network, 'eigenbelege'), prices: perDocument((d) => priceOf(o.network, d)), payTo: o.payTo, relayer: relayers[o.network], gasless: true };
 			}),
 			// A chain's own coin, where offered: its own scheme, two steps, no relayer (onchain.js).
-			...(onchain ? { coins: [onchain.info] } : {}),
+			...(offered && onchain ? { coins: [onchain.info] } : {}),
 			subscription: {
 				months: MONTHS,
 				// `price` is that of the subscription's default document, kontoauszug.

@@ -20,7 +20,7 @@ not separate services:
 | Rates | `@le-space/rates` (npm), named by `packages/pipeline/src/rates.js` | EUR per asset and day: the price at 00:00 UTC |
 | Documents | `@le-space/eigenbeleg` and `@le-space/pdf` (npm, from Le-Space/belege) | Eigenbelege and Kontoauszug as PDF/A-2b, CSV |
 | On-chain payment | `packages/onchain-pay` | a plain payment on a Bitcoin-like chain through ElectrumX: its URI, a signed transaction from a key, sending it, recognising it at the recipient, the connection to a server on the valid chain; the network (Doichain, Bitcoin) is a parameter. For paying in DOI, [#61](https://github.com/Le-Space/eigenbeleg-agent/issues/61) |
-| Payment in a chain's own coin | `apps/api/src/onchain.js` | DOI beside USDC on `POST /eigenbeleg`, off without `DOI_PAY_TO`: a step in front of the x402 middleware ties the payer's signed transaction to the request, broadcasts it and answers `202` until its block; the x402 scheme `onchain` takes the step's verdict as verification and marks the payment redeemed on settle. With `DOI_XPUB` instead, a request can ask for an address of its own (derived from the account's extended public key; the server holds no key that spends), which a wallet pays from a QR code and where the payment is found without a txid. Keeps txid, amount, time and a hash of the request per payment, and the orders' addresses. A production build charges the published price (`COIN_PRICES`) |
+| Payment in a chain's own coin | `apps/api/src/onchain.js` | DOI beside USDC on `POST /eigenbeleg`: switched off until further notice, on only with `PAY_DOI=on` ([doi-payments.md](doi-payments.md)) |
 
 On testnet the relayer and the recipient are the same account,
 `eigenbeleg-api.testnet` (`RELAYER_ACCOUNT_ID` = `PAY_TO`). They can be two

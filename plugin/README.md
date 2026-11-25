@@ -9,7 +9,7 @@ addresses on NEAR, Akash, Filecoin, Doichain, Bitcoin, Filecoin Pay and Aleph Cl
 (Ethereum and Base with an Alchemy key).
 
 - **eigenbeleg-api** buys the documents from the Eigenbeleg API at
-  https://eigenbeleg.le-space.de, paying per request with x402 in USDC or DOI. The
+  https://eigenbeleg.le-space.de, paying per request with x402 in USDC. The
   agent sends the chain, the addresses, the period and the payer's name and
   postal address to that API, nothing else; the API keeps nothing beyond the
   request. Needs an x402 client with a wallet; the free preview needs none.

@@ -104,7 +104,7 @@
 					     browser to Alchemy only; it is never part of the request body (src/request.js). -->
 					<details class="more" id="keys">
 						<summary data-i18n="keySummary">Ethereum und Base: mit Ihrem eigenen Alchemy-Schlüssel</summary>
-						<p class="note" data-i18n="keyNote">Ethereum und Base liest die Seite über Alchemy, und das geht nur mit einem Schlüssel. Legen Sie sich einen kostenlosen Account bei alchemy.com an und tragen Sie den Schlüssel hier ein: Er geht von Ihrem Browser nur an Alchemy, nie an uns. Alchemy sieht dabei Ihre IP-Adresse, die Adressen und Ihren Schlüssel. Ohne Schlüssel bleiben die beiden Blockchains in der Liste ausgegraut. Tipp: Tragen Sie im Alchemy-Dashboard eigenbeleg.le-space.de als erlaubte Domain des Schlüssels ein, dann nützt er niemand anderem.</p>
+						<p class="note" data-i18n="keyNote">Ethereum und Base liest die Seite über Alchemy, und das geht nur mit einem Schlüssel. Legen Sie sich einen kostenlosen Account bei alchemy.com an und tragen Sie den Schlüssel hier ein: Er geht von Ihrem Browser nur an Alchemy, nie an uns. Alchemy sieht dabei Ihre IP-Adresse, die Adressen und Ihren Schlüssel. Wählen Sie Ethereum oder Base, öffnet sich dieses Feld; ohne Schlüssel liest die Seite die beiden nicht. Auf diesem Gerät bleibt der Schlüssel nur, wenn Sie „Schlüssel auf diesem Gerät merken“ ankreuzen. Tipp: Tragen Sie im Alchemy-Dashboard eigenbeleg.le-space.de als erlaubte Domain des Schlüssels ein, dann nützt er niemand anderem.</p>
 						<label><span data-i18n="alchemyKey">Alchemy-Schlüssel (API Key)</span> <input type="password" name="alchemyKey" id="alchemy-key" maxlength="128" autocomplete="off" spellcheck="false" /></label>
 						<p class="error" id="key-error" role="alert"></p>
 						<label class="inline"><input type="checkbox" id="remember-key" /> <span data-i18n="rememberKey">Schlüssel auf diesem Gerät merken</span></label>
@@ -119,6 +119,7 @@
 						<label class="inline"><input type="checkbox" id="remember-nb-key" /> <span data-i18n="rememberNbKey">Schlüssel auf diesem Gerät merken</span></label>
 					</details>
 					<label class="inline"><input type="checkbox" id="remember-accounts" /> <span data-i18n="rememberAccounts">Blockchain, Netz und Adressen auf diesem Gerät merken</span></label>
+					<p class="note" data-i18n="rememberAccountsNote">Eine Adressliste je Blockchain und Netz; wechseln Sie die Blockchain oder das Netz, kommt deren Liste. Entfernen Sie das Häkchen, löscht die Seite alle gemerkten Listen auf diesem Gerät.</p>
 					<p class="note">
 						<span data-i18n="missingChain">Ihre Blockchain fehlt? Ein Pull Request ist willkommen, wie steht in</span>
 						<a href="https://github.com/Le-Space/eigenbeleg-agent/blob/main/CONTRIBUTING.md" rel="noopener noreferrer">CONTRIBUTING.md</a><span data-i18n="missingChainOr">, oder schreiben Sie an</span>

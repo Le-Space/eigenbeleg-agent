@@ -17,7 +17,7 @@ import { BLOCKS, describeBlocks } from '@eigenbeleg/pipeline/blocks';
 import { KEYED_BLOCKS, blocksFor, isAlchemyKey, keyedSources } from '@eigenbeleg/pipeline/keyed';
 import { dataSources } from '@eigenbeleg/pipeline/sources';
 import { detectLang, lang, locale, setLang, t } from './i18n.js';
-import { fileName, isNearblocksKey, rememberAccounts, rememberKey, rememberNearblocksKey, rememberPayer, rememberedAccounts, rememberedKey, rememberedNearblocksKey, rememberedPayer, requestBody, referenceEur } from './request.js';
+import { fileName, isNearblocksKey, keptAddresses, rememberAccounts, rememberKey, rememberNearblocksKey, rememberPayer, rememberedAccounts, rememberedKey, rememberedNearblocksKey, rememberedPayer, requestBody, referenceEur } from './request.js';
 import { AKASH_INDEXER } from './config.js';
 import { registerServiceWorker } from './pwa.js';
 import { SOURCE_URL, localStamp, parseBuild, utcStamp } from './build.js';
@@ -28,6 +28,7 @@ const chainSel = /** @type {HTMLSelectElement} */ ($('chain'));
 const networkSel = /** @type {HTMLSelectElement} */ ($('network'));
 const remember = /** @type {HTMLInputElement} */ ($('remember'));
 const rememberAcc = /** @type {HTMLInputElement} */ ($('remember-accounts'));
+const addressesBox = /** @type {HTMLTextAreaElement} */ ($('addresses'));
 const keyInput = /** @type {HTMLInputElement} */ ($('alchemy-key'));
 const rememberKeyBox = /** @type {HTMLInputElement} */ ($('remember-key'));
 const nbInput = /** @type {HTMLInputElement} */ ($('nearblocks-key'));
@@ -167,18 +168,20 @@ function fillChains() {
 	fillNetworks();
 }
 
-/** The chains' names in the chosen language; a keyed one says it needs the key. */
+/** The chains' names in the chosen language; a keyed one says it is read with the person's own key. */
 function labelChains() {
 	for (const o of chainSel.options) o.textContent = (CHAIN_NAMES[o.value] ?? o.value) + (blocks.find((b) => b.chain === o.value)?.needs ? t('withKey') : '');
 }
 
-/** Ethereum and Base can be chosen only with a key that looks like one; a typed key that does not is said so. */
+/**
+ * A typed key that does not look like one is said so. Ethereum and Base can always be chosen (#115);
+ * choosing one opens the key's field (syncChain), and without a key the form says so on "create".
+ */
 function syncKey() {
 	const key = alchemyKey();
-	for (const o of chainSel.options) o.disabled = Boolean(blocks.find((b) => b.chain === o.value)?.needs) && !key;
 	say('key-error', keyInput.value.trim() && !key ? t('badKey') : '');
-	// The key went while Ethereum or Base was chosen: back to the first chain that needs none.
-	if (!chainSel.value || chainSel.selectedOptions[0]?.disabled) {
+	// Nothing chosen yet: the first chain that needs no key.
+	if (!chainSel.value) {
 		chainSel.value = blocks.find((b) => !b.needs)?.chain ?? '';
 		fillNetworks();
 	}
@@ -188,6 +191,26 @@ function fillNetworks() {
 	const b = blocks.find((x) => x.chain === chainSel.value);
 	networkSel.replaceChildren(...(b?.networks ?? []).map((n) => new Option(n, n)));
 	syncChain();
+	swapAddresses();
+}
+
+/** The chain and network whose addresses the field shows (#115). */
+let listShown = { chain: '', network: '' };
+
+/**
+ * Another chain or network: while "remember" is ticked, the field's addresses are kept as the list of the
+ * chain and network they were for, and the new one's list comes in (empty when there is none). Unticked,
+ * nothing is kept and the field stays as it is.
+ */
+function swapAddresses() {
+	const now = { chain: chainSel.value, network: networkSel.value };
+	const was = listShown;
+	if (now.chain === was.chain && now.network === was.network) return;
+	listShown = now;
+	if (!rememberAcc.checked || !was.chain) return;
+	rememberAccounts({ ...was, addresses: addressesBox.value });
+	addressesBox.value = keptAddresses(rememberedAccounts(), now.chain, now.network);
+	rememberAccounts({ ...now, addresses: addressesBox.value });
 }
 
 /** A block that gives only some documents, or reads whole months (Aleph): the form offers only those. */
@@ -211,6 +234,8 @@ function syncChain() {
 	$('chain-note').dataset.i18n = noteKey;
 	$('chain-note').textContent = t(noteKey);
 	$('nb-keys').hidden = chainSel.value !== 'near';
+	// Ethereum or Base: the field for the person's own Alchemy key opens right away, with its note (#115).
+	if (b?.needs) /** @type {HTMLDetailsElement} */ ($('keys')).open = true;
 	$('reference').hidden = !b?.referenceAssets?.length;
 	// A swap is a credit purchase on Aleph, a swap at a DEX elsewhere.
 	const swapKey = chainSel.value === 'aleph' ? 'kindSwap' : 'kindSwapDex';
@@ -593,17 +618,22 @@ rememberNbBox.addEventListener('change', () => rememberNearblocksKey(rememberNbB
 fillCurrencies();
 fillChains();
 chainSel.addEventListener('change', fillNetworks);
+networkSel.addEventListener('change', swapAddresses);
+// What this device keeps (an older single list comes back as the list of the chain it was saved with).
 const savedAccounts = rememberedAccounts();
 if (savedAccounts) {
 	if ([...chainSel.options].some((o) => o.value === savedAccounts.chain)) chainSel.value = savedAccounts.chain;
 	fillNetworks();
 	if ([...networkSel.options].some((o) => o.value === savedAccounts.network)) networkSel.value = savedAccounts.network;
-	/** @type {HTMLTextAreaElement} */ ($('addresses')).value = savedAccounts.addresses;
+	listShown = { chain: chainSel.value, network: networkSel.value };
+	addressesBox.value = keptAddresses(savedAccounts, chainSel.value, networkSel.value);
 	rememberAcc.checked = true;
 }
+// Ticked: this chain's list is kept beside the others. Unticked: every list on this device is forgotten,
+// not only this chain's, as the note under the box says.
 rememberAcc.addEventListener('change', () => {
 	const f = values();
-	rememberAccounts(rememberAcc.checked ? { chain: f.chain, network: f.network, addresses: f.addresses.trim() } : null);
+	rememberAccounts(rememberAcc.checked ? { chain: f.chain, network: f.network, addresses: f.addresses } : null);
 });
 // The test phase, confirmed before anything is made (AGB section 9a). This browser remembers the
 // confirmation with the date of the terms, so a change of the terms asks again.

@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 
 import { parseRequest } from '@eigenbeleg/pipeline';
 import { samplePng } from '@le-space/pdf/testing/sample-images';
-import { fileName, isNearblocksKey, rememberAccounts, rememberKey, rememberNearblocksKey, rememberedAccounts, rememberedKey, rememberedNearblocksKey, rememberedPayer, rememberPayer, requestBody, splitAddresses, bytesToText, textToBytes } from '../src/request.js';
+import { fileName, isNearblocksKey, keptAddresses, listKey, rememberAccounts, rememberKey, rememberNearblocksKey, rememberedAccounts, rememberedKey, rememberedNearblocksKey, rememberedPayer, rememberPayer, requestBody, splitAddresses, bytesToText, textToBytes } from '../src/request.js';
 
 /** @type {import('../src/request.js').FormValues} */
 const form = {
@@ -79,7 +79,7 @@ test('chain, network and addresses are kept only while their "remember" is ticke
 	try {
 		assert.equal(rememberedAccounts(), null);
 		rememberAccounts({ chain: 'near', network: 'testnet', addresses: 'wolkenfabrik.testnet' });
-		assert.deepEqual(rememberedAccounts(), { chain: 'near', network: 'testnet', addresses: 'wolkenfabrik.testnet' });
+		assert.deepEqual(rememberedAccounts(), { chain: 'near', network: 'testnet', lists: { 'near/testnet': 'wolkenfabrik.testnet' } });
 		assert.deepEqual([...store.keys()], ['accounts']);
 		rememberAccounts(null);
 		assert.equal(rememberedAccounts(), null);
@@ -106,6 +106,66 @@ test('chain, network and addresses are kept only while their "remember" is ticke
 	}
 });
 
+test('one address list per chain and network (#115): kept side by side, the old single list migrated, unticking forgets all', () => {
+	const store = new Map();
+	globalThis.localStorage = /** @type {any} */ ({ getItem: (/** @type {string} */ k) => store.get(k) ?? null, setItem: (/** @type {string} */ k, /** @type {string} */ v) => store.set(k, v), removeItem: (/** @type {string} */ k) => store.delete(k) });
+	// Made-up addresses only.
+	const eth = '0x1111111111111111111111111111111111111111';
+	const fil = 'f1abcdefghijklmnopqrstuvwxyz0123456789ab';
+	try {
+		// An earlier version kept one list: it becomes the list of the chain and network it was saved with.
+		store.set('accounts', JSON.stringify({ chain: 'ethereum', network: 'mainnet', addresses: eth }));
+		const migrated = rememberedAccounts();
+		assert.deepEqual(migrated, { chain: 'ethereum', network: 'mainnet', lists: { 'ethereum/mainnet': eth } });
+		assert.equal(keptAddresses(migrated, 'ethereum', 'mainnet'), eth);
+		assert.equal(keptAddresses(migrated, 'filecoin', 'mainnet'), '', 'Filecoin does not get the Ethereum addresses');
+		// Another chain's list goes beside it; the last chosen chain and network are what comes back.
+		rememberAccounts({ chain: 'filecoin', network: 'mainnet', addresses: ` ${fil}\n` });
+		const both = rememberedAccounts();
+		assert.deepEqual(both, { chain: 'filecoin', network: 'mainnet', lists: { 'ethereum/mainnet': eth, 'filecoin/mainnet': fil } });
+		assert.equal(keptAddresses(both, 'ethereum', 'mainnet'), eth);
+		// Networks have lists of their own.
+		rememberAccounts({ chain: 'filecoin', network: 'calibration', addresses: 't1madeupaddress' });
+		assert.equal(keptAddresses(rememberedAccounts(), 'filecoin', 'mainnet'), fil);
+		assert.equal(keptAddresses(rememberedAccounts(), 'filecoin', 'calibration'), 't1madeupaddress');
+		assert.equal(listKey('filecoin', 'calibration'), 'filecoin/calibration');
+		// An emptied list is dropped, the others stay.
+		rememberAccounts({ chain: 'filecoin', network: 'calibration', addresses: '  ' });
+		assert.deepEqual(Object.keys(/** @type {any} */ (rememberedAccounts()).lists).sort(), ['ethereum/mainnet', 'filecoin/mainnet']);
+		// Whatever else the storage holds is not taken as a list.
+		store.set('accounts', JSON.stringify({ chain: 'near', network: 'mainnet', lists: { 'near/mainnet': 'a.near', bad: 'x', 'near/testnet': 7 } }));
+		assert.deepEqual(/** @type {any} */ (rememberedAccounts()).lists, { 'near/mainnet': 'a.near' });
+		// Unticking "remember" forgets every chain's list, not only the one on screen.
+		rememberAccounts(null);
+		assert.equal(rememberedAccounts(), null);
+		assert.equal(store.size, 0);
+	} finally {
+		delete (/** @type {any} */ (globalThis)).localStorage;
+	}
+});
+
+test('the page swaps the address list with the chain and network, and opens the Alchemy key for Ethereum and Base (#115)', async () => {
+	const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+	// A chain or network change swaps the list in, only while "remember" is ticked.
+	assert.match(main, /chainSel\.addEventListener\('change', fillNetworks\)/);
+	assert.match(main, /networkSel\.addEventListener\('change', swapAddresses\)/);
+	assert.match(main, /if \(!rememberAcc\.checked \|\| !was\.chain\) return;/);
+	// Unticking forgets them all.
+	assert.match(main, /rememberAccounts\(rememberAcc\.checked \? \{[^}]*\} : null\)/);
+	// Ethereum and Base are never disabled; choosing one opens the key's field.
+	assert.doesNotMatch(main, /o\.disabled/);
+	assert.match(main, /if \(b\?\.needs\) \/\*\* @type \{HTMLDetailsElement\} \*\/ \(\$\('keys'\)\)\.open = true;/);
+	const { TEXTS } = await import('../src/i18n.js');
+	for (const l of /** @type {const} */ (['de', 'en'])) {
+		assert.doesNotMatch(TEXTS[l].keyNote, /ausgegraut|greyed out/, l);
+		assert.match(TEXTS[l].keyNote, /Alchemy/, l);
+		assert.match(TEXTS[l].rememberAccountsNote, /alle|every/, l);
+	}
+	const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+	assert.match(html, /<details class="more" id="keys">/);
+	assert.match(html, /data-i18n="rememberAccountsNote"/);
+});
+
 test('the page has no wallet, no payment and no call to an API of ours', async () => {
 	const src = (await Promise.all(['../src/main.js', '../src/request.js', '../src/pwa.js', '../index.html'].map((f) => readFile(new URL(f, import.meta.url), 'utf8')))).join('\n');
 	assert.doesNotMatch(src, /near-connect|@x402|PAYMENT-|\/eigenbeleg\/preview|fetch\(['"`]\//);
@@ -116,7 +176,7 @@ test('the page has no wallet, no payment and no call to an API of ours', async (
 	const config = await readFile(new URL('../vite.config.js', import.meta.url), 'utf8');
 	assert.match(config, /keyedSources\(\)\.map/);
 	assert.match(src, /blocksFor\(\{ alchemyKey: key \}\)/);
-	// Without a key the keyless blocks are what the page serves; the keyed ones are greyed out.
+	// Without a key the keyless blocks are what the page serves; the keyed ones can be chosen and ask for the key.
 	const { describeBlocks } = await import('@eigenbeleg/pipeline/blocks');
 	assert.ok(describeBlocks().length > 0 && !describeBlocks().some((b) => b.needs), 'the keyless blocks need no key');
 	// The pipeline modules that load with the page never import the keyed ones; keyed.js is the page's own import.

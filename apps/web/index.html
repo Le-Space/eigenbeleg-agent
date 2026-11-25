@@ -182,9 +182,11 @@
 						<label class="inline"><input type="checkbox" id="remember" /> <span data-i18n="remember">Name, Anschrift und Logo auf diesem Gerät merken</span></label>
 					</fieldset>
 					<!-- The test phase, confirmed before anything is made (AGB section 9a); remembered in this browser with the terms' date. -->
-					<p class="pilot"><label class="inline"><input type="checkbox" id="pilot-ok" required /> <span data-i18n="pilotConfirm">Mir ist bekannt, dass eigenbeleg in der Test- und Erprobungsphase ist und die Dokumente Fehler enthalten können. Ich prüfe sie vor der Verwendung selbst und melde Unstimmigkeiten an eigenbeleg@le-space.de.</span></label> <a href="#agb" data-i18n="pilotTerms">Bedingungen (AGB, Ziffer 9a)</a></p>
+					<p class="pilot"><label class="inline"><input type="checkbox" id="pilot-ok" required aria-describedby="pilot-reason" /> <span data-i18n="pilotConfirm">Mir ist bekannt, dass eigenbeleg in der Test- und Erprobungsphase ist und die Dokumente Fehler enthalten können. Ich prüfe sie vor der Verwendung selbst und melde Unstimmigkeiten an eigenbeleg@le-space.de.</span></label> <a href="#agb" data-i18n="pilotTerms">Bedingungen (AGB, Ziffer 9a)</a></p>
 					<p class="error" id="form-error" role="alert"></p>
-					<button type="submit" id="btn-create" data-i18n="btnCreate">Lesen und erstellen</button>
+					<!-- Inactive until the test phase is confirmed (#120); main.js keeps it in step with the box. -->
+					<button type="submit" id="btn-create" data-i18n="btnCreate" disabled aria-disabled="true" aria-describedby="pilot-reason">Lesen und erstellen</button>
+					<span class="pilot-reason" id="pilot-reason" data-i18n="pilotReason">Erst aktiv, wenn der Hinweis zur Testphase bestätigt ist.</span>
 				</form>
 			</section>
 

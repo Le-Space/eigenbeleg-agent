@@ -235,4 +235,5 @@ header.site .logo { --size: 44px; }
 .pilot { margin: 1rem 0 0.5rem; font-size: 0.92rem; }
 .pilot label.inline { display: inline; margin: 0; }
 .pilot a { white-space: nowrap; }
+.pilot-reason { margin-left: 0.6rem; font-size: 0.88rem; color: var(--muted); }
 .pilot-check { margin: 0 0 1rem; padding: 0.6rem 0.8rem; font-size: 0.92rem; background: var(--bg); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; }

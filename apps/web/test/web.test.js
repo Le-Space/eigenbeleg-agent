@@ -468,7 +468,7 @@ test('the test phase: the band says it, the form asks for it before creating, th
 		assert.match(TEXTS[l].pilotConfirm, /eigenbeleg@le-space\.de/);
 		assert.match(TEXTS[l].pilotCheck, /eigenbeleg@le-space\.de/);
 	}
-	assert.match(html, /<input type="checkbox" id="pilot-ok" required \/>/);
+	assert.match(html, /<input type="checkbox" id="pilot-ok" required aria-describedby="pilot-reason" \/>/);
 	assert.ok(html.indexOf('id="pilot-ok"') < html.indexOf('id="btn-create"'), 'before the button');
 	assert.match(main, /if \(!pilotOk\.checked\) return say\('form-error', t\('pilotNeeded'\)\);/);
 	assert.match(html, /<h3>9a\. Kostenlose Seite und Vorschau \(Pilotbetrieb\)<\/h3>/);

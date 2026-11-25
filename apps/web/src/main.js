@@ -310,7 +310,8 @@ async function onCreate(e) {
 		return say('form-error', t('refused', { error: String(/** @type {Error} */ (err).message) }));
 	}
 	const btn = /** @type {HTMLButtonElement} */ ($('btn-create'));
-	btn.disabled = true;
+	running = true;
+	syncCreate();
 	btn.textContent = t('btnReading');
 	try {
 		// The readers, rates and PDF code (and its fonts) load only now, on the first run.
@@ -333,7 +334,8 @@ async function onCreate(e) {
 		const keyed = Boolean(blocks.find((x) => x.chain === f.chain)?.needs);
 		say('form-error', err instanceof RequestError ? t('refused', { error: message }) : t(keyed ? 'unreadableKeyed' : 'unreadable', { error: message }));
 	} finally {
-		btn.disabled = false;
+		running = false;
+		syncCreate();
 		btn.textContent = t('btnCreate');
 	}
 }
@@ -659,7 +661,19 @@ function rememberPilot() {
 		// blocked storage: asked again next time
 	}
 }
+// The create button is inactive until the box is ticked, and while a run reads (#120). The submit
+// handler checks the box once more, for a submit that comes another way.
+let running = false;
+function syncCreate() {
+	const off = running || !pilotOk.checked;
+	const btn = /** @type {HTMLButtonElement} */ ($('btn-create'));
+	btn.disabled = off;
+	btn.setAttribute('aria-disabled', String(off));
+	$('pilot-reason').hidden = pilotOk.checked;
+}
+syncCreate();
 pilotOk.addEventListener('change', () => {
+	syncCreate();
 	if (pilotOk.checked) return;
 	try {
 		localStorage.removeItem('pilot-ok');

@@ -75,7 +75,7 @@ test('a month of Filecoin Pay is a Verbrauchsauszug: opening, each settlement, w
 	const lines = /** @type {string} */ (out.csv).split('\r\n');
 	const settled = lines.filter((l) => l.includes('Verbrauch (aus Guthaben abgerechnet)'));
 	assert.equal(settled.length, 2);
-	assert.ok(settled.every((l) => l.endsWith(';nein;Verbrauch aus Guthaben: steht im Verbrauchsauszug')), 'without the Eigenbelege, a settlement is on none');
+	assert.ok(settled.every((l) => l.endsWith(';nein;Verbrauch aus Guthaben: steht im Verbrauchsauszug;')), 'without the Eigenbelege, a settlement is on none');
 	assert.match(settled[0], /Filecoin Warm Storage \(Rail 7\)/);
 	const pdf = new TextDecoder('latin1').decode(out.statements[0].pdf);
 	assert.match(pdf, /Verbrauchsauszug VA-2026-08-01/, 'the title in the metadata');
@@ -109,7 +109,7 @@ test('Filecoin Pay: the month’s settlements are the consumption Eigenbeleg, in
 	assert.equal(out.summary.totalEur, '1.36');
 	const lines = /** @type {string} */ (out.csv).split('\r\n');
 	const settled = lines.filter((l) => l.includes('Verbrauch (aus Guthaben abgerechnet)'));
-	assert.ok(settled.length === 2 && settled.every((l) => l.startsWith('EB-2026-001;1;') && l.endsWith(';ja;')), settled.join('\n'));
+	assert.ok(settled.length === 2 && settled.every((l) => l.startsWith('EB-2026-001;1;') && l.endsWith(';ja;;')), settled.join('\n'));
 	const out2 = lines.find((l) => l.includes('Auszahlung aus Filecoin Pay'));
 	assert.match(out2 ?? '', /;nein;/, 'taken out of the balance: no consumption');
 	assert.ok(out.pdf instanceof Uint8Array && out.pdf.length > 1000);

@@ -30,6 +30,7 @@ One self-issued receipt per transaction, as Belege writes them (`EB-2026-007`, `
 One statement per own account and period (`KA-2026-11-01`), like a bank's: the holder's address top left, statement number, period, chain and date top right, then one section per asset (NEAR, USDC, AKT, FIL, …):
 
 - **Kontostand am … (Beginn)**, then every booking: Buchungstag (with time), Vorgang (kind, to or from whom, short hash, the self-issued receipt's number where there is one), **Soll**, **Haben**, running **Saldo**, EUR value at the day's rate;
+- **network fees collected** (@le-space/eigenbeleg 0.13.0, belege#1044): from two network fees of the wallet in a month on, they stand as one line *Netzwerkgebühren · n Transaktionen · −x €* (in English *Network fees · n transactions*), dated on the last fee, named `NG-<month>-<asset>`; the running balance stays exact, and an **annex** after the sections lists every fee with date and time, transaction hash, quantity, value and rate. A single fee stays a line of its own;
 - **Summe** of debits and credits, **Kontostand am … (Ende)**;
 - **the check**: on NEAR, the balances before and after the period are read from the **archival node** at the exact block, and the closing balance must equal opening balance plus bookings – shown green as *abgestimmt*, or the difference in red. On Akash and Filecoin, whose public nodes keep no old balances, opening and closing balance are derived from today's balance less every movement since, and the statement says so;
 - outgoing, incoming and network fees (expense) in EUR.
@@ -86,4 +87,4 @@ Every movement is in the CSV, with the reason it is not on a self-issued receipt
 
 ## The CSV
 
-**The CSV** has semicolons, decimal commas, UTF-8 with BOM and CRLF line ends, so a German Excel opens it as it is. There is one line per movement: number, position, date, time, chain, network, own address, kind, direction, counterparty, asset, token contract, quantity, rate, EUR value, rate source, hash, explorer link, whether it is on the self-issued receipt, and the reason when it is not. Cells that a spreadsheet would read as a formula are defused.
+**The CSV** has semicolons, decimal commas, UTF-8 with BOM and CRLF line ends, so a German Excel opens it as it is. There is one line per movement: number, position, date, time, chain, network, own address, kind, direction, counterparty, asset, token contract, quantity, rate, EUR value, rate source, hash, explorer link, whether it is on the self-issued receipt, the reason when it is not, and last the collective line a network fee is in on the account statement (*Sammelposten*, e.g. `NG-2026-11-NEAR`; empty for every other movement): each fee stays a line of its own here. Cells that a spreadsheet would read as a formula are defused.

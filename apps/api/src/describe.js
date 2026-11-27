@@ -30,7 +30,7 @@ export const REQUEST_SCHEMA = /** @type {const} */ ({
 			properties: { month: { type: 'string', pattern: '^\\d{4}-\\d{2}$' }, from: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' }, to: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' } }
 		},
 		format: { type: 'string', enum: ['pdf', 'csv', 'json'], description: 'pdf (default), csv, or json: every file, PDFs as base64.' },
-		document: { type: 'string', enum: ['eigenbelege', 'kontoauszug', 'beide'], description: 'One Eigenbeleg per transaction (default; only for the kinds in includeKinds), the Kontoauszug per address, or both (format json only).' },
+		document: { type: 'string', enum: ['eigenbelege', 'kontoauszug', 'beide'], description: 'One Eigenbeleg per transaction (default; only for the kinds in includeKinds), the Kontoauszug per address (a wallet\'s network fees of a month, from two on, as one collective line with every fee in its annex; the CSV keeps each fee, column Sammelposten), or both (format json only).' },
 		payer: {
 			type: 'object',
 			description: 'Printed on the documents; used for this response only, never stored or logged.',

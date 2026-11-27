@@ -457,6 +457,7 @@ test('GET /llms.txt tells agents what is sold, the price and the x402 steps', as
 		assert.match(r.headers.get('content-type') ?? '', /^text\/plain/);
 		const text = await r.text();
 		assert.match(text, /^# Eigenbeleg API/);
+		assert.match(text, /one collective line "Netzwerkgebühren · n Transaktionen" with every fee in the annex, and each fee still a line of the CSV, column Sammelposten/, 'the collective fee line (belege#1044)');
 		assert.match(text, /POST https:\/\/eigenbeleg\.example\.org\/eigenbeleg: USDC on NEAR testnet \(near:testnet\): \$0\.10 to eigenbeleg-api\.testnet; Base \(eip155:8453\): \$0\.10 to 0x1111/);
 		assert.match(text, /transferWithAuthorization/);
 		assert.match(text, /On NEAR: one NEP-366 delegate action/);
@@ -852,7 +853,7 @@ test('no Eigenbeleg needed (#116): refused before the 402 and never charged; bot
 		assert.equal(answer.noEigenbeleg, 'Für diesen Zeitraum ist kein Eigenbeleg nötig: Gebühren, Erträge, Depots und Tausch belegt der Kontoauszug.');
 		assert.deepEqual(answer.eigenbelege, []);
 		assert.ok(!answer.pdf && answer.kontoauszuegePdf.length === 1);
-		assert.match(answer.csv, /;nein;Netzwerkgebühr – belegt durch den Kontoauszug\r\n/);
+		assert.match(answer.csv, /;nein;Netzwerkgebühr – belegt durch den Kontoauszug;NG-2026-11-NEAR\r\n/, 'every fee stays a line, naming its collective line (belege#1044)');
 		assert.equal(settled.length, 1);
 
 		// Kinds named, none of them in the period: 422 once read, and the payment is not settled.

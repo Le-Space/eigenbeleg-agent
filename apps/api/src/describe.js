@@ -29,7 +29,7 @@ export const REQUEST_SCHEMA = /** @type {const} */ ({
 			description: 'Either { month: "YYYY-MM" } or { from, to } as YYYY-MM-DD; finished days only, at most 92.',
 			properties: { month: { type: 'string', pattern: '^\\d{4}-\\d{2}$' }, from: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' }, to: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' } }
 		},
-		format: { type: 'string', enum: ['pdf', 'csv', 'json'], description: 'pdf (default), csv, or json: every file, PDFs as base64.' },
+		format: { type: 'string', enum: ['pdf', 'csv', 'json', 'zip'], description: 'pdf (default), csv, json: every file, PDFs as base64, or zip: every file in one ZIP, first HINWEIS.txt (NOTICE.txt for documentLanguage en) with the test phase\'s notice, period, number of addresses, time, build and the terms; never an address, an amount or a name.' },
 		document: { type: 'string', enum: ['eigenbelege', 'kontoauszug', 'beide'], description: 'One Eigenbeleg per transaction (default; only for the kinds in includeKinds), the Kontoauszug per address (a wallet\'s network fees of a month, from two on, as one collective line with every fee in its annex; the CSV keeps each fee, column Sammelposten), or both (format json only).' },
 		payer: {
 			type: 'object',
@@ -150,7 +150,7 @@ export function openapi({ base, payment, chains, terms, source, subscriptions = 
 					responses: {
 						200: {
 							description: 'The files. PAYMENT-RESPONSE names the settled transaction.',
-							content: { 'application/pdf': { schema: { type: 'string', format: 'binary' } }, 'text/csv': { schema: { type: 'string' } }, 'application/json': { schema: { type: 'object' }, example: RESPONSE_EXAMPLE } }
+							content: { 'application/pdf': { schema: { type: 'string', format: 'binary' } }, 'text/csv': { schema: { type: 'string' } }, 'application/zip': { schema: { type: 'string', format: 'binary' } }, 'application/json': { schema: { type: 'object' }, example: RESPONSE_EXAMPLE } }
 						},
 						400: error,
 						...(paid ? { 402: pay } : {}),

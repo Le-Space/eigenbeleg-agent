@@ -16,6 +16,7 @@ import { CURRENCIES, ISSUER_LOGO_MAX_BYTES, NoEigenbelegNeeded, RequestError, is
 import { BLOCKS, describeBlocks } from '@eigenbeleg/pipeline/blocks';
 import { KEYED_BLOCKS, blocksFor, isAlchemyKey, keyedSources } from '@eigenbeleg/pipeline/keyed';
 import { dataSources } from '@eigenbeleg/pipeline/sources';
+import { bundleZip } from '@eigenbeleg/pipeline/bundle';
 import { detectLang, lang, locale, setLang, t } from './i18n.js';
 import { fileName, isNearblocksKey, keptAddresses, rememberAccounts, rememberKey, rememberNearblocksKey, rememberPayer, rememberedAccounts, rememberedKey, rememberedNearblocksKey, rememberedPayer, requestBody, referenceEur } from './request.js';
 import { AKASH_INDEXER } from './config.js';
@@ -90,7 +91,7 @@ const syncNbKey = () => say('nb-key-error', nbInput.value.trim() && !nearblocksK
 const endpoints = { akash: { indexer: AKASH_INDEXER ?? '' } };
 
 /** what is on screen, so a language switch can draw it again */
-/** @type {{ out: Awaited<ReturnType<typeof import('@eigenbeleg/pipeline/generate').generate>>, which: string } | null} */
+/** @type {{ out: Awaited<ReturnType<typeof import('@eigenbeleg/pipeline/generate').generate>>, which: 'eigenbelege' | 'kontoauszug' | 'beide', addresses: number, created: Date } | null} */
 let shown = null;
 
 /** @returns {import('./request.js').FormValues} */
@@ -324,7 +325,7 @@ async function onCreate(e) {
 			}
 		});
 		// Asked for both with no kind on an Eigenbeleg, the statement alone comes out (req.document).
-		shown = { out, which: req.document };
+		shown = { out, which: req.document, addresses: req.addresses.length, created: new Date() };
 		showResult();
 		setStep('4');
 		$('step-result').scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
@@ -364,7 +365,7 @@ function download(label, data, type, name) {
 /** Draws summary and downloads from `shown`. */
 function showResult() {
 	if (!shown) return;
-	const { out, which } = shown;
+	const { out, which, addresses, created } = shown;
 	const s = out.summary;
 	const rows = [
 		...(which === 'kontoauszug' ? [] : [[t('sumEigenbelege'), `${s.eigenbelege.length} (${s.number})`]]),
@@ -397,6 +398,12 @@ function showResult() {
 	if (out.pdf && which !== 'kontoauszug' && s.positions > 0) links.push(download(t('dlEigenbelege', { n: s.eigenbelege.length }), out.pdf, 'application/pdf', `${first}.pdf`));
 	for (const k of out.statements) links.push(download(t('dlStatement', { account: k.account }), k.pdf, 'application/pdf', `${fileName(k.number)}.pdf`));
 	if (out.csv) links.push(download(t('dlCsv'), out.csv, 'text/csv;charset=utf-8', `${which === 'kontoauszug' ? fileName(out.statements[0]?.number ?? first) : first}.csv`));
+	// Every file in one ZIP, HINWEIS.txt (NOTICE.txt) first: the test phase's notice goes with the files when they are passed on.
+	if (links.length) {
+		const build = parseBuild($('build').dataset);
+		const bundle = bundleZip(out, { document: which, addresses, created, terms: `${location.origin}${location.pathname}#agb`, build: { version: build?.release.replace(/^v/, '') ?? '', commit: build?.commit ?? '' } });
+		links.unshift(download(t('dlZip'), bundle.zip, 'application/zip', bundle.name));
+	}
 	$('downloads').replaceChildren(...links);
 	$('step-result').hidden = false;
 }

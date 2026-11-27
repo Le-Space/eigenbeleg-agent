@@ -146,8 +146,9 @@ After the preview, say what you are about to buy – document, period, these cho
 - `addresses`: one to ten own addresses of that chain.
 - `period`: `{ "month": "YYYY-MM" }` or `{ "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }`,
   finished days only, at most 92. A period reaching today ends yesterday.
-- `format`: `json` (every file, PDFs base64), `pdf` (one document as the file) or
-  `csv`.
+- `format`: `json` (every file, PDFs base64), `pdf` (one document as the file),
+  `csv`, or `zip` (every file in one ZIP, first `HINWEIS.txt` / `NOTICE.txt` with
+  the test phase's notice: the one to hand on to a tax adviser).
 - `document`: `eigenbelege` (one page per transaction, the default), `kontoauszug`
   (one statement per address) or `beide` (both).
 - `payer`: name and postal address, printed on the documents.

@@ -58,7 +58,7 @@ share these building blocks with Le Space Belege as well is #6.
    `generate`, loaded on this first click with its PDF code and fonts.
 3. **Ergebnis:** the summary (Eigenbeleg numbers, positions, total, quantities,
    per address opening → closing balance, ✓ when reconciled with the chain) and
-   the downloads: Eigenbelege (PDF/A), Kontoauszug per address (PDF/A), CSV.
+   the downloads: first all files as one ZIP, whose first entry is `HINWEIS.txt` (`NOTICE.txt` for English documents) with the test phase's notice, the period, the number of addresses, the time, the build and the terms, never an address, an amount or a name; then Eigenbelege (PDF/A), Kontoauszug per address (PDF/A), CSV.
 
 German by default, English for a browser set to another language, a switch in
 the header (kept in `localStorage` only when clicked). The documents are German

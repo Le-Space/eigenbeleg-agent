@@ -99,7 +99,7 @@ test('a month of Aleph credits is a Verbrauchsauszug: opening, purchases, usage 
 	// 2,000 credits the same way. Never the row's price, 0.00008, as dollars.
 	assert.match(storage ?? '', /;Verbrauch \(aus Guthaben abgerechnet\);Ausgang;.*;-200;0,0000008;-0,00016;Aleph Kaufpreis 0.000001 USD je Credit × EZB-Referenzkurs USD\/EUR vom 2026-08-01;/);
 	assert.match(vm ?? '', /;-2000;0,0000008;-0,0016;/);
-	assert.match(storage ?? '', /;nein;Verbrauch aus Guthaben: steht im Verbrauchsauszug$/);
+	assert.match(storage ?? '', /;nein;Verbrauch aus Guthaben: steht im Verbrauchsauszug;$/);
 	const pdf = new TextDecoder('latin1').decode(out.statements[0].pdf);
 	assert.match(pdf, /Verbrauchsauszug VA-2026-08-01/, 'the title in the metadata');
 	assert.deepEqual(out.summary.eigenbelege, [], 'the statement was asked for: no Eigenbeleg, and the purchase is none by default (#116)');
@@ -177,11 +177,11 @@ test('Aleph: the month’s consumption is the Eigenbeleg, in sums per resource, 
 	assert.equal(out.summary.totalEur, '0', 'below a cent');
 	const lines = /** @type {string} */ (out.csv).split('\r\n');
 	const usage = lines.filter((l) => l.includes('Verbrauch (aus Guthaben abgerechnet)'));
-	assert.ok(usage.length === 2 && usage.every((l) => l.startsWith('EB-2026-001;') && l.endsWith(';ja;')), usage.join('\n'));
+	assert.ok(usage.length === 2 && usage.every((l) => l.startsWith('EB-2026-001;') && l.endsWith(';ja;;')), usage.join('\n'));
 	const credits = lines.find((l) => l.includes(PURCHASE) && l.includes('ALEPH-CREDIT'));
-	assert.match(credits ?? '', /;nein;Eingang, keine Zahlung$/, 'the credits bought come into the balance');
+	assert.match(credits ?? '', /;nein;Eingang, keine Zahlung;$/, 'the credits bought come into the balance');
 	const paid = lines.find((l) => l.includes(PURCHASE) && l.includes(';ALEPH;'));
-	assert.match(paid ?? '', /;nein;Kauf von Credits \(Vorauszahlung\) – belegt durch den Kontoauszug, der Verbrauch durch den Verbrauchsauszug$/, 'the payment for them is a prepayment, on no Eigenbeleg by default');
+	assert.match(paid ?? '', /;nein;Kauf von Credits \(Vorauszahlung\) – belegt durch den Kontoauszug, der Verbrauch durch den Verbrauchsauszug;$/, 'the payment for them is a prepayment, on no Eigenbeleg by default');
 	assert.ok(out.pdf instanceof Uint8Array && out.pdf.length > 1000, 'the consumption Eigenbeleg is drawn (its text: @le-space/eigenbeleg\'s tests)');
 });
 
@@ -199,9 +199,9 @@ test('Aleph: an Eigenbeleg per purchase of credits when asked for (includeKinds 
 	const lines = /** @type {string} */ (out.csv).split('\r\n');
 	const paid = lines.find((l) => l.startsWith('EB-2026-001;'));
 	assert.match(paid ?? '', /;Kauf von Guthaben \(Credits\);Ausgang;Aleph Cloud \(Kauf von 500000 Credits mit ALEPH auf base\) \(aleph\);ALEPH;native;-50;0,02;-1;CoinGecko, Kurs 2026-08-10 00:00 UTC;0xcdcd/);
-	assert.match(paid ?? '', new RegExp(`;https://basescan\\.org/tx/${PURCHASE};ja;$`), 'the explorer link of the paying transaction');
+	assert.match(paid ?? '', new RegExp(`;https://basescan\\.org/tx/${PURCHASE};ja;;$`), 'the explorer link of the paying transaction');
 	const credits = lines.find((l) => l.includes(PURCHASE) && l.includes('ALEPH-CREDIT'));
-	assert.match(credits ?? '', /;Überweisung;Eingang;.*;500000;.*;nein;Eingang, keine Zahlung$/, 'the credits bought: the incoming movement of the same transaction');
+	assert.match(credits ?? '', /;Überweisung;Eingang;.*;500000;.*;nein;Eingang, keine Zahlung;$/, 'the credits bought: the incoming movement of the same transaction');
 	const usage = lines.filter((l) => l.includes('Verbrauch (aus Guthaben abgerechnet)'));
 	assert.ok(usage.length === 2 && usage.every((l) => l.startsWith('EB-2026-002;')), 'the usage is on the consumption Eigenbeleg');
 });

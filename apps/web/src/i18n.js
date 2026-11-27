@@ -227,7 +227,8 @@ const de = {
 	difference: ' (Abweichung)',
 	dlEigenbelege: 'Eigenbelege (PDF/A, {n})',
 	dlStatement: 'Kontoauszug {account} (PDF/A)',
-	dlCsv: 'Alle Bewegungen (CSV)'
+	dlCsv: 'Alle Bewegungen (CSV)',
+	dlZip: 'Alle Dateien (ZIP, mit Hinweis zur Testphase)'
 };
 
 /** @type {typeof de} */
@@ -424,7 +425,8 @@ const en = {
 	difference: ' (difference)',
 	dlEigenbelege: 'Self-issued receipts (PDF/A, {n})',
 	dlStatement: 'Statement {account} (PDF/A)',
-	dlCsv: 'All movements (CSV)'
+	dlCsv: 'All movements (CSV)',
+	dlZip: 'All files (ZIP, with the test-phase notice)'
 };
 
 export const TEXTS = { de, en };

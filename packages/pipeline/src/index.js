@@ -4,6 +4,7 @@
 // endpoints handed in, so each side decides where requests go.
 export { CURRENCIES, ISSUER_LOGO_MAX_BYTES, MAX_TOKENS, NO_EIGENBELEG, NoEigenbelegNeeded, REFERENCE_DEFAULT_BY, RequestError, issuerLogoImage, parseRequest } from './request.js';
 export { generate } from './generate.js';
+export { CONTACT, PILOT_NOTICES, bundleFiles, bundleZip, noticeFile } from './bundle.js';
 export { BLOCKS, checkBlock, describeBlocks, isUsageStatement } from './blocks.js';
 // Ethereum and Base, only with an Alchemy key: the API's own, or the person's own in the web UI and the CLI.
 export { KEYED_BLOCKS, blocksFor, isAlchemyKey, keyedSources } from './keyed.js';

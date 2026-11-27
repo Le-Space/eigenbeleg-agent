@@ -26,7 +26,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 
-import { CURRENCIES, NO_EIGENBELEG, NoEigenbelegNeeded, RequestError, blocksFor, checkBlock, describeBlocks, generate, issuerLogoImage, parseRequest } from '@eigenbeleg/pipeline';
+import { CURRENCIES, NO_EIGENBELEG, NoEigenbelegNeeded, RequestError, blocksFor, checkBlock, describeBlocks, generate, issuerLogoImage, parseRequest, PILOT_NOTICES, bundleZip } from '@eigenbeleg/pipeline';
 import { VAT, byDocument } from '@eigenbeleg/pipeline/prices';
 import { composeMail } from './mail.js';
 import { apiBuild, buildFields } from './build.js';
@@ -60,7 +60,7 @@ import { MONTHS, cancelUrl, dueDate, newSubscription, subscriptionJob, tokenMatc
  * The test phase, said wherever documents are offered or delivered (AGB sections 3 and 9a): in GET /,
  * /llms.txt, the preview, the answer with the documents, and as a header on the paid request.
  */
-export const PILOT_NOTICE = 'Test phase (pilot): the documents may contain errors. Check every document (amounts, dates, transaction hashes, rates) before using it and report any discrepancy, with the transaction hash, to eigenbeleg@le-space.de.';
+export const PILOT_NOTICE = PILOT_NOTICES.en;
 
 export const SUPPORT = Object.freeze({
 	help: 'eigenbeleg@le-space.de',
@@ -155,7 +155,7 @@ export function createApp({
 				network: 'mainnet | testnet (where the payments were made)',
 				addresses: ['own-account.near'],
 				period: { month: 'YYYY-MM' },
-				format: 'pdf | csv | json (all files, PDFs base64)',
+				format: 'pdf | csv | json (all files, PDFs base64) | zip (all files, HINWEIS.txt or NOTICE.txt first)',
 				document: 'eigenbelege (default; one per transaction) | kontoauszug (per address) | beide (format json only)',
 				payer: { name: 'Wolkenfabrik Hosting GmbH', address: 'Musterstraße 1\n12345 Beispielstadt' },
 				number: 'EB-2026-001 (optional, from your own range)',
@@ -260,7 +260,7 @@ The same for tools: GET ${base}/openapi.json (OpenAPI 3.1); every 402 of POST /e
   "network": "mainnet" | "testnet",           where the payments were made,
   "addresses": ["own-account.near"],          one to ten own addresses,
   "period": { "month": "YYYY-MM" } or { "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }   finished days, at most 92,
-  "format": "pdf" | "csv" | "json",          json: every file, PDFs base64,
+  "format": "pdf" | "csv" | "json" | "zip", json: every file, PDFs base64; zip: every file, HINWEIS.txt first,
   "document": "eigenbelege" | "kontoauszug" | "beide",
   "payer": { "name": "…", "address": "street, postcode town" }   printed on the documents; used for this response only, never stored or logged,
   "number": "EB-2026-001",                    optional, first number of the payer's own range,
@@ -298,6 +298,7 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 - filecoin-pay and akash: eigenbelege (or beide) gives the same monthly consumption Eigenbeleg per account and whole finished month of the period – Filecoin Pay's settlements in sums per rail (the Verbrauchsauszug named), Akash's lease payouts from the deployments' escrow in sums per deployment (ACT at 1 USD; the chain keeps a deployment's payouts only in all, so they are spread over its time up to its last settlement, and the Eigenbeleg says so). A deposit into Filecoin Pay or an Akash escrow is a prepayment on the statement. The summary lists them as consumption.
 - issuerLogo: the logo of the person or company the documents are for, drawn top right in the head of every Eigenbeleg as a letterhead, fitted into 200 × 70 pt; a Kontoauszug or Verbrauchsauszug, which shows what the account did, carries none. The file's bytes as plain base64 (no \`data:\` prefix), PNG or JPEG (no SVG, GIF or CMYK), at most 512 kB and 2048 pixels a side, at most 6 times as wide as high and twice as high as wide; a transparent PNG is laid on white, a JPEG loses its EXIF. A picture outside these limits is a 400 that says why, before anything is paid. Never logged, and used for this response only – except in a subscription with Eigenbelege (\`document\` eigenbelege or beide), which keeps the picture encrypted with its other details until the last statement or the cancellation; a subscription of statements alone keeps none. The free preview takes it too and checks it (it draws nothing), so send it there first.${logos ? ' A picture sent with the preview is kept on this server for 24 hours, encrypted, and then deleted: the preview answers with `issuerLogoId` and `issuerLogoUntil`, and POST /eigenbeleg or the subscription within that time takes `"issuerLogoId": "…"` instead of the picture. Tell the user that it is kept for a day; where the answer has no issuerLogoId, or after 24 hours, send issuerLogo again. A payment that waits for its block is tied to the exact body: with such a payment send the picture itself as issuerLogo, so the body still works when it is sent again after those 24 hours.' : ' No picture of a preview is kept here: send issuerLogo again with the paid request.'} It is the user's own file: ask for it, never fetch a logo from the web yourself. \`logo\` is something else: the chain's mark.
 - The documents are in German unless \`documentLanguage\` is \`en\`. An Eigenbeleg counts only once the payer signs it; whether a tax adviser accepts it is theirs to decide.
+- To pass the files on (to a tax adviser): \`format\` zip gives every file in one ZIP, first HINWEIS.txt (NOTICE.txt for \`documentLanguage\` en): the test phase's notice, chain, period, the number of addresses, when and by which build the files were made, the terms (sections 3, 9 and 9a) and the address for discrepancies; never an address, an amount or a name. The notice is not printed on the documents themselves.
 - email: the files go as attachments (stable names: EB-….pdf, KA-….pdf, EB-….csv; subject "Eigenbeleg EB-… · chain network · period"), so a document management system's inbox can sort them. The answer says \`mail: queued\` (format json) or carries X-Eigenbeleg-Mail: queued. The address is used for that one mail only.
 - As a skill (Agent Skills format, agentskills.io): ${source}/tree/main/plugin/skills/eigenbeleg-api – these steps for Claude Code and other agents that read SKILL.md. Without paying, on the user's own machine (nothing sent here): ${source}/tree/main/plugin/skills/eigenbeleg-local, i.e. \`npm run local\` in a checkout.
 - Help: ${SUPPORT.help}; payments, invoices and credits: ${SUPPORT.payments}. Send the status and \`error\` of the answer and, for a payment, the transaction hash; never documents, names, postal addresses, keys or tokens. Le Space never asks for a seed phrase, passkey, private key or token. Security weaknesses: privately to ${SUPPORT.security}, never in public; the policy: ${base}${SECURITY_PATH}.
@@ -520,6 +521,18 @@ ${blocks.base ? "- ethereum, base: ETH, USDC and ALEPH (the token Aleph Cloud is
 			const [st] = out.statements;
 			res.setHeader('Content-Disposition', `attachment; filename="${name(st.number)}.pdf"`);
 			res.type('application/pdf').send(Buffer.from(st.pdf));
+		} else if (job.format === 'zip') {
+			// Every file and, first, HINWEIS.txt / NOTICE.txt: the notice goes with the files when they are passed on.
+			const { name: file, zip } = bundleZip(out, {
+				document: job.document,
+				addresses: job.addresses.length,
+				terms: `${origin(req, publicUrl)}${TERMS_PATH}`,
+				build,
+				created: deps.now?.() ?? new Date(),
+				prefix: test ? 'TEST-' : ''
+			});
+			res.setHeader('Content-Disposition', `attachment; filename="${file}"`);
+			res.type('application/zip').send(Buffer.from(zip));
 		} else if (job.format === 'csv') {
 			res.setHeader('Content-Disposition', `attachment; filename="${name(out.summary.number)}.csv"`);
 			res.type('text/csv; charset=utf-8').send(out.csv);

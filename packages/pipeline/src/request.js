@@ -10,7 +10,7 @@ import { BLOCKS } from './blocks.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const NUMBER = /^[A-Za-z0-9][A-Za-z0-9._\/-]{0,39}$/;
-const FORMATS = new Set(['pdf', 'csv', 'json']);
+const FORMATS = new Set(['pdf', 'csv', 'json', 'zip']);
 /** The address types of an xpub's wallet (@le-space/chains' bitcoin reader). */
 const ADDRESS_TYPES = new Set(['p2wpkh', 'p2pkh']);
 const DOCUMENTS = new Set(['eigenbelege', 'kontoauszug', 'beide']);
@@ -135,7 +135,7 @@ export function issuerLogoImage(bytes) {
  *   machine; the API leaves it out, as the server would learn every past and future address of the wallet. today: YYYY-MM-DD, for tests (default: the clock's UTC day); preview: the free POST /eigenbeleg/preview, which
  *   must not get the payer's name and address (a body with `payer` is refused) and has no format; blocks: what this side serves
  *   (the API with an Alchemy key: `blocksFor(deps)`, keyed.js), the keyless BLOCKS when not given
- * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], noEigenbeleg?: string, logo: boolean, chart: boolean, issuerLogo: Uint8Array | null, email: string | null, language: 'de' | 'en', documentLanguage: 'de' | 'en', currency: string, reference: Record<string, { from: string, eur: string, by: string }[]>, tokens?: string[], addressType?: string }}
+ * @returns {{ chain: string, network: 'mainnet' | 'testnet', addresses: string[], period: { from: string, to: string }, format: 'pdf' | 'csv' | 'json' | 'zip', document: 'eigenbelege' | 'kontoauszug' | 'beide', statementNumber: string, payer: { name: string, address: string, addresses: string[] }, number: string, includeKinds: string[], noEigenbeleg?: string, logo: boolean, chart: boolean, issuerLogo: Uint8Array | null, email: string | null, language: 'de' | 'en', documentLanguage: 'de' | 'en', currency: string, reference: Record<string, { from: string, eur: string, by: string }[]>, tokens?: string[], addressType?: string }}
  */
 export function parseRequest(body, { preview = false, today, blocks = BLOCKS, keys = false } = {}) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('body must be a JSON object');
@@ -185,7 +185,7 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS, ke
 	if (period.to > yesterday) period = { from: period.from, to: yesterday };
 
 	const format = preview ? 'json' : body.format ?? 'pdf';
-	if (!FORMATS.has(format)) throw new RequestError('format: pdf, csv or json (every file)');
+	if (!FORMATS.has(format)) throw new RequestError('format: pdf, csv, json (every file) or zip (every file and a notice)');
 	// What is delivered: the Eigenbelege (one per transaction, the default), the
 	// Kontoauszug per address, or both when asked for. Never both unasked.
 	// A block may give only some of them (Aleph: the statement); its first is the default.
@@ -193,8 +193,8 @@ export function parseRequest(body, { preview = false, today, blocks = BLOCKS, ke
 	let document = body.document ?? offered[0];
 	if (!DOCUMENTS.has(document)) throw new RequestError('document: eigenbelege, kontoauszug or beide');
 	if (!offered.includes(document)) throw new RequestError(`document: ${chain} gives ${offered.join(', ')} only`);
-	if (format === 'pdf' && document === 'beide') throw new RequestError('a PDF is one document; ask for format json to get both');
-	if (format === 'pdf' && document === 'kontoauszug' && body.addresses.length > 1) throw new RequestError('a Kontoauszug as PDF is for one address; ask for format json to get one per address');
+	if (format === 'pdf' && document === 'beide') throw new RequestError('a PDF is one document; ask for format json or zip to get both');
+	if (format === 'pdf' && document === 'kontoauszug' && body.addresses.length > 1) throw new RequestError('a Kontoauszug as PDF is for one address; ask for format json or zip to get one per address');
 	const statementNumber = body.statementNumber ?? `${block.statementPrefix ?? 'KA'}-${period.from}`;
 	if (!NUMBER.test(String(statementNumber))) throw new RequestError('statementNumber: up to 40 letters, digits and . _ / -');
 

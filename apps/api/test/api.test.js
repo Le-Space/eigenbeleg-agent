@@ -877,3 +877,31 @@ test('no Eigenbeleg needed (#116): refused before the 402 and never charged; bot
 		close();
 	}
 });
+
+test('format zip: every file in one ZIP, HINWEIS.txt first, in the documents’ language, with no address, amount or name', async () => {
+	const { unzipSync } = await import('fflate');
+	const build = { version: '0.2.0', commit: 'abcdef0123456789abcdef0123456789abcdef01', date: '2026-11-05T10:00:00.000Z' };
+	const { base, close } = await serve(createApp({ paywall: { middleware: null, info: { mode: 'none' } }, deps, build, log: () => {}, web: null, publicUrl: 'https://eigenbeleg.example.org' }));
+	const decode = (/** @type {Uint8Array} */ b) => new TextDecoder('utf-8', { ignoreBOM: true }).decode(b);
+	try {
+		const r = await post(base, { ...job, format: 'zip', document: 'beide' });
+		assert.equal(r.status, 200);
+		assert.equal(r.headers.get('content-type'), 'application/zip');
+		assert.match(r.headers.get('content-disposition') ?? '', /filename="EB-2026-042\.zip"/);
+		assert.ok(r.headers.get('x-eigenbeleg-notice'));
+		const entries = unzipSync(new Uint8Array(await r.arrayBuffer()));
+		assert.deepEqual(Object.keys(entries), ['HINWEIS.txt', 'EB-2026-042.pdf', 'KA-2026-11-01.pdf', 'EB-2026-042.csv']);
+		const text = decode(entries['HINWEIS.txt']);
+		assert.match(text, /^﻿HINWEIS ZU DIESEN DOKUMENTEN\r\n\r\nTestphase \(Pilot\): /);
+		for (const line of ['Adressen: 1', 'Erstellt am: 2026-11-06T10:00:00.000Z', 'Version: 0.2.0, commit abcdef012345', 'Bedingungen (AGB, Ziffern 3, 9 und 9a): https://eigenbeleg.example.org/ui/#agb', 'eigenbeleg@le-space.de']) assert.ok(text.includes(line), line);
+		for (const secret of ['relay.aurora', 'Wolkenfabrik', 'Musterstraße', '€', 'EUR']) assert.ok(!text.includes(secret), secret);
+
+		const en = unzipSync(new Uint8Array(await (await post(base, { ...job, format: 'zip', document: 'kontoauszug', documentLanguage: 'en' })).arrayBuffer()));
+		assert.deepEqual(Object.keys(en), ['NOTICE.txt', 'KA-2026-11-01.pdf', 'KA-2026-11-01.csv']);
+		assert.match(decode(en['NOTICE.txt']), /^﻿NOTICE ON THESE DOCUMENTS\r\n\r\nTest phase \(pilot\): /);
+
+		assert.match(await (await globalThis.fetch(base + '/llms.txt')).text(), /`format` zip gives every file in one ZIP, first HINWEIS\.txt/);
+	} finally {
+		close();
+	}
+});
